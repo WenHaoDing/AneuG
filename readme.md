@@ -1,3 +1,4 @@
+## Methodology Highlights
 ### Morphoing Energy Alignment (MEA)
 For many locations in the brain, the development of intracranial aneurysms could be rare, meaning for some topologies gathering a large dataset would be difficult. We seek methods to inject more knowledge into the model training. We compute morphing energies upon our dataset and Shapiro–Wilk test show that the laplacian energy and the rigid energy are normal. We therefore sample from the distribution encoded by the real shapes and align the generated shapes' energies to the real ones' through KL divergence. Ablation results show improvement of generation fidelity on most scenarios.
 
@@ -21,3 +22,9 @@ We rely on DCE at multiple parts of this project:
 - During GHD fitting, we use DCE to extract centreline point cloud and calcaulte Chamfer Distance with truth data obtained using traditional method. This helps guding the vessel branches to warp to roughly correct locations, which accelerate the convergence.
 - During the first-stage training, we use the recorded loop information to process generated aneurysm complexes. We mask a fixed amount of loops on the meshes for every parent vessel branch.
 - During the second-stage training, we extract the tangent direction vector of vessel branches by performing simple finite difference on the extracted centreline point clouds. This allows us to apply regulization term $\mathcal L_{tReg}$.
+
+## Installation guide
+### For Biomechanics researchers
+Under construction.
+Download checkpoint zip file from: https://drive.google.com/file/d/1bPE5HPo9jxg5_TyPZcfuxBhSwJTJA1C_/view?usp=share_link and unzip it into the project working directory.
+Run second_stage.ipynb
