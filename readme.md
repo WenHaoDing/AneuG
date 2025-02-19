@@ -1,3 +1,9 @@
+# Two-Stage Conditional Mesh Generation for Intracranial Aneurysms
+## Abstract
+![Schematic](media/schematic_type2.jpeg)
+A generative model for the mesh geometry of intracranial aneurysms (IAs) is crucial for training networks to predict blood flow forces in real time, a key factor in disease progression. This need is highlighted in the absence of large imaging datasets. Existing statistical shape generation methods struggle to capture detailed IA features and ignore the relationship between IA pouches and parent vessels, limiting physiological realism. We propose AneuG, a two-stage Variational Autoencoder (VAE)-based mesh generation model for IAs. In the first stage, AneuG generates low-dimensional Graph Harmonic Deformation (GHD) tokens to encode and reconstruct aneurysm pouch shapes. Morphing energies of generated shapes are aligned to real ones’ to improve generation fidelity. In the second stage, AneuG generates parent vessels by producing spatial centrelines conditioned on generated GHD tokens and propagating vascular cross-sections. AneuG further enables controlled IA shape generation based on clinically relevant morphological parameters via a differentiable morphology parameter calculator. IA shape generation can thus be controlled for blood flow simulations to understand effects of specific clinical shape parameters on fluid dynamics.
+
+
 ## Generation Gallery
 ### First-stage Unconditonal Generation
 ![First-stage Unconditional Generation](media/first_stage.gif)
