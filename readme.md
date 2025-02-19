@@ -1,3 +1,18 @@
+## Generation Gallery
+### First-stage Unconditonal Generation
+![First-stage Unconditional Generation](media/first_stage.gif)
+<details>
+    <summary style="color:deepskyblue;">Click for mesh visualization</summary>
+    <img src="media/first_stage.png" alt="Mesh Visualization">
+</details>
+
+### Second-stage Unconditonal Generation
+![Second-stage Unconditional Generation](media/second_stage.gif)
+<details>
+    <summary style="color:deepskyblue;">Click for mesh visualization</summary>
+    <img src="media/second_stage.png" alt="Mesh Visualization">
+</details>
+
 ## Methodology Highlights
 ### Morphoing Energy Alignment (MEA)
 For many locations in the brain, the development of intracranial aneurysms could be rare, meaning for some topologies gathering a large dataset would be difficult. We seek methods to inject more knowledge into the model training. We compute morphing energies upon our dataset and Shapiro–Wilk test show that the laplacian energy and the rigid energy are normal. We therefore sample from the distribution encoded by the real shapes and align the generated shapes' energies to the real ones' through KL divergence. Ablation results show improvement of generation fidelity on most scenarios.
