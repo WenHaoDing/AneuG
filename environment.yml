@@ -314,4 +314,4 @@ dependencies:
       - xxhash==3.5.0
       - yarl==1.15.2
       - zipp==3.20.2
-prefix: /home/wenhao/anaconda3/envs/gnn2
+prefix: /home/yourdir
