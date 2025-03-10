@@ -348,7 +348,7 @@ class ConditionalVAE4Fouriers(nn.Module):
         fouriers = fouriers.view(B, self.num_branch, self.num_fourier, self.fourier_per_branch)
         return branch_length, relative_directions, fouriers
     
-    def generate(self, ghd, scale=None, z=None):
+    def generate(self, ghd, scale=None, z=None, tangent_shift=None):
         """
         we take actual ghd and actual scale as input
         cpcd_glo: [B, num_branch, dpi, 3]
@@ -370,10 +370,10 @@ class ConditionalVAE4Fouriers(nn.Module):
         cond, tangent_diff, start_points = self.mask_ghd_as_cond(ghd, cheat_tangent=False, scale=scale)
         recon = self.decode(z, cond)
         branch_length, relative_directions, fouriers = self.translate_output(recon)
-        cpcd_loc, cpcd_glo, cpcd_tangent_glo = self.cpcd_reconstruct.forward_cpcd(tangent_diff, start_points, branch_length, relative_directions, fouriers)
+        cpcd_loc, cpcd_glo, cpcd_tangent_glo = self.cpcd_reconstruct.forward_cpcd(tangent_diff, start_points, branch_length, relative_directions, fouriers, tangent_shift)
         return cpcd_glo, cpcd_tangent_glo, tangent_diff
     
-    def generate_controlled(self, ghd, scale=None, z=None):
+    def generate_controlled(self, ghd, scale=None, z=None, tangent_shift=None):
         """
         we take actual ghd and actual scale as input
         cpcd_glo: [B, num_branch, dpi, 3]
@@ -396,7 +396,7 @@ class ConditionalVAE4Fouriers(nn.Module):
         cond = cond.mean(dim=0, keepdim=True).repeat(B, 1)
         recon = self.decode(z, cond)
         branch_length, relative_directions, fouriers = self.translate_output(recon)
-        cpcd_loc, cpcd_glo, cpcd_tangent_glo = self.cpcd_reconstruct.forward_cpcd(tangent_diff, start_points, branch_length, relative_directions, fouriers)
+        cpcd_loc, cpcd_glo, cpcd_tangent_glo = self.cpcd_reconstruct.forward_cpcd(tangent_diff, start_points, branch_length, relative_directions, fouriers, tangent_shift)
         return cpcd_glo, cpcd_tangent_glo, tangent_diff
 
 
@@ -425,7 +425,7 @@ class CPCDReconstruct(object):
         # tangent_shape_modes_yz_ = 2*np.pi*wl_ratio.to(self.device)  # [num_fourier, 1]
         return shape_modes_x, shape_modes_yz, tangent_shape_modes_yz
 
-    def forward_cpcd(self, tangent, start_points, branch_length, relative_directions, fouriers):
+    def forward_cpcd(self, tangent, start_points, branch_length, relative_directions, fouriers, tangent_shift=[0, 0.06, 0]):
         """
         reconstruct world coordinate system centerline points with fourier
         fouriers -> cpcd in world coordinate system
@@ -487,6 +487,11 @@ class CPCDReconstruct(object):
         cpcd_glo += start_points.unsqueeze(-2)
         # convert tangent
         cpcd_tangent_glo = torch.einsum('bndc, bncl->bndl', cpcd_tangent_loc, l2w_matrix)  # [B, num_branch, dpi, 3]
+        # add tangent shift
+        if tangent_shift is not None:
+            cpcd_tangent_glo_initial = cpcd_tangent_glo[..., :1, :]
+            tangent_shift_ = cpcd_tangent_glo_initial * torch.Tensor(tangent_shift).to(self.device).unsqueeze(-1).unsqueeze(-1).unsqueeze(0)
+            cpcd_glo += tangent_shift_
         return cpcd_loc, cpcd_glo, cpcd_tangent_glo
 
 

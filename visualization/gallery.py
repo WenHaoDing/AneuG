@@ -11,7 +11,12 @@ import math
 from models.mesh_plugins import MeshPlugins
 import numpy as np
 from pytorch3d.structures import Meshes
+from pytorch3d.io import save_obj
 from random import randint
+import os
+import pyvista as pv
+from models.mesh_plugins import MeshFusion
+
 
 def generate_random_name():
     # Generate 5 random characters (letters)
@@ -161,14 +166,17 @@ def get_fig_advanced(ghd_reconstruct: GHD_Reconstruct, data: Batch, column=4, Ti
 
 def get_fig_mesh_fusion(ghd, mean_ghd, std_ghd,
                         ghd_reconstruct, cvae,
-                        meshfusion, 
+                        meshfusion: MeshFusion, 
                         column=4, sub_size=5, connection_smoothing=False,
                         title_=None,
                         z=None, scale=None,
                         control=False,
                         spline=False,
                         return_meshes=False,
-                        mesh_color='dodgerblue'):
+                        mesh_color='dodgerblue',
+                        tangent_shift=[0, 0.075, 0],
+                        extrusion=3,
+                        c_transition=False):
     """
     use mesh fusion to create merged mesh
     """
@@ -178,13 +186,16 @@ def get_fig_mesh_fusion(ghd, mean_ghd, std_ghd,
     if mean_ghd is not None and std_ghd is not None:
         ghd = ghd * std_ghd.to(ghd.device) + mean_ghd.to(ghd.device)
     if control:
-        cpcd_glo_gen, cpcd_tangent_glo_gen, tangent_from_ghd = cvae.generate_controlled(ghd, z=z, scale=scale)
+        z = torch.randn(1, cvae.latent_dim).expand(B, -1).to(ghd.device)
+        cpcd_glo_gen, cpcd_tangent_glo_gen, tangent_from_ghd = cvae.generate_controlled(ghd, z=z, scale=scale, tangent_shift=tangent_shift)
     else:
-        cpcd_glo_gen, cpcd_tangent_glo_gen, tangent_from_ghd = cvae.generate(ghd, z=z, scale=scale)
+        cpcd_glo_gen, cpcd_tangent_glo_gen, tangent_from_ghd = cvae.generate(ghd, z=z, scale=scale, tangent_shift=tangent_shift)
     merged_mesh_list = meshfusion.forward_mesh_fusion(ghd_normalized, cpcd_glo_gen, cpcd_tangent_glo_gen,
                                                       connection_smoothing=connection_smoothing,
                                                       scale=scale,
-                                                      spline=spline)
+                                                      spline=spline,
+                                                      extrusion=extrusion,
+                                                      c_transition=c_transition)
     row = math.ceil(B/column)
     fig, axes = plt.subplots(row, column, subplot_kw={'projection': '3d'}, figsize=(column*sub_size, row*sub_size))
     plt.subplots_adjust(wspace=0, hspace=0)
@@ -233,3 +244,52 @@ def get_fig_mesh_fusion(ghd, mean_ghd, std_ghd,
     else:
         return fig, merged_mesh_list
 
+
+def get_mesh_fusion_dataset(ghd, mean_ghd, std_ghd,
+                            cvae,
+                            meshfusion: MeshFusion, 
+                            z=None, scale=None,
+                            spline=False,
+                            tgt_dir=None,
+                            control=True,
+                            tangent_shift=[0, 0.05, 0],
+                            extrusion=None,
+                            c_transition=False):
+    """
+    use mesh fusion to create merged mesh
+    """
+    B = ghd.shape[0]
+    ghd_normalized = ghd
+    if mean_ghd is not None and std_ghd is not None:
+        ghd = ghd * std_ghd.to(ghd.device) + mean_ghd.to(ghd.device)
+    if z is None:
+        z = 1.0 * torch.randn(B, cvae.latent_dim).to(ghd.device)
+    if control:
+        cpcd_glo_gen, cpcd_tangent_glo_gen, _ = cvae.generate_controlled(ghd, z=z, scale=scale, tangent_shift=tangent_shift)
+    else:
+        cpcd_glo_gen, cpcd_tangent_glo_gen, _ = cvae.generate(ghd, z=z, scale=scale, tangent_shift=tangent_shift)
+    cpcd_glo_gen, cpcd_tangent_glo_gen, _ = cvae.generate(ghd, z=z, scale=scale, tangent_shift=tangent_shift)
+    merged_mesh_list = meshfusion.forward_mesh_fusion(ghd_normalized, cpcd_glo_gen, cpcd_tangent_glo_gen,
+                                                      connection_smoothing=True,
+                                                      scale=scale,
+                                                      spline=spline,
+                                                      extrusion=extrusion,
+                                                      c_transition=c_transition)
+    for i, merged_mesh in enumerate(merged_mesh_list):
+        checkpoint = {}
+        checkpoint['ghd'] = ghd_normalized[i].detach().cpu().numpy()
+        checkpoint['mean_ghd'] = mean_ghd.detach().cpu().numpy()
+        checkpoint['std_ghd'] = std_ghd.detach().cpu().numpy()
+        checkpoint['cpcd_z'] = z[i].detach().cpu().numpy()
+        checkpoint['cpcd_scale'] = scale[i].detach().cpu().numpy()
+        checkpoint['cpcd_glo_gen'] = cpcd_glo_gen[i].detach().cpu().numpy()
+        checkpoint['norm_canonical'] = meshfusion.ghd_reconstruct.norm_canonical
+        save_path = os.path.join(tgt_dir, generate_random_name())
+        os.makedirs(save_path, exist_ok=True)
+        np.save(os.path.join(save_path, 'checkpoint.npy'), checkpoint)
+        # de-normalize shape
+        merged_mesh = merged_mesh.update_padded(merged_mesh.verts_padded() * meshfusion.ghd_reconstruct.norm_canonical)
+        save_obj(os.path.join(save_path, 'shape.obj'), verts=merged_mesh.verts_packed(), faces=merged_mesh.faces_packed())
+        pv_mesh = pv.read(os.path.join(save_path, 'shape.obj'))
+        pv_mesh.save(os.path.join(save_path, 'shape.vtp'))
+    return None

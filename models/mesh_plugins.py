@@ -26,6 +26,7 @@ from scipy.stats import shapiro
 from copy import deepcopy
 import torch.nn.functional as F
 from scipy.interpolate import CubicSpline
+import math
 
 
 class MeshPlugins(object):
@@ -270,7 +271,10 @@ class MeshFusion(object):
                             cpcd_glo, cpcd_tangent_glo,
                             connection_smoothing=False,
                             scale=None,
-                            spline=False) -> List[Meshes]:
+                            spline=False,
+                            extrusion=3,
+                            c_transition=False
+                            ) -> List[Meshes]:
         """
         Given cpcd, create tubular vessel meshes and merge them with aneurysm complex mesh reconstructed from ghd.
         cpcd_glo: Tensor [B, num_branch, dpi, 3]
@@ -293,12 +297,16 @@ class MeshFusion(object):
         # apply spline connection if required
         if spline:
             cpcd_glo, cpcd_tangent_glo = self.apply_spline_connect(ghd, self.mean_ghd, self.std_ghd, scale, cpcd_glo)
-
+        # add extrusion if required
+        if extrusion is not None:
+            print("applying extrusion on cpcd")
+            extrusion = [e / self.ghd_reconstruct.norm_canonical for e in extrusion]
+            cpcd_glo, cpcd_tangent_glo = extrude_cpcd_glo(cpcd_glo, cpcd_tangent_glo, extrusion=extrusion)
         # get l2w_trans (no transition included)
         l2w_trans = get_tubular_l2w_trans(cpcd_tangent_glo)  # [B, num_branch, dpi, 3, 3]
         
         # get tubular mesh verts List[Tensor[B, dpi, N, 3]]
-        tube_verts_glo_list, sort_indices_list = get_tubular_mesh_verts(opening_verts_list, cpcd_glo, cpcd_tangent_glo, l2w_trans)
+        tube_verts_glo_list, sort_indices_list = get_tubular_mesh_verts(opening_verts_list, cpcd_glo, cpcd_tangent_glo, l2w_trans, c_transition=c_transition)
         opening_idx_list = [idx.to(self.device).unsqueeze(0).repeat(B, 1) for idx in self.mesh_plugin.opening_idx_list]
         opening_idx_sorted_list = [torch.gather(op_idx, dim=1, index=sort_indices) for op_idx, sort_indices in zip(opening_idx_list, sort_indices_list)]  # List[Tensor[B, N]]
         # get tubular mesh faces List[Tensor[2*N*(dpi-1), 3]]
@@ -506,7 +514,7 @@ def get_tubular_l2w_trans(cpcd_tangent_glo: torch.Tensor):
     l2w_trans = torch.stack((loc_sys_x, loc_sys_y, loc_sys_z), dim=-2)  # [B, num_branch, dpi, 3, 3]
     return l2w_trans
 
-def get_tubular_mesh_verts(opening_pcd: List, cpcd_glo, cpcd_tangent_glo, l2w_trans, radius_map=True):
+def get_tubular_mesh_verts(opening_pcd: List, cpcd_glo, cpcd_tangent_glo, l2w_trans, radius_map=True, c_transition=True):
     """
     Given point cloud on cross-section openings and cpcd, generate tubular mesh vertices.
     opening_pcd: List[Tensor[B, N, 3]]
@@ -551,8 +559,17 @@ def get_tubular_mesh_verts(opening_pcd: List, cpcd_glo, cpcd_tangent_glo, l2w_tr
 
         # generate tubluar verts in loc coordinate system
         tube_verts_loc_x = torch.zeros(B, dpi, N).to(opening_pcd_.device)
-        tube_verts_loc_y = (torch.cos(loc_angle_sorted) * radius_sorted).unsqueeze(1).repeat(1, dpi, 1)
-        tube_verts_loc_z = (torch.sin(loc_angle_sorted) * radius_sorted).unsqueeze(1).repeat(1, dpi, 1) 
+        if not c_transition:
+            tube_verts_loc_y = (torch.cos(loc_angle_sorted) * radius_sorted).unsqueeze(1).repeat(1, dpi, 1)
+            tube_verts_loc_z = (torch.sin(loc_angle_sorted) * radius_sorted).unsqueeze(1).repeat(1, dpi, 1)
+        else:
+            radius_average = torch.norm(radius_sorted, p=2, dim=-1, keepdim=True).unsqueeze(-1) /  math.sqrt(radius_sorted.shape[-1]) # [B, 1, 1]
+            transit = torch.linspace(0, 1, dpi).unsqueeze(0).unsqueeze(0).to(radius_average.device)  # [1, 1, dpi]
+            radius_sorted = radius_sorted.unsqueeze(-1).repeat(1, 1, dpi)  # [B, N, dpi]
+            radius_transit = radius_sorted + (radius_average - radius_sorted) * transit
+            tube_verts_loc_y = (torch.cos(loc_angle_sorted.unsqueeze(-1).repeat(1, 1, dpi)) * radius_transit).permute(0, 2, 1)
+            tube_verts_loc_z = (torch.sin(loc_angle_sorted.unsqueeze(-1).repeat(1, 1, dpi)) * radius_transit).permute(0, 2, 1)
+
         tube_verts_loc = torch.stack((tube_verts_loc_x, tube_verts_loc_y, tube_verts_loc_z), dim=-1)  # [B, dpi, N, 3]
         tube_verts_glo = torch.einsum('bdnc,bdcl->bdnl', tube_verts_loc, l2w_trans[:, i, ...]) + cpcd_glo[:, i, :, :].unsqueeze(-2)  # [B, dpi, N, 3]
         tube_verts_glo_list.append(tube_verts_glo)
@@ -1044,7 +1061,23 @@ def compute_cumulative_distance(cpcd):
     cumulative_distances[:, :, 1:, :] = torch.cumsum(distances, dim=2)  # [B, num_branch, num_points, 1]
     return cumulative_distances
 
-        
+
+def extrude_cpcd_glo(cpcd_glo: torch.Tensor, cpcd_tangent_glo: torch.Tensor, extrusion: list):
+    """
+    cpcd_glo: Tensor [B, num_branch, dpi, 3]
+    """
+    steps = round(max(extrusion)) * 6
+    tangent = cpcd_glo[:, :, -1, :] - cpcd_glo[:, :, -2, :]
+    tangent = tangent.unsqueeze(-2)
+    tangent = F.normalize(tangent, dim=-1)
+    extrusion = torch.tensor(extrusion, device=cpcd_glo.device).view(1, -1, 1, 1)  # Shape: [1, 3, 1, 1]
+
+    extruded_points = cpcd_glo[:, :, -1, :].unsqueeze(-2) + tangent * torch.linspace(0, 1, steps=steps, device=cpcd_glo.device).view(1, 1, -1, 1) * extrusion
+    cpcd_glo = torch.cat((cpcd_glo, extruded_points), dim=2)
+    cocd_tangent_glo = torch.cat((cpcd_tangent_glo, tangent.repeat(1, 1, steps, 1)), dim=2)
+    return cpcd_glo, cocd_tangent_glo
+
+
 
 
 
