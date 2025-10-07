@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import numpy
 import matplotlib.pyplot as plt
-import skspatial
+# import skspatial
 import copy
 import trimesh.transformations
 

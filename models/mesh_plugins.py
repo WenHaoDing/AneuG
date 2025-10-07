@@ -17,10 +17,8 @@ from tqdm import tqdm
 from typing import List, Tuple, Union
 from pytorch3d.ops import knn_points, laplacian
 from pytorch3d.io import load_objs_as_meshes
-from utils.utils import safe_load_mesh
-import matplotlib.pyplot as plt
-from models.ghd_reconstruct import GHD_Reconstruct
-from models.pymeshlab_plugin import pymeshlab_smoothing
+from .ghd_reconstruct import GHD_Reconstruct
+from .pymeshlab_plugin import pymeshlab_smoothing
 from pytorch3d.loss import mesh_laplacian_smoothing, mesh_normal_consistency
 from scipy.stats import shapiro
 from copy import deepcopy

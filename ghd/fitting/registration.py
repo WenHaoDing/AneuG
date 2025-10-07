@@ -9,12 +9,12 @@ import logging
 import os
 import trimesh
 import shapely
-import utils.utils_registration as u_register
+from ...utils import utils_registration as u_register
 import pickle
 from pytorch3d.structures import Meshes
 import torch
 import sys
-from utils.utils import o3d_mesh_to_pytorch3d
+from ...utils.utils import o3d_mesh_to_pytorch3d
 import vtk
 import pytorch3d as p3d
 import igraph as ig

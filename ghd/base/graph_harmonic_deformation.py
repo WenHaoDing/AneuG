@@ -21,7 +21,7 @@ import torch.nn.functional as F
 from pytorch3d.structures import Meshes
 from torch_geometric.utils import to_undirected
 from pytorch3d.transforms import axis_angle_to_matrix, matrix_to_axis_angle
-from ghd.fitting.registration import RegistrationwOpeningAlignment
+from ..fitting.registration import RegistrationwOpeningAlignment
 
 
 def mix_laplacian(base_shape: Meshes):
