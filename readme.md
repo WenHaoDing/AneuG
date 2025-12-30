@@ -45,5 +45,5 @@ We rely on DCE at multiple parts of this project:
 ## Installation guide
 ### For Biomechanics researchers
 Under construction.
-Download checkpoint zip file from: https://drive.google.com/file/d/1bPE5HPo9jxg5_TyPZcfuxBhSwJTJA1C_/view?usp=share_link and unzip it into the project working directory.
+Download checkpoint zip file from: https://drive.google.com/file/d/1T0CZByyLtk7e-WKu2ZAjunuFosXYl0cH/view?usp=drive_link and unzip it into the project working directory.
 Run second_stage.ipynb
