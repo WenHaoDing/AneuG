@@ -9,13 +9,9 @@ import logging
 import json
 import itertools
 from scipy.interpolate import splprep, splev
-# from pytorch3d.structures import Meshes, join_meshes_as_batch
-# from pytorch3d.io import save_obj, load_objs_as_meshes
 import trimesh
 from trimesh.exchange.obj import export_obj
 import torch
-from pytorch3d.transforms import axis_angle_to_matrix
-from utils.utils import safe_load_mesh
 
 
 class ExcisionRegistrationFromVMTKBranches:
@@ -111,11 +107,14 @@ class ExcisionRegistrationFromVMTKBranches:
 
     def register_branches_human(self):
         # add surface mesh
-        assert self.surface_mesh_file.endswith('.vtp'), 'surface mesh file must end with .vtp'
-        reader = vtk.vtkXMLPolyDataReader()
-        reader.SetFileName(self.surface_mesh_file)
-        reader.Update()
-        surface_mesh = reader.GetOutput()
+        if self.surface_mesh_file.endswith('.obj'):
+            surface_mesh = pv.read(self.surface_mesh_file)
+        else:
+        # assert self.surface_mesh_file.endswith('.vtp'), 'surface mesh file must end with .vtp'
+            reader = vtk.vtkXMLPolyDataReader()
+            reader.SetFileName(self.surface_mesh_file)
+            reader.Update()
+            surface_mesh = reader.GetOutput()
         p = pv.Plotter()
         p.add_mesh(surface_mesh, color='black', opacity=0.025, pickable=False)
         # add pcd for control points
@@ -131,9 +130,8 @@ class ExcisionRegistrationFromVMTKBranches:
         def register_points_callback(picked_point):
             picked_points_list.append(picked_point)
             print('new point selected: {}'.format(picked_point))
-
         p.enable_point_picking(callback=register_points_callback)
-        p.show()
+        # p.show()
         for i in range(len(picked_points_list)):
             point = picked_points_list[i]
             distances = []
@@ -176,7 +174,8 @@ class ExcisionRegistrationFromVMTKBranches:
             from_normal = (0, 0, 1)
             rotation_matrix = calculate_rotation_matrix(from_normal, to_normal)
             rotated_points = np.dot(grid_points, rotation_matrix.T) + cut_point_pos
-            Meshes_list.append(Meshes([torch.Tensor(rotated_points)], [torch.Tensor(faces)]))
+            Meshes_list.append(trimesh.Trimesh(vertices=rotated_points, faces=faces))
+            # Meshes_list.append(Meshes([torch.Tensor(rotated_points)], [torch.Tensor(faces)]))
             Cut_points_list.append(rotated_points)
             # add another planes at the "correct" location if the branch is too short
             extrusion_length = np.abs(length_record[cut_point_id] - branch_retain_length[i])
@@ -185,7 +184,9 @@ class ExcisionRegistrationFromVMTKBranches:
                 to_normal = np.array(to_normal)
                 to_normal /= np.linalg.norm(to_normal)
                 trans = extrusion_length * to_normal
-                Meshes_list.append(Meshes([torch.Tensor(rotated_points - trans)], [torch.Tensor(faces)]))
+                Meshes_list.append(trimesh.Trimesh(
+                    vertices=rotated_points - trans, faces=faces))
+                # Meshes_list.append(Meshes([torch.Tensor(rotated_points - trans)], [torch.Tensor(faces)]))
                 Cut_points_list.append(rotated_points - trans)
                 alignment_centreline = self.control_points_positions_interpolated[branch_id][0: cut_point_id]
                 num_interpolate = 500
@@ -210,11 +211,13 @@ class ExcisionRegistrationFromVMTKBranches:
             alignment_centreline_list.append(alignment_centreline)
 
         # save cutting planes
-        joined_Meshes = join_meshes_as_batch(Meshes_list)
+        # joined_Meshes = join_meshes_as_batch(Meshes_list)
+        joined_Meshes = trimesh.utils.concatenate(Meshes_list)
         filename_obj = os.path.join(self.save_dir, "cutting_planes.obj")
         if os.path.isfile(filename_obj):
             os.remove(filename_obj)
-        save_obj(filename_obj, verts=joined_Meshes.verts_packed(), faces=joined_Meshes.faces_packed())
+        # save_obj(filename_obj, verts=joined_Meshes.verts_packed(), faces=joined_Meshes.faces_packed())
+        joined_Meshes.export(filename_obj)
 
         # save alignment control points & centreline branch pcd
         chk_path = os.path.join(self.save_dir, "centreline4alignment")
