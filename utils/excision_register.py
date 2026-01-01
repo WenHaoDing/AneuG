@@ -115,6 +115,7 @@ class ExcisionRegistrationFromVMTKBranches:
             reader.SetFileName(self.surface_mesh_file)
             reader.Update()
             surface_mesh = reader.GetOutput()
+        
         p = pv.Plotter()
         p.add_mesh(surface_mesh, color='black', opacity=0.025, pickable=False)
         # add pcd for control points
@@ -131,7 +132,7 @@ class ExcisionRegistrationFromVMTKBranches:
             picked_points_list.append(picked_point)
             print('new point selected: {}'.format(picked_point))
         p.enable_point_picking(callback=register_points_callback)
-        # p.show()
+        p.show()
         for i in range(len(picked_points_list)):
             point = picked_points_list[i]
             distances = []
@@ -297,7 +298,7 @@ class ExcisionRegistrationFromVMTKBranches:
         if not os.path.exists(chk_path) or redo:
             logging.warning('checkpoint does not exist, redo registration.')
             self.register_branches_automatic()
-            self.comprehend_branches_automatic(human_inspect=True)
+            self.comprehend_branches_automatic(human_inspect=False)
             self.register_branches_human()
         if os.path.exists(chk_path) and not redo:
             with open(chk_path, 'rb') as f:
