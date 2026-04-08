@@ -22,14 +22,18 @@ from pytorch3d.ops import knn_points, sample_points_from_meshes
 from pytorch3d.structures import Meshes
 
 from .losses import (
+    CentroidLoss,
     DVSOccupancyLoss,
     EdgeLengthLoss,
     GHDRigidLoss,
-    LandmarkLoss,
+    MeshThickness,
+    RingChamferLoss,
+    RingPlanarityLoss,
     laplacian_loss,
     normal_consistency_loss,
     winding_occupancy,
 )
+from .scripts.uncap_fitted import uncap_mesh, uncap_mesh_bif
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -53,24 +57,30 @@ class FitConfig:
     fit_T: bool = True
 
     # ── Point-cloud sampling ──────────────────────────────────────────────────
-    num_samples:     int = 5_000   # fixed target samples for chamfer
+    num_samples:     int = 50_000   # fixed target samples for chamfer, resampled for wapping mesh at each epoch
     n_dvs:           int = 10_000  # DVS samples per class (pos / neg)
-    n_dvs_oversamp:  int = 60_000  # oversample before filtering
+    n_dvs_oversamp:  int = 150_000  # oversample before filtering
     num_dvs_sample:  int = 12_000  # per-iteration DVS draw
     NP_ratio:        float = 1.0
+    n_dvs_surf:      int   = 50_000  # surface-offset points to generate (0 = disabled)
+    dvs_surf_d_min:  float = 0.01    # min normal-offset distance (normalised space)
+    dvs_surf_d_max:  float = 0.05    # max normal-offset distance (normalised space)
 
     # ── Loss weights ──────────────────────────────────────────────────────────
     lambda_chamfer:      float = 1.0
     lambda_chamfer_n1:   float = 0.5
     lambda_occupancy:    float = 1.0
     lambda_laplacian:    float = 1e-2
-    lambda_consistency:  float = 0.3
+    lambda_consistency:  float = 0.5 #0.3
     lambda_rigid_start:  float = 3.0
     lambda_rigid_end:    float = 0.01
-    rigid_decay_frac:    float = 0.7   # decay over first N% of iterations
+    rigid_decay_frac:    float = 0.80   # decay over first N% of iterations
     lambda_edge:         float = 0.1
-    lambda_landmark:     float = 0.1
-    lm_taper_frac:       float = 0.3   # taper landmark loss to 0 over first N%
+    lambda_ring_chamfer:    float = 0.3   # ring opening loss: position + orientation (0 = disabled)
+    lambda_centroid:        float = 0.1   # L2 centroid-to-centroid per ring (0 = disabled)
+    lambda_planarity:       float = 0.1   # ring planarity loss — keeps ring verts in target ring plane (0 = disabled)
+    lambda_thickness:       float = 0.5   # minimum wall-thickness hinge loss (0 = disabled)
+    thickness_r:            float = 0.2   # MeshThickness search radius in normalised space
 
     # ── Logging / checkpointing ───────────────────────────────────────────────
     log_every:         int  = 200
@@ -98,6 +108,13 @@ class FitResult:
     gar            : Good Angle Ratio — fraction of triangles with all
                      angles in [30°, 120°]  (0–1, higher = better)
     converged      : chamfer_final < chamfer_init * FitConfig.converge_threshold
+
+    GHD coefficients (at best-chamfer iteration)
+    ---------------------------------------------
+    phi            : (p_basis, 3) shape deformation coefficients
+    w_rot          : (3,) axis-angle rotation vector
+    log_scale      : scalar log-scale
+    t_vec          : (3,) translation vector
     """
     verts:          np.ndarray          # (N, 3) fitted vertices, normalised space
     loss_history:   dict                # {loss_name: [float]}
@@ -107,6 +124,14 @@ class FitResult:
     dice:           float
     gar:            float
     converged:      bool
+    # GHD coefficients at best iteration
+    phi:            np.ndarray          # (p_basis, 3)
+    w_rot:          np.ndarray          # (3,)
+    log_scale:      float
+    t_vec:          np.ndarray          # (3,)
+    # Uncapped mesh (None if uncap=False was passed to ghd_fit)
+    verts_uncapped: np.ndarray | None   # (N', 3) — subset of verts with caps removed
+    faces_uncapped: np.ndarray | None   # (M', 3)
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -229,18 +254,30 @@ def prepare_dvs_samples(
     bbox_max = V_tgt.max(axis=0) + 0.05
     rand_pts = bbox_min + rng.random((cfg.n_dvs_oversamp, 3)) * (bbox_max - bbox_min)
 
+    # ── Surface-offset samples: seed narrow gaps the random bbox misses ───────
+    if cfg.n_dvs_surf > 0:
+        surf_pts, face_ids  = trimesh.sample.sample_surface(tgt_trimesh, cfg.n_dvs_surf)
+        face_normals        = tgt_trimesh.face_normals[face_ids]            # (S, 3)
+        offsets = rng.uniform(cfg.dvs_surf_d_min, cfg.dvs_surf_d_max,
+                              size=(len(surf_pts), 1))
+        signs   = rng.choice([-1.0, 1.0], size=(len(surf_pts), 1))
+        surf_offset_pts = surf_pts + signs * offsets * face_normals         # (S, 3)
+        all_pts = np.concatenate([rand_pts, surf_offset_pts], axis=0)
+    else:
+        all_pts = rand_pts
+
     _t0 = time.time()
-    inside_mask = tgt_trimesh.contains(rand_pts)
+    inside_mask = tgt_trimesh.contains(all_pts)
     print(f"  trimesh.contains: {time.time() - _t0:.1f}s")
-    pos_pts     = rand_pts[inside_mask]
-    neg_pts     = rand_pts[~inside_mask]
+    pos_pts     = all_pts[inside_mask]
+    neg_pts     = all_pts[~inside_mask]
 
     print(f"  DVS: {len(pos_pts)} interior pts, {len(neg_pts)} exterior pts")
     if len(pos_pts) < cfg.n_dvs or len(neg_pts) < cfg.n_dvs:
         raise RuntimeError(
             f"Not enough DVS samples: need {cfg.n_dvs} per class, "
             f"got {len(pos_pts)} pos / {len(neg_pts)} neg. "
-            "Increase n_dvs_oversamp in FitConfig."
+            "Increase n_dvs_oversamp or n_dvs_surf in FitConfig."
         )
 
     target_positives = torch.tensor(pos_pts[:cfg.n_dvs], dtype=torch.float32, device=device)
@@ -256,9 +293,11 @@ def prepare_dvs_samples(
             target_positives.view(1, -1, 3), K=1,
         )[0].view(-1)
         dist_mean = torch.cat([dist_p2n, dist_n2p]).mean()
-        dist_weights_p2n = 1 - torch.exp(-dist_p2n ** 2 / (dist_mean ** 2 + 1e-6))
+        # exp(-d/m) peaks at the boundary (small d → weight ≈ 1), correctly
+        # emphasising narrow-gap points that the old 1-exp formula suppressed.
+        dist_weights_p2n = torch.exp(-dist_p2n / (dist_mean + 1e-6))
         dist_weights_p2n = dist_weights_p2n / dist_weights_p2n.mean()
-        dist_weights_n2p = 1 - torch.exp(-dist_n2p ** 2 / (dist_mean ** 2 + 1e-6))
+        dist_weights_n2p = torch.exp(-dist_n2p / (dist_mean + 1e-6))
         dist_weights_n2p = dist_weights_n2p / dist_weights_n2p.mean()
 
     return target_positives, target_negatives, dist_weights_p2n, dist_weights_n2p
@@ -267,35 +306,35 @@ def prepare_dvs_samples(
 # ── Main fitting function ─────────────────────────────────────────────────────
 
 def ghd_fit(
-    V_init:      np.ndarray,               # (N, 3) CPD-aligned canonical (float32)
+    V_init:      np.ndarray,               # (N, 3) aligned canonical (float32)
     F:           np.ndarray,               # (M, 3) canonical faces (int64)
     V_tgt:       np.ndarray,               # (K, 3) normalised target vertices
     F_tgt:       np.ndarray,               # (Mt, 3) target faces
     U:           np.ndarray,               # (N, p) pre-computed eigenvector basis
     cfg:         FitConfig | None = None,
-    lm_can_s:    dict | None = None,       # normalised canonical landmarks
-    lm_tgt_s:    dict | None = None,       # normalised target    landmarks
-    idx_lm_dome: int | None  = None,       # canonical vertex index for dome
-    cap_up_idxs: np.ndarray | None = None, # k canonical indices for upstream cap
-    cap_dn_idxs: np.ndarray | None = None, # k canonical indices for downstream cap
+    ring_pairs:      list | None = None,   # [(can_ring_idxs, tgt_ring_pts), ...]
+                                           # 2 pairs for sidewall, 3 for bifurcation
+    centroid_pairs:  list | None = None,   # [(can_ring_idxs, tgt_centroid (3,)), ...]
+                                           # tgt_centroid = mean of target ring vertex positions
+    uncap:                    bool = False,  # run uncapping after fitting
+    cap_interior_vertex_sets: list | None = None,  # bifurcation only: list of cap-interior vertex index arrays
+                                                    # (from opa["op_rec_v_indices_map"]); if None + uncap=True → sidewall mode
 ) -> FitResult:
     """
     Run GHD fitting and return a FitResult with metrics and fitted vertices.
 
     Parameters
     ----------
-    V_init      : (N, 3) anatomy+CPD aligned canonical vertices (normalised space)
+    V_init      : (N, 3) aligned canonical vertices (normalised space)
     F           : (M, 3) canonical face indices
     V_tgt       : (K, 3) target vertices (normalised space)
     F_tgt       : (Mt, 3) target face indices
     U           : (N, p) Laplacian eigenvector basis of the canonical mesh.
                   Pre-compute once; reuse for every target case.
     cfg         : FitConfig (uses defaults if None)
-    lm_can_s    : normalised canonical landmarks — required for landmark loss
-    lm_tgt_s    : normalised target landmarks    — required for landmark loss
-    idx_lm_dome : dome vertex index  ─┐ required if cfg.lambda_landmark > 0
-    cap_up_idxs : cap_up indices     ─┤
-    cap_dn_idxs : cap_dn indices     ─┘
+    ring_pairs  : list of (can_ring_idxs, tgt_ring_pts) tuples, or None.
+                  Required if lambda_ring_chamfer > 0.
+                  2 pairs for sidewall, 3 pairs for bifurcation.
 
     Returns
     -------
@@ -305,12 +344,20 @@ def ghd_fit(
         cfg = FitConfig()
 
     device = _get_device(cfg)
-    use_lm = (
-        cfg.lambda_landmark > 0
-        and idx_lm_dome  is not None
-        and cap_up_idxs  is not None
-        and cap_dn_idxs  is not None
-        and lm_tgt_s     is not None
+    use_ring_chamfer = (
+        cfg.lambda_ring_chamfer > 0
+        and ring_pairs is not None
+        and len(ring_pairs) > 0
+    )
+    use_centroid = (
+        cfg.lambda_centroid > 0
+        and centroid_pairs is not None
+        and len(centroid_pairs) > 0
+    )
+    use_planarity = (
+        cfg.lambda_planarity > 0
+        and ring_pairs is not None
+        and len(ring_pairs) >= 2
     )
 
     # ── Tensors ───────────────────────────────────────────────────────────────
@@ -357,15 +404,37 @@ def ghd_fit(
         num_sample=cfg.num_dvs_sample, NP_ratio=cfg.NP_ratio,
     ).to(device)
 
-    lm_losser = None
-    if use_lm:
-        lm_tgt_dome_t   = torch.tensor(
-            lm_tgt_s["dome"].astype(np.float32),   device=device)
-        lm_tgt_cap_up_t = torch.tensor(
-            lm_tgt_s["cap_up"].astype(np.float32), device=device)
-        lm_tgt_cap_dn_t = torch.tensor(
-            lm_tgt_s["cap_down"].astype(np.float32), device=device)
-        lm_losser = LandmarkLoss(idx_lm_dome, cap_up_idxs, cap_dn_idxs).to(device)
+    ring_chamfer_losser = None
+    if use_ring_chamfer:
+        ring_chamfer_losser = RingChamferLoss(ring_pairs).to(device)
+
+    centroid_losser = None
+    if use_centroid:
+        centroid_losser = CentroidLoss(centroid_pairs).to(device)
+
+    thickness_losser = None
+    if cfg.lambda_thickness > 0:
+        thickness_losser = MeshThickness(
+            r=cfg.thickness_r, num_bundle_filtered=100, innerp_threshold=0.6, num_sel=25,
+        ).to(device)
+
+    planarity_losser = None
+    if use_planarity:
+        def _fit_plane(pts: np.ndarray):
+            c = pts.mean(0)
+            _, _, Vt = np.linalg.svd(pts - c, full_matrices=False)
+            return Vt[2], c   # unit normal, centroid
+
+        tgt_up_pts = ring_pairs[0][1].detach().cpu().numpy() if isinstance(ring_pairs[0][1], torch.Tensor) else np.array(ring_pairs[0][1])
+        tgt_dn_pts = ring_pairs[1][1].detach().cpu().numpy() if isinstance(ring_pairs[1][1], torch.Tensor) else np.array(ring_pairs[1][1])
+        n_up, c_up = _fit_plane(tgt_up_pts)
+        n_dn, c_dn = _fit_plane(tgt_dn_pts)
+        planarity_losser = RingPlanarityLoss(
+            cap_up_idxs = ring_pairs[0][0],
+            cap_dn_idxs = ring_pairs[1][0],
+            n_up = n_up, c_up = c_up,
+            n_dn = n_dn, c_dn = c_dn,
+        ).to(device)
 
     # ── Baseline chamfer (for converged flag) ─────────────────────────────────
     with torch.no_grad():
@@ -378,7 +447,7 @@ def ghd_fit(
     # ── History & best state ──────────────────────────────────────────────────
     history: dict[str, list] = {k: [] for k in [
         "chamfer", "chamfer_n1", "occupancy", "laplacian",
-        "consistency", "edge", "rigid", "landmark", "total",
+        "consistency", "edge", "rigid", "ring_chamfer", "centroid", "planarity", "thickness", "total",
         "lambda_rigid_w", "lr", "rot_norm", "scale", "trans_norm",
     ]}
 
@@ -440,23 +509,52 @@ def ghd_fit(
         else:
             lambda_rigid_curr = cfg.lambda_rigid_end
 
-        # 9. Landmark loss (tapered to zero over first lm_taper_frac of iters)
-        loss_landmark = torch.tensor(0.0, device=device)
-        if use_lm and lm_losser is not None:
-            lm_taper      = max(0.0, 1.0 - iteration / (cfg.n_iter * cfg.lm_taper_frac))
-            loss_landmark = lm_losser(
-                V_rendered, lm_tgt_dome_t, lm_tgt_cap_up_t, lm_tgt_cap_dn_t,
-            ) * lm_taper
+        # 9. Ring chamfer loss — opening position + orientation
+        loss_ring_chamfer = torch.tensor(0.0, device=device)
+        if use_ring_chamfer and ring_chamfer_losser is not None:
+            loss_ring_chamfer = ring_chamfer_losser(V_rendered)
+
+        # 10. Centroid L2 — direct vessel-direction constraint
+        loss_centroid = torch.tensor(0.0, device=device)
+        if use_centroid and centroid_losser is not None:
+            loss_centroid = centroid_losser(V_rendered)
+
+        # 11. Ring planarity — keep ring verts in target ring plane
+        loss_planarity = torch.tensor(0.0, device=device)
+        if use_planarity and planarity_losser is not None:
+            loss_planarity = planarity_losser(V_rendered)
+
+        # 12. Mesh thickness — minimum wall-thickness hinge
+        loss_thickness = torch.tensor(0.0, device=device)
+        if thickness_losser is not None:
+            dist_sq, thickness, _, sign = thickness_losser(src_mesh)
+            mask = torch.where(
+                thickness.abs() > 0.1,
+                torch.zeros_like(thickness),
+                torch.ones_like(thickness),
+            )
+            signed = torch.sign(sign)
+            loss_thickness = (
+                torch.nn.functional.relu(0.04 - thickness * signed) +
+                torch.nn.functional.relu(0.01 - dist_sq * signed)
+            ) * mask
+            loss_thickness = (
+                loss_thickness.mean() +
+                (1e-4 / (sign ** 2 + 1e-6) * mask).mean()
+            )
 
         loss = (
-              cfg.lambda_chamfer     * loss_chamfer
-            + cfg.lambda_chamfer_n1  * loss_chamfer_n1
-            + cfg.lambda_occupancy   * loss_occupancy
-            + cfg.lambda_laplacian   * loss_laplacian
-            + cfg.lambda_consistency * loss_consistency
-            + cfg.lambda_edge        * loss_edge
-            + lambda_rigid_curr      * loss_rigid
-            + cfg.lambda_landmark    * loss_landmark
+              cfg.lambda_chamfer        * loss_chamfer
+            + cfg.lambda_chamfer_n1     * loss_chamfer_n1
+            + cfg.lambda_occupancy      * loss_occupancy
+            + cfg.lambda_laplacian      * loss_laplacian
+            + cfg.lambda_consistency    * loss_consistency
+            + cfg.lambda_edge           * loss_edge
+            + lambda_rigid_curr         * loss_rigid
+            + cfg.lambda_ring_chamfer   * loss_ring_chamfer
+            + cfg.lambda_centroid       * loss_centroid
+            + cfg.lambda_planarity      * loss_planarity
+            + cfg.lambda_thickness      * loss_thickness
         )
 
         loss.backward()
@@ -472,9 +570,18 @@ def ghd_fit(
         history["consistency"].append(loss_consistency.item())
         history["edge"].append(loss_edge.item())
         history["rigid"].append(loss_rigid.item())
-        history["landmark"].append(loss_landmark.item()
-                                    if isinstance(loss_landmark, torch.Tensor)
-                                    else float(loss_landmark))
+        history["ring_chamfer"].append(loss_ring_chamfer.item()
+                                    if isinstance(loss_ring_chamfer, torch.Tensor)
+                                    else float(loss_ring_chamfer))
+        history["centroid"].append(loss_centroid.item()
+                                   if isinstance(loss_centroid, torch.Tensor)
+                                   else float(loss_centroid))
+        history["planarity"].append(loss_planarity.item()
+                                    if isinstance(loss_planarity, torch.Tensor)
+                                    else float(loss_planarity))
+        history["thickness"].append(loss_thickness.item()
+                                    if isinstance(loss_thickness, torch.Tensor)
+                                    else float(loss_thickness))
         history["total"].append(loss.item())
         history["lambda_rigid_w"].append(lambda_rigid_curr)
         history["lr"].append(scheduler.get_last_lr()[0])
@@ -504,7 +611,10 @@ def ghd_fit(
                 f"Cons: {loss_consistency.item():.2e} | "
                 f"Edge: {loss_edge.item():.4f} | "
                 f"Rigid: {loss_rigid.item():.4f} (w={lambda_rigid_curr:.3f}) | "
-                f"LM: {loss_landmark.item() if isinstance(loss_landmark, torch.Tensor) else 0.:.4f} | "
+                f"RingCh: {loss_ring_chamfer.item():.4f} | "
+                f"CentC: {loss_centroid.item():.4f} | "
+                f"Plan: {loss_planarity.item():.4f} | "
+                f"Thick: {loss_thickness.item():.4f} | "
                 f"Total: {loss.item():.6f} | "
                 f"lr: {scheduler.get_last_lr()[0]:.2e} | "
                 f"{_iter_per_sec:.1f} it/s"
@@ -542,6 +652,28 @@ def ghd_fit(
     print(f"  GAR            : {gar:.4f}")
     print(f"  Converged      : {converged}")
 
+    # ── Uncapping ─────────────────────────────────────────────────────────────
+    verts_uncapped = None
+    faces_uncapped = None
+    if uncap:
+        print("\nRemoving caps from fitted mesh...")
+        fitted_trimesh = trimesh.Trimesh(vertices=V_final, faces=F, process=False)
+        if cap_interior_vertex_sets is not None:
+            # Bifurcation: remove faces that contain cap-interior vertices
+            uncapped = uncap_mesh_bif(fitted_trimesh, cap_interior_vertex_sets)
+        else:
+            # Sidewall (or any type with ring boundary indices in ring_pairs)
+            if ring_pairs is None or len(ring_pairs) < 2:
+                raise ValueError(
+                    "uncap=True requires ring_pairs (≥2 entries) for sidewall mode, "
+                    "or cap_interior_vertex_sets for bifurcation mode."
+                )
+            ring_index_sets = [np.array(rp[0]) for rp in ring_pairs]
+            uncapped = uncap_mesh(fitted_trimesh, ring_index_sets)
+        verts_uncapped = uncapped.vertices
+        faces_uncapped = uncapped.faces
+        print(f"  Uncapped: {verts_uncapped.shape[0]} verts, {faces_uncapped.shape[0]} faces")
+
     return FitResult(
         verts         = V_final,
         loss_history  = history,
@@ -551,4 +683,10 @@ def ghd_fit(
         dice          = dice,
         gar           = gar,
         converged     = converged,
+        phi           = best_state["phi"].cpu().numpy(),
+        w_rot         = best_state["w"].cpu().numpy(),
+        log_scale     = best_state["log_s"].item(),
+        t_vec         = best_state["t"].cpu().numpy(),
+        verts_uncapped = verts_uncapped,
+        faces_uncapped = faces_uncapped,
     )

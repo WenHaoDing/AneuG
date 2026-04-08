@@ -5,8 +5,8 @@ Quick start
 -----------
 from aneu_ghd import (
     load_obj, save_obj,
-    load_landmarks, normalize_lm, compute_landmarks_from_rings,
-    anatomy_align, cpd_align,
+    load_landmarks, compute_landmarks_from_rings,
+    cpd_align,
     FitConfig, FitResult, ghd_fit, prepare_dvs_samples,
 )
 """
@@ -16,15 +16,11 @@ from .utils import compute_eigenvectors
 
 from .landmarks import (
     load_landmarks,
-    normalize_lm,
     compute_landmarks_from_rings,
+    compute_landmarks_from_rings_bifurcation,
 )
 
-from .alignment import (
-    build_frame,
-    anatomy_align,
-    cpd_align,
-)
+from .alignment import cpd_align
 
 from .fitting import (
     FitConfig,
@@ -38,7 +34,7 @@ from .losses import (
     BinaryDiceLoss,
     DVSOccupancyLoss,
     winding_occupancy,
-    LandmarkLoss,
+    RingChamferLoss,
     laplacian_loss,
     normal_consistency_loss,
     EdgeLengthLoss,
@@ -53,11 +49,9 @@ __all__ = [
     "compute_eigenvectors",
     # Landmarks
     "load_landmarks",
-    "normalize_lm",
     "compute_landmarks_from_rings",
+    "compute_landmarks_from_rings_bifurcation",
     # Alignment
-    "build_frame",
-    "anatomy_align",
     "cpd_align",
     # Fitting
     "FitConfig",
@@ -69,7 +63,7 @@ __all__ = [
     "BinaryDiceLoss",
     "DVSOccupancyLoss",
     "winding_occupancy",
-    "LandmarkLoss",
+    "RingChamferLoss",
     "laplacian_loss",
     "normal_consistency_loss",
     "EdgeLengthLoss",
