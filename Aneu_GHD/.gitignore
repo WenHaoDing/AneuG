@@ -12,7 +12,6 @@ build/
 .ipynb_checkpoints/
 
 # Fitting outputs (generated, not source)
-fitting_results/
 ghd_debug_outputs/
 
 # OS
