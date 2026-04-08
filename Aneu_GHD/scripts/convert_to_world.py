@@ -16,8 +16,9 @@ Inverse transform:
   verts_world = (verts_norm * s_can) @ R_frame + neck_pt_world
 
 Usage:
-  cd "/media/yaplab2/HDD Storage/almaha"
+  cd "/media/yaplab2/HDD Storage/almaha/AneuG"
   python3 Aneu_GHD/scripts/convert_to_world.py
+
 """
 
 import json
@@ -29,26 +30,29 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from Aneu_GHD import load_obj, save_obj
 
-ALIGN_DIR   = "/media/yaplab2/HDD Storage/almaha/Aneu_GHD/Checkpoints/Alignment/AnueX"
-RESULTS_DIR = "/media/yaplab2/HDD Storage/almaha/AneuG/Aneu_GHD/fitting_results/AnueX"
+ALIGN_DIR   = "/media/yaplab2/HDD Storage/almaha/Aneu_GHD/Checkpoints/Alignment/ImperialNHS_batch1"
+RESULTS_DIR = "/media/yaplab2/HDD Storage/almaha/AneuG/Aneu_GHD/fitting_results/ImperialNHS_batch1"
 
 CASES = [
-    "ANSYS_UNIGE_09_cut1",
-    "ANSYS_UNIGE_35_cut1",
-    "C0001_cut2",
-    "C0002_cut2",
-    "C0003_cut2",
-    "C0005_cut2",
-    "C0006_cut2",
-    "C0008_cut2",
-    "C0011_cut2",
-    "C0014_cut2",
-    "C0016_cut2",
-    "C0024_cut2",
-    "C0026_cut2",
-    "p043_HAARCREcDAAQDQcbHgANDRQM_cut2",
-    "p044_BBMdFxESDBMcEwcVBhMBExQC_cut2",
-    "p046_FwQADBEGGwQBGwMdHwAADBAK_RICA_cut2",
+"2uw5ITsPNj_aneurysm1",
+"6GpXbvnIHl_aneurysm1",
+"72rwT0u5nJ_aneurysm1",
+"72rwT0u5nJ_aneurysm2",
+"8t4XoA0zQ0_aneurysm1",
+"AoQOqiHhfc_aneurysm1",
+"dkn3xg4stb_aneurysm1",
+"euHpN3eKdM_aneurysm1",
+"F3C7xUIbYX_aneurysm1",
+"I4vL5p57t4_aneurysm1",
+"lFnV0JnxJv_aneurysm1",
+"Mm988eVmYt_aneurysm1",
+"N1yi26a7ul_aneurysm1",
+"NnimNakgLG_aneurysm1",
+"o7cb5hR1rV_aneurysm1",
+"qHBtIl5Ft4_aneurysm2",
+"rCHyvghmVr_aneurysm1",
+"S7bIbdCxFO_aneurysm1",
+"uAFn03Y0Gp_aneurysm1",
 ]
 
 
