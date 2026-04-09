@@ -15,7 +15,7 @@ import torch
 
 
 class ExcisionRegistrationFromVMTKBranches:
-    def __init__(self, surface_mesh_file: str, centreline_dir: str, label, save_dir):
+    def __init__(self, surface_mesh_file: str, centreline_dir: str, label, save_dir, static=False):
         """
         we document centerline information from vmtk, and perform registration for excision
         """
@@ -36,6 +36,7 @@ class ExcisionRegistrationFromVMTKBranches:
         self.branch_length_record = []  # length record for each interpolated point in each branch
         self.branch_register_sequence = []  # the sequence of branches, determined through human registration
         self.save_dir = save_dir
+        self.static = static  # manual interaction differs if static
 
     def register_branches_automatic(self, visual_inspect=True):
         # extract data
@@ -115,13 +116,12 @@ class ExcisionRegistrationFromVMTKBranches:
             reader.SetFileName(self.surface_mesh_file)
             reader.Update()
             surface_mesh = reader.GetOutput()
-        
         p = pv.Plotter()
         p.add_mesh(surface_mesh, color='black', opacity=0.025, pickable=False)
         # add pcd for control points
-        color_list = ['blue', 'red', 'green', 'yellow', 'black', 'darkblue', 'pink', 'gray']
+        color_list = ['black', 'blue', 'red', 'yellow', 'black', 'darkblue', 'pink', 'gray']
         for idx in range(self.num_branches):
-            color = color_list.pop() if len(color_list) != 0 else np.random.rand(3)
+            color = color_list[idx]
             p.add_points(self.control_points_positions_sorted[idx], render_points_as_spheres=True, color=color,
                          point_size=8)
         picked_points_list = []
@@ -131,15 +131,21 @@ class ExcisionRegistrationFromVMTKBranches:
         def register_points_callback(picked_point):
             picked_points_list.append(picked_point)
             print('new point selected: {}'.format(picked_point))
-        p.enable_point_picking(callback=register_points_callback)
-        p.show()
-        for i in range(len(picked_points_list)):
-            point = picked_points_list[i]
-            distances = []
-            for j in range(self.num_branches):
-                distances.append(
-                    np.min(np.linalg.norm(point - self.control_points_positions_sorted[j], axis=-1), axis=0))
-            self.branch_register_sequence.append(np.argmin(np.array(distances)))
+        if not self.static:
+            p.enable_point_picking(callback=register_points_callback)
+            p.show()
+            for i in range(len(picked_points_list)):
+                point = picked_points_list[i]
+                distances = []
+                for j in range(self.num_branches):
+                    distances.append(
+                        np.min(np.linalg.norm(point - self.control_points_positions_sorted[j], axis=-1), axis=0))
+                self.branch_register_sequence.append(np.argmin(np.array(distances)))
+        else:
+            p.show(jupyter_backend='static')
+            input_sequence = input('Please input the branch picking sequence as comma separated values (e.g., 012). Sequence color: black, blue, red')
+            for char in input_sequence:
+                self.branch_register_sequence.append(int(char))
         assert len(list(
             set(self.branch_register_sequence))) == self.num_branches, 'You picked multiple points on the same branch'
 
@@ -213,7 +219,7 @@ class ExcisionRegistrationFromVMTKBranches:
 
         # save cutting planes
         # joined_Meshes = join_meshes_as_batch(Meshes_list)
-        joined_Meshes = trimesh.utils.concatenate(Meshes_list)
+        joined_Meshes = trimesh.util.concatenate(Meshes_list)
         filename_obj = os.path.join(self.save_dir, "cutting_planes.obj")
         if os.path.isfile(filename_obj):
             os.remove(filename_obj)
