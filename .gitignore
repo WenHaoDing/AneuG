@@ -1,3 +1,4 @@
 checkpoints/
 datasets/__pycache__/
 *.pyc
+Aneu_GHD/seg_post/
