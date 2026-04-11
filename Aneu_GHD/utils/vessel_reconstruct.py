@@ -7,6 +7,7 @@ import numpy as np
 import pyvista as pv
 import networkx as nx
 import os
+from .patching import remove_orphan_vertices
 
 
 def detect_openings(mesh, flaw_opening_min_size=10):
@@ -53,7 +54,7 @@ def avg_edge_length(mesh):
     edges_sorted = np.sort(edges, axis=1)
     unique_edges = np.unique(edges_sorted, axis=0)
     lengths = np.linalg.norm(mesh.points[unique_edges[:, 0]] - mesh.points[unique_edges[:, 1]], axis=1)
-    return lengths.mean()
+    return 0.85 * np.median(lengths)
 
 
 def resample_branch(pts, step):
@@ -425,9 +426,9 @@ def forward_mesh_fusion(post_dir,
 
 def forward_mesh_fusion_v2(post_dir,
                             flaw_opening_min_size=10,
-                            init_step=1,
+                            init_step=3,
                             max_cl_length=10.0,
-                            ring_downsample_ratio=2,
+                            ring_downsample_ratio=1,
                             r_clipped_mesh_filename="clipped_reconstruction.ply",
                             r_clipped_cl_filename="clipped_centerline.npy",
                             w_forward_fusion_info_filename="forward_fusion_info.npz",
@@ -538,4 +539,119 @@ def forward_mesh_fusion_v2(post_dir,
 
 
 
-    
+def ghd_forward_mesh_fusion(post_dir,
+                            ghd_dir,
+                            flaw_opening_min_size=10,
+                            init_step=4,
+                            max_cl_length=10.0,
+                            ring_downsample_ratio=1,
+                            r_ghd_mesh_filename="ghd_fitted_uncapped_world.obj",
+                            r_clipped_cl_filename="clipped_centerline.npy",
+                            r_forward_fusion_info_filename="forward_fusion_info.npz",
+                            w_ghd_reconstructed_filename="ghd_reconstructed.obj",
+                            w_ghd_forward_fusion_info_filename="ghd_forward_fusion_info.npz",
+                            w_merged_mesh_filename="ghd_merged_reconstruction.ply",
+                            w_smoothed_mesh_filename="ghd_smoothed_reconstruction.ply",
+                            planarize_n_iter=10,
+                            planarize_lam=0.5,
+                            smooth_n_rings=3,
+                            smooth_n_iter=10,
+                            smooth_lam=0.5):
+    """
+    Full GHD-to-CFD mesh pipeline for one case:
+
+      1. Planarize the open boundary rings of the GHD-fitted mesh using the
+         outward tangents stored in the forward-fusion info file.
+      2. Merge the planarized mesh with tubular vessel extensions guided by
+         the clipped centerlines.
+      3. Laplacian-smooth the merged mesh in the neighbourhood of each opening
+         to clean up the seam between the original surface and the tubes.
+
+    Parameters
+    ----------
+    post_dir : str
+        Case directory containing the centerline and forward-fusion info files.
+    ghd_dir : str
+        Directory containing the GHD-fitted uncapped mesh.
+    flaw_opening_min_size : int
+        Minimum boundary-ring size; smaller rings are treated as mesh flaws.
+    init_step : int
+        Centerline points to skip at the opening end (avoids noise).
+    max_cl_length : float
+        Maximum arc-length (mm) of centerline used per branch.
+    ring_downsample_ratio : int
+        Downsampling step along the centerline rings.
+    r_ghd_mesh_filename : str
+        GHD uncapped mesh filename inside ghd_dir.
+    r_clipped_cl_filename : str
+        Clipped centerline filename inside post_dir.
+    r_forward_fusion_info_filename : str
+        Forward-fusion info filename inside post_dir (used for planarization).
+    w_ghd_reconstructed_filename : str
+        Output filename for the planarized mesh (written to post_dir).
+    w_ghd_forward_fusion_info_filename : str
+        Output filename for the GHD forward-fusion info (written to post_dir).
+    w_merged_mesh_filename : str
+        Output filename for the merged mesh (written to post_dir).
+    w_smoothed_mesh_filename : str
+        Output filename for the smoothed mesh (written to post_dir).
+        Set to None to skip saving.
+    planarize_n_iter : int
+        Laplacian iterations for opening planarization.
+    planarize_lam : float
+        Smoothing weight for opening planarization.
+    smooth_n_rings : int
+        Neighbourhood width (edge hops) for seam smoothing.
+    smooth_n_iter : int
+        Laplacian iterations for seam smoothing.
+    smooth_lam : float
+        Smoothing weight for seam smoothing.
+
+    Returns
+    -------
+    smoothed : pyvista.PolyData
+    """
+    from .patching import planarize_openings, smooth_near_openings
+    # --- Step 1: Planarize openings of the GHD mesh ---
+    ghd_mesh_path = os.path.join(ghd_dir, r_ghd_mesh_filename)
+    ghd_mesh      = pv.read(ghd_mesh_path)
+    planarized    = planarize_openings(
+        ghd_mesh,
+        post_dir=post_dir,
+        r_forward_fusion_info_filename=r_forward_fusion_info_filename,
+        flaw_opening_min_size=flaw_opening_min_size,
+        n_iter=planarize_n_iter,
+        lam=planarize_lam,
+    )
+    w_ghd_reconstructed_path = os.path.join(post_dir, w_ghd_reconstructed_filename)
+    pv.save_meshio(w_ghd_reconstructed_path, planarized)
+
+    # --- Step 2: Merge with tubular extensions ---
+    merged = forward_mesh_fusion_v2(
+        post_dir=post_dir,
+        flaw_opening_min_size=flaw_opening_min_size,
+        init_step=init_step,
+        max_cl_length=max_cl_length,
+        ring_downsample_ratio=ring_downsample_ratio,
+        r_clipped_mesh_filename=w_ghd_reconstructed_filename,
+        r_clipped_cl_filename=r_clipped_cl_filename,
+        w_forward_fusion_info_filename=w_ghd_forward_fusion_info_filename,
+        w_merged_mesh_filename=w_merged_mesh_filename,
+    )
+
+    # --- Step 3: Smooth the seam near each opening ---
+    smoothed = smooth_near_openings(
+        merged,
+        post_dir=post_dir,
+        r_forward_fusion_info_filename=w_ghd_forward_fusion_info_filename,
+        n_rings=smooth_n_rings,
+        n_iter=smooth_n_iter,
+        lam=smooth_lam,
+    )
+    smoothed = remove_orphan_vertices(smoothed)  # clean up any disconnected verts from smoothing
+    if w_smoothed_mesh_filename is not None:
+        smoothed.save(os.path.join(ghd_dir, w_smoothed_mesh_filename))
+
+    return smoothed
+
+
