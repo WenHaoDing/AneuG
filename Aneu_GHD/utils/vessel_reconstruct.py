@@ -7,6 +7,7 @@ import numpy as np
 import pyvista as pv
 import networkx as nx
 import os
+from .patching import remove_orphan_vertices
 
 
 def detect_openings(mesh, flaw_opening_min_size=10):
@@ -611,7 +612,6 @@ def ghd_forward_mesh_fusion(post_dir,
     smoothed : pyvista.PolyData
     """
     from .patching import planarize_openings, smooth_near_openings
-
     # --- Step 1: Planarize openings of the GHD mesh ---
     ghd_mesh_path = os.path.join(ghd_dir, r_ghd_mesh_filename)
     ghd_mesh      = pv.read(ghd_mesh_path)
@@ -648,6 +648,7 @@ def ghd_forward_mesh_fusion(post_dir,
         n_iter=smooth_n_iter,
         lam=smooth_lam,
     )
+    smoothed = remove_orphan_vertices(smoothed)  # clean up any disconnected verts from smoothing
     if w_smoothed_mesh_filename is not None:
         smoothed.save(os.path.join(ghd_dir, w_smoothed_mesh_filename))
 

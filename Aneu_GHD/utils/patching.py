@@ -4,6 +4,32 @@ import pyvista as pv
 import networkx as nx
 
 
+def remove_orphan_vertices(mesh):
+    """
+    Remove vertices that are not referenced by any face.
+
+    Parameters
+    ----------
+    mesh : str or pyvista.PolyData
+
+    Returns
+    -------
+    mesh_out : pyvista.PolyData
+        Mesh with orphan vertices removed and face indices remapped.
+    """
+    mesh  = pv.read(mesh) if isinstance(mesh, str) else mesh
+    faces = mesh.faces.reshape(-1, 4)[:, 1:]   # (F, 3)
+
+    referenced              = np.unique(faces)
+    new_index               = np.full(len(mesh.points), -1, dtype=int)
+    new_index[referenced]   = np.arange(len(referenced))
+
+    new_points = mesh.points[referenced]
+    new_faces  = new_index[faces]
+    faces_pv   = np.hstack([np.full((len(new_faces), 1), 3), new_faces]).ravel()
+    return pv.PolyData(new_points, faces_pv)
+
+
 def flatten_and_smooth_opening(mesh_points, vertex_ids, component_edges,
                                 normal=None, n_iter=10, lam=0.5):
     """
