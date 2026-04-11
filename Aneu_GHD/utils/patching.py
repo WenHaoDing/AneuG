@@ -86,6 +86,11 @@ def flatten_and_smooth_opening(mesh_points, vertex_ids, component_edges,
                 c_new[i] = (1.0 - lam) * c[i] + lam * np.mean(c[nbrs], axis=0)
         c = c_new
 
+    # Rescale to preserve mean radius (undo Laplacian shrinkage)
+    mean_r_before = np.mean(np.linalg.norm(coords, axis=1))
+    mean_r_after  = np.mean(np.linalg.norm(c,      axis=1))
+    c *= mean_r_before / mean_r_after
+
     # --- Step 5: Lift back to 3-D ---
     new_positions = plane_origin + c[:, 0:1] * u + c[:, 1:2] * v
     return new_positions
