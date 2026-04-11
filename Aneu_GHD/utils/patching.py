@@ -178,3 +178,83 @@ def planarize_openings(mesh, post_dir=None,
         points[vertex_ids] = new_pos
 
     return pv.PolyData(points, mesh.faces.copy())
+
+
+def smooth_near_openings(mesh, post_dir,
+                         r_forward_fusion_info_filename="ghd_forward_fusion_info.npz",
+                         n_rings=3, n_iter=10, lam=0.5):
+    """
+    Laplacian-smooth the merged mesh in a k-ring neighbourhood around each
+    opening boundary.  Only nodes within n_rings hops of the opening ring are
+    moved; nodes at the outer boundary of that region stay fixed as anchors.
+
+    Parameters
+    ----------
+    mesh : str or pyvista.PolyData
+        Merged mesh (output of forward_mesh_fusion_v2).
+    post_dir : str
+        Case directory containing the forward_fusion_info file.
+    r_forward_fusion_info_filename : str
+        Info filename relative to post_dir.
+    n_rings : int
+        Number of edge-hops from the opening ring to include in the smooth region.
+    n_iter : int
+        Laplacian smoothing iterations.
+    lam : float
+        Smoothing weight per iteration (0 = no change, 1 = full neighbour mean).
+
+    Returns
+    -------
+    mesh_out : pyvista.PolyData
+        Copy of the mesh with the near-opening regions smoothed.
+    """
+    mesh   = pv.read(mesh) if isinstance(mesh, str) else mesh
+    points = np.array(mesh.points, dtype=float)
+
+    # --- Full mesh edge graph ---
+    faces        = mesh.faces.reshape(-1, 4)[:, 1:]
+    all_edges    = np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges_sorted = np.sort(all_edges, axis=1)
+    unique_edges = np.unique(edges_sorted, axis=0)
+    G = nx.Graph()
+    G.add_edges_from(unique_edges.tolist())
+
+    # --- Load opening vertex IDs (still valid in merged mesh) ---
+    info         = np.load(os.path.join(post_dir, r_forward_fusion_info_filename),
+                           allow_pickle=True)
+    opening_vids = info['opening_vertex_ids']   # (B,) object array of index arrays
+
+    for i in range(len(opening_vids)):
+        seed_nodes = set(opening_vids[i].tolist())
+
+        # BFS to collect nodes within n_rings hops
+        region  = set(seed_nodes)
+        frontier = set(seed_nodes)
+        for _ in range(n_rings):
+            next_frontier = set()
+            for node in frontier:
+                for nbr in G.neighbors(node):
+                    if nbr not in region:
+                        next_frontier.add(nbr)
+            region   |= next_frontier
+            frontier  = next_frontier
+
+        # Nodes at the outermost ring are anchors (not moved)
+        anchors    = frontier
+        free_nodes = list(region - anchors)
+
+        # Build local neighbour lists (only within region, for speed)
+        region_list = list(region)
+        subgraph    = G.subgraph(region_list)
+        neighbors   = {n: list(subgraph.neighbors(n)) for n in free_nodes}
+
+        # Laplacian smoothing — anchors provide fixed boundary conditions
+        for _ in range(n_iter):
+            new_pts = points.copy()
+            for n in free_nodes:
+                nbrs = neighbors[n]
+                if nbrs:
+                    new_pts[n] = (1.0 - lam) * points[n] + lam * points[nbrs].mean(axis=0)
+            points = new_pts
+
+    return pv.PolyData(points, mesh.faces.copy())
