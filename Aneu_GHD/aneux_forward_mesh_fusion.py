@@ -86,7 +86,7 @@ if __name__ == "__main__":
     files_to_copy = ["forward_fusion_info.npz", "branch_ranking.npy"]
     redo = True
 
-    cases = os.listdir(ghd_dir)
+    cases = os.listdir(post_dir)
 
     for case in cases:
         save_dir = os.path.join(save_root, case)
