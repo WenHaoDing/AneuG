@@ -75,11 +75,9 @@ def copy_files(src_dir, dst_dir, files_to_copy: list):
 
 if __name__ == "__main__":
     # Dir where original cliiped meshes are stored.
-    post_dir = "/media/yaplab2/HDD Storage/wenhao/AneuSeg/PostTr_debug/ImperialNHS"
-    # Dir where the GHD fitting results are stored.
-    ghd_dir = "fitting_results/job1"
+    post_dir = "/media/yaplab2/HDD Storage/wenhao/AneuSeg/PostTr_debug/AneuX_CFD"
     # Dir where processed results are stored.
-    save_root = "/media/yaplab2/HDD Storage/wenhao/AneuSeg/cfd_meshing/processed_shapes/job1"
+    save_root = "/media/yaplab2/HDD Storage/wenhao/AneuSeg/cfd_meshing/processed_shapes/aneux_cfd_batch1"
     extrude_outlets = True
 
     # output filenames.

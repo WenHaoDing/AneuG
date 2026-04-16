@@ -122,9 +122,10 @@ def flatten_and_smooth_opening(mesh_points, vertex_ids, component_edges,
     return new_positions
 
 
-def planarize_openings(mesh, post_dir=None,
+def planarize_openings(mesh,
                        r_forward_fusion_info_filename="forward_fusion_info.npz",
-                       flaw_opening_min_size=10, n_iter=10, lam=0.5):
+                       flaw_opening_min_size=10, n_iter=10, lam=0.5,
+                       smooth=True):
     """
     Detect every open boundary ring of a surface mesh and nudge its nodes
     onto a flat plane, then regularise spacing with Laplacian smoothing.
@@ -151,6 +152,9 @@ def planarize_openings(mesh, post_dir=None,
         Laplacian smoothing iterations per ring.
     lam : float
         Smoothing weight per iteration (0 = no change, 1 = full neighbour mean).
+    smooth : bool
+        If True (default), apply Laplacian smoothing after planarizing.
+        If False, only project nodes onto the plane with no smoothing.
 
     Returns
     -------
@@ -175,8 +179,9 @@ def planarize_openings(mesh, post_dir=None,
 
     # --- Optionally load outward tangents from the forward-fusion info file ---
     opening_normals = None
-    if post_dir is not None:
-        info              = np.load(os.path.join(post_dir, r_forward_fusion_info_filename),
+
+    if r_forward_fusion_info_filename is not None:
+        info              = np.load(r_forward_fusion_info_filename,
                                     allow_pickle=True)
         cpcd_glo_tangent  = info['cpcd_glo_tangent']    # object array, one tang array per branch
         saved_centroids   = info['opening_centroids']   # (B, 3) centroid per matched opening
@@ -193,6 +198,16 @@ def planarize_openings(mesh, post_dir=None,
         for oc in opening_centroids:
             dists = np.linalg.norm(saved_centroids - oc, axis=1)
             opening_normals.append(branch_normals[int(np.argmin(dists))])
+    else:
+        # No info file: assume each opening is nearly planar.
+        # Fit a plane to the ring points via SVD; the right-singular vector
+        # corresponding to the smallest singular value is the plane normal.
+        opening_normals = []
+        for comp in components:
+            ring_pts = points[np.array(sorted(comp))]
+            centered = ring_pts - ring_pts.mean(axis=0)
+            _, _, Vt = np.linalg.svd(centered, full_matrices=False)
+            opening_normals.append(Vt[-1])
 
     # --- Apply flatten + smooth per opening ---
     for idx, comp in enumerate(components):
@@ -200,13 +215,15 @@ def planarize_openings(mesh, post_dir=None,
         comp_edges = np.array(list(G.subgraph(comp).edges()))
         normal     = opening_normals[idx] if opening_normals is not None else None
         new_pos    = flatten_and_smooth_opening(points, vertex_ids, comp_edges,
-                                                normal=normal, n_iter=n_iter, lam=lam)
+                                                normal=normal,
+                                                n_iter=n_iter if smooth else 0,
+                                                lam=lam)
         points[vertex_ids] = new_pos
 
     return pv.PolyData(points, mesh.faces.copy())
 
 
-def smooth_near_openings(mesh, post_dir,
+def smooth_near_openings(mesh,
                          r_forward_fusion_info_filename="ghd_forward_fusion_info.npz",
                          n_rings=3, n_iter=10, lam=0.5):
     """
@@ -246,7 +263,7 @@ def smooth_near_openings(mesh, post_dir,
     G.add_edges_from(unique_edges.tolist())
 
     # --- Load opening vertex IDs (still valid in merged mesh) ---
-    info         = np.load(os.path.join(post_dir, r_forward_fusion_info_filename),
+    info         = np.load(r_forward_fusion_info_filename,
                            allow_pickle=True)
     opening_vids = info['opening_vertex_ids']   # (B,) object array of index arrays
 

@@ -57,7 +57,7 @@ def avg_edge_length(mesh):
     return 0.85 * np.median(lengths)
 
 
-def resample_branch(pts, step):
+def resample_branch(pts, step, min_n=5):
     """
     Resample a polyline (N, 3) at uniform arc-length intervals of `step`.
 
@@ -70,6 +70,8 @@ def resample_branch(pts, step):
     sample_s = np.arange(0.0, total, step)
     if sample_s[-1] < total:
         sample_s = np.append(sample_s, total)
+    if len(sample_s) < min_n:
+        sample_s = np.linspace(0.0, total, min_n)
     resampled = np.column_stack([
         np.interp(sample_s, cumlen, pts[:, dim]) for dim in range(3)
     ])
@@ -424,16 +426,20 @@ def forward_mesh_fusion(post_dir,
     return merged
 
 
-def forward_mesh_fusion_v2(post_dir,
+def forward_mesh_fusion_v2(save_dir,
                             flaw_opening_min_size=10,
                             init_step=3,
                             max_cl_length=10.0,
+                            min_cl_length=8.0,
                             ring_downsample_ratio=1,
                             r_clipped_mesh_filename="clipped_reconstruction.ply",
                             r_clipped_cl_filename="clipped_centerline.npy",
                             w_forward_fusion_info_filename="forward_fusion_info.npz",
                             w_merged_mesh_filename="merged_reconstruction.ply",
-                            branch_ids: list=None):
+                            branch_ids: list=None,
+                            r_branch_ranking_filename="branch_ranking.npy",
+                            extrude_outlets=False,
+                            extrude_length=2.5):
     """
     Extend the openings of a clipped dome mesh with tubular vessel segments guided
     by the clipped centerlines. The openings are automatically deteceted and matched
@@ -449,8 +455,9 @@ def forward_mesh_fusion_v2(post_dir,
     init_step : int
         Number of resampled points to skip at the opening end to avoid noise. (usually 1-3).
         Larger values are needed for jagged openings.
-    max_cl_length : float
-        Maximum arc-length (mm) of centerline used per branch.
+    max_cl_length : float or list or None
+        Maximum arc-length (mm) of centerline used per branch. If None,
+        defaults to 10.0 for the first branch (upstream) and 2.0 for all others.
     ring_downsample_ratio : int
         Step size for downsampling cross-section rings along the centerline.
         Larger value is needed for mesh with collapse issues.
@@ -460,13 +467,16 @@ def forward_mesh_fusion_v2(post_dir,
         The dome mesh with tubular extensions merged at each opening.
     """
     # load mesh & centerlines
-    mesh_path = os.path.join(post_dir, r_clipped_mesh_filename)
+    mesh_path = os.path.join(r_clipped_mesh_filename)
     mesh = pv.read(mesh_path)
     opening_verts_list, vertex_ids_list = detect_openings(mesh, flaw_opening_min_size=flaw_opening_min_size)
-    cl_path = os.path.join(post_dir, r_clipped_cl_filename)
+    cl_path = os.path.join(r_clipped_cl_filename)
     cl = np.load(cl_path, allow_pickle=True).item()
     if branch_ids is None:
         branch_ids = [cl['upstream_id']] + [id for id in cl['connected_branch_ids'] if id != cl['upstream_id']]
+    if r_branch_ranking_filename is not None:
+        branch_ranking = np.load(r_branch_ranking_filename)
+        branch_ids = [branch_ids[i] for i in branch_ranking]
     branches = [cl['branches'][id]['pts'] for id in branch_ids if cl['branches'][id]['pts'] is not None]
     # interpolate branch pcd at the mesh's average edge length
     step = avg_edge_length(mesh)
@@ -494,10 +504,38 @@ def forward_mesh_fusion_v2(post_dir,
             cpcd_glo[i] = cpcd[::-1]
             cpcd_glo_tangent[i] = tangent[::-1]
 
+    # Extrude all branches to at least min_cl_length along the end tangent
+    # First compute average step size for extrusion.
+    all_steps = []
+    for cpcd in cpcd_glo:
+        if len(cpcd) >= 2:
+            all_steps.extend(np.linalg.norm(np.diff(cpcd, axis=0), axis=1).tolist())
+    avg_pt_step = np.mean(all_steps) if all_steps else step
+
+    for i, (cpcd, tangent) in enumerate(zip(cpcd_glo, cpcd_glo_tangent)):
+        if len(cpcd) < 2:
+            continue
+        arc_dists = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(cpcd, axis=0), axis=1))])
+        total_arc = arc_dists[-1]
+        if total_arc < min_cl_length:
+            print('detect short branch (<8mm), extruded.')
+            pt_step = avg_pt_step
+            if pt_step == 0:
+                pt_step = step
+            remaining = min_cl_length - total_arc
+            n_extra = int(np.ceil(remaining / pt_step))
+            last_tan = tangent[-1]
+            extra_pts = cpcd[-1] + last_tan * (pt_step * np.arange(1, n_extra + 1))[:, None]
+            extra_tan = np.tile(last_tan, (n_extra, 1))
+            cpcd_glo[i] = np.vstack([cpcd, extra_pts])
+            cpcd_glo_tangent[i] = np.vstack([tangent, extra_tan])
+
     # Truncate branches that exceed max_cl_length (arc distance from first to last point)
     truncated_cpcd_glo = []
     truncated_tangent_glo = []
-    if isinstance(max_cl_length, (int, float)):
+    if max_cl_length is None:
+        max_cl_length = [10.0] + [2.5] * (len(cpcd_glo) - 1)
+    elif isinstance(max_cl_length, (int, float)):
         max_cl_length = [max_cl_length] * len(cpcd_glo)
     bid = 0 
     for cpcd, tangent in zip(cpcd_glo, cpcd_glo_tangent):
@@ -508,6 +546,18 @@ def forward_mesh_fusion_v2(post_dir,
         bid += 1
     cpcd_glo = truncated_cpcd_glo
     cpcd_glo_tangent = truncated_tangent_glo
+
+    # Extend outlet branches by extrude_length along end tangent.
+    # cpcd_glo[0] is the upstream inlet — skip it, extend indices 1+ only.
+    if extrude_outlets:
+        n_extra = max(1, int(np.ceil(extrude_length / avg_pt_step)))
+        for i in range(1, len(cpcd_glo)):
+            cpcd, tangent = cpcd_glo[i], cpcd_glo_tangent[i]
+            last_tan = tangent[-1]
+            extra_pts = cpcd[-1] + last_tan * (avg_pt_step * np.arange(1, n_extra + 1))[:, None]
+            extra_tan = np.tile(last_tan, (n_extra, 1))
+            cpcd_glo[i] = np.vstack([cpcd, extra_pts])
+            cpcd_glo_tangent[i] = np.vstack([tangent, extra_tan])
 
     # downsample rings along the centerline to reduce mesh complexity
     cpcd_glo = [cpcd[::ring_downsample_ratio] for cpcd in cpcd_glo]
@@ -527,20 +577,19 @@ def forward_mesh_fusion_v2(post_dir,
     merged = merge_meshes(mesh, tube_faces_list, tube_verts_glo_list, opening_idx_sorted_list)
     # save processed centerline and opening information
     if w_forward_fusion_info_filename is not None:
-        np.savez(os.path.join(post_dir, w_forward_fusion_info_filename),
+        np.savez(os.path.join(save_dir, w_forward_fusion_info_filename),
                 cpcd_glo=np.array(cpcd_glo, dtype=object),
                 cpcd_glo_tangent=np.array(cpcd_glo_tangent, dtype=object),
                 opening_centroids=np.array([oc for oc in matched_opening_centroids]),
                 opening_vertex_ids=np.array(matched_vertex_ids, dtype=object),
                 allow_pickle=True)
     if w_merged_mesh_filename is not None:
-        merged.save(os.path.join(post_dir, w_merged_mesh_filename))
+        merged.save(os.path.join(save_dir, w_merged_mesh_filename))
     return merged
 
 
 
-def ghd_forward_mesh_fusion(post_dir,
-                            ghd_dir,
+def ghd_forward_mesh_fusion(save_dir,
                             flaw_opening_min_size=10,
                             init_step=4,
                             max_cl_length=10.0,
@@ -548,6 +597,7 @@ def ghd_forward_mesh_fusion(post_dir,
                             r_ghd_mesh_filename="ghd_fitted_uncapped_world.obj",
                             r_clipped_cl_filename="clipped_centerline.npy",
                             r_forward_fusion_info_filename="forward_fusion_info.npz",
+                            r_branch_ranking_filename="branch_ranking.npy",
                             w_ghd_reconstructed_filename="ghd_reconstructed.obj",
                             w_ghd_forward_fusion_info_filename="ghd_forward_fusion_info.npz",
                             w_merged_mesh_filename="ghd_merged_reconstruction.ply",
@@ -556,7 +606,8 @@ def ghd_forward_mesh_fusion(post_dir,
                             planarize_lam=0.5,
                             smooth_n_rings=3,
                             smooth_n_iter=10,
-                            smooth_lam=0.5):
+                            smooth_lam=0.5,
+                            extrude_outlets=False):
     """
     Full GHD-to-CFD mesh pipeline for one case:
 
@@ -577,8 +628,9 @@ def ghd_forward_mesh_fusion(post_dir,
         Minimum boundary-ring size; smaller rings are treated as mesh flaws.
     init_step : int
         Centerline points to skip at the opening end (avoids noise).
-    max_cl_length : float
-        Maximum arc-length (mm) of centerline used per branch.
+    max_cl_length : float or list or None
+        Maximum arc-length (mm) of centerline used per branch. If None,
+        defaults to 10.0 for the first branch (upstream) and 2.0 for all others.
     ring_downsample_ratio : int
         Downsampling step along the centerline rings.
     r_ghd_mesh_filename : str
@@ -613,44 +665,52 @@ def ghd_forward_mesh_fusion(post_dir,
     """
     from .patching import planarize_openings, smooth_near_openings
     # --- Step 1: Planarize openings of the GHD mesh ---
-    ghd_mesh_path = os.path.join(ghd_dir, r_ghd_mesh_filename)
+    ghd_mesh_path = r_ghd_mesh_filename
     ghd_mesh      = pv.read(ghd_mesh_path)
     planarized    = planarize_openings(
         ghd_mesh,
-        post_dir=post_dir,
         r_forward_fusion_info_filename=r_forward_fusion_info_filename,
         flaw_opening_min_size=flaw_opening_min_size,
         n_iter=planarize_n_iter,
         lam=planarize_lam,
     )
-    w_ghd_reconstructed_path = os.path.join(post_dir, w_ghd_reconstructed_filename)
+    w_ghd_reconstructed_path = w_ghd_reconstructed_filename
     pv.save_meshio(w_ghd_reconstructed_path, planarized)
 
     # --- Step 2: Merge with tubular extensions ---
     merged = forward_mesh_fusion_v2(
-        post_dir=post_dir,
+        save_dir=save_dir,
         flaw_opening_min_size=flaw_opening_min_size,
         init_step=init_step,
         max_cl_length=max_cl_length,
         ring_downsample_ratio=ring_downsample_ratio,
-        r_clipped_mesh_filename=w_ghd_reconstructed_filename,
+        r_clipped_mesh_filename=w_ghd_reconstructed_path,
         r_clipped_cl_filename=r_clipped_cl_filename,
         w_forward_fusion_info_filename=w_ghd_forward_fusion_info_filename,
         w_merged_mesh_filename=w_merged_mesh_filename,
+        r_branch_ranking_filename=r_branch_ranking_filename,
+        extrude_outlets=extrude_outlets,
     )
 
     # --- Step 3: Smooth the seam near each opening ---
     smoothed = smooth_near_openings(
         merged,
-        post_dir=post_dir,
         r_forward_fusion_info_filename=w_ghd_forward_fusion_info_filename,
         n_rings=smooth_n_rings,
         n_iter=smooth_n_iter,
         lam=smooth_lam,
     )
     smoothed = remove_orphan_vertices(smoothed)  # clean up any disconnected verts from smoothing
+
+    # final planarization
+    smoothed    = planarize_openings(
+        smoothed,
+        r_forward_fusion_info_filename=None,
+        flaw_opening_min_size=flaw_opening_min_size,
+        smooth=False
+    )
     if w_smoothed_mesh_filename is not None:
-        smoothed.save(os.path.join(ghd_dir, w_smoothed_mesh_filename))
+        smoothed.save(os.path.join(save_dir, w_smoothed_mesh_filename))
 
     return smoothed
 

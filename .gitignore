@@ -2,3 +2,4 @@ checkpoints/
 datasets/__pycache__/
 *.pyc
 Aneu_GHD/seg_post/
+Aneu_GHD/fitting_results/
