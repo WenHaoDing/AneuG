@@ -1,3 +1,5 @@
 checkpoints/
 datasets/__pycache__/
 *.pyc
+datasets/
+Aneu_GHD/mesh_comparisons
