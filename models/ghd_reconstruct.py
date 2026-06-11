@@ -11,7 +11,10 @@ from typing import List
 from torch_geometric.data import Data, Batch
 import numpy as np
 from pytorch3d.structures import Meshes
-from ..ghd.base.graph_harmonic_deformation import Graph_Harmonic_Deform
+try:
+    from ..ghd.base.graph_harmonic_deformation import Graph_Harmonic_Deform
+except ImportError:
+    from ghd.base.graph_harmonic_deformation import Graph_Harmonic_Deform
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import pickle

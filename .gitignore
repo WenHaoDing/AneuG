@@ -4,3 +4,5 @@ datasets/__pycache__/
 datasets/
 Aneu_GHD/mesh_comparisons
 Aneu_GHD/seg_post/
+dataset/processed/
+dataset/processed_debug/

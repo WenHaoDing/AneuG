@@ -68,7 +68,7 @@ if __name__ == "__main__":
         wandb.login()
         run = wandb.init(project="your_project",
                          name=meta)
-        
+    
     # dataset
     ghd_reconstruct = GHD_Reconstruct(canonical_Meshes, eigen_chk, num_Basis=12**2, device=device)
     dataset = GHDDataset(ghd_chk_root, ghd_run, ghd_chk_name, ghd_reconstruct, cases, withscale=withscale, normalize=True)
@@ -152,3 +152,12 @@ if __name__ == "__main__":
                 plot_wandb(ghd_reconstruct, dataset, generator, latent_dim, epoch, device, use_norm, withscale)
         scheduler_G.step()
     wandb.finish
+
+
+"""
+1. Data loader
+2. Model  
+3. loss.backward() optimizer scheduler
+
+
+"""

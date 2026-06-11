@@ -61,10 +61,15 @@ class Graph_Harmonic_Deform(nn.Module):
         self.cotlap_np, self.norlap_np, self.standerlap_np = mix_laplacian(base_shape)
         self.mix_lap = mix_lap_weight[0]*self.cotlap_np + mix_lap_weight[1]*self.norlap_np + mix_lap_weight[2]*self.standerlap_np
         if eigen_chk is not None:
-            with open(eigen_chk, 'rb') as f:
-                chk = pickle.load(f)
-            for key_ in chk.keys():
-                setattr(self, key_, chk[key_].to(self.device))
+            if str(eigen_chk).endswith(".npy"):
+                eigvec = np.load(eigen_chk)
+                self.GBH_eigvec = torch.from_numpy(eigvec).to(self.device).float()
+                self.GBH_eigval = torch.zeros((1, self.GBH_eigvec.shape[-1]), device=self.device)
+            else:
+                with open(eigen_chk, 'rb') as f:
+                    chk = pickle.load(f)
+                for key_ in chk.keys():
+                    setattr(self, key_, chk[key_].to(self.device))
         else:
             self.GBH_eigval, self.GBH_eigvec = eigsh(self.mix_lap, k=num_Basis, which='SM')
             self.GBH_eigvec = torch.from_numpy(self.GBH_eigvec).to(base_shape.device).float()

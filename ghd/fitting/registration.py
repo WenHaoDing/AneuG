@@ -9,12 +9,18 @@ import logging
 import os
 import trimesh
 import shapely
-from ...utils import utils_registration as u_register
+try:
+    from ...utils import utils_registration as u_register
+except ImportError:
+    from utils import utils_registration as u_register
 import pickle
 from pytorch3d.structures import Meshes
 import torch
 import sys
-from ...utils.utils import o3d_mesh_to_pytorch3d
+try:
+    from ...utils.utils import o3d_mesh_to_pytorch3d
+except ImportError:
+    from utils.utils import o3d_mesh_to_pytorch3d
 import vtk
 import pytorch3d as p3d
 import igraph as ig
@@ -340,5 +346,4 @@ def p3d_to_pv(Meshes: Meshes):
     poly_data = pv.PolyData(verts)
     poly_data.faces = faces
     return poly_data
-
 

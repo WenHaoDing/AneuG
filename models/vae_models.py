@@ -80,7 +80,6 @@ class VAE(nn.Module):
         else:
             return self.decode(z), mu, logvar
 
-
 class ConditionalGHDVAE(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim, cond_dim=2):
         super(ConditionalGHDVAE, self).__init__()
