@@ -2,7 +2,9 @@ checkpoints/
 datasets/__pycache__/
 *.pyc
 datasets/
-Aneu_GHD/mesh_comparisons
+Aneu_GHD/mesh_comparisons/
 Aneu_GHD/seg_post/
+Aneu_GHD/fitting_results/
 dataset/processed/
 dataset/processed_debug/
+dataset/smoke_centerlines/

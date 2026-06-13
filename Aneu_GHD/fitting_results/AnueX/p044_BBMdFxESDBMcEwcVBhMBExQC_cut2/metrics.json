@@ -1,9 +1,0 @@
-{
-  "chamfer_best": 4.824165807804093e-05,
-  "chamfer_final": 5.597882773145102e-05,
-  "best_iter": 0,
-  "dice": 0.9954383969306946,
-  "gar": 1.0,
-  "converged": false,
-  "s_can": 7.623876070429627
-}

@@ -1,9 +1,0 @@
-{
-  "flaw_opening_min_size": 5,
-  "init_step": 1,
-  "max_cl_length": null,
-  "ring_downsample_ratio": 1,
-  "smooth_n_rings": 5,
-  "smooth_n_iter": 10,
-  "extrude_outlets": true
-}
