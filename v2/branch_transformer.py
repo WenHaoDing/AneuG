@@ -255,6 +255,14 @@ class MultiBranchVAE(nn.Module):
         self.decoder = Decoder(hidden_dim, latent_dim, num_layers, nhead, seq_len,
                                num_types, max_branches, max_local_points, ghd_dim)
 
+        # dataset normalization stats — set via set_normalization_stats() before training
+        self.register_buffer("point_mean", torch.zeros(1, 3))  # [1, 3]
+        self.register_buffer("point_std",  torch.ones(1, 3))   # [1, 3]
+
+    def set_normalization_stats(self, point_mean, point_std):
+        self.point_mean.copy_(point_mean)
+        self.point_std.copy_(point_std)
+
     @staticmethod
     def reparameterize(mu, logvar):
         return mu + torch.randn_like(mu) * torch.exp(0.5 * logvar)
@@ -269,13 +277,15 @@ class MultiBranchVAE(nn.Module):
         recon, length_logit = self.decoder(z, local_points, token_mask, cond)
         return recon, length_logit, mu, logvar
 
-    def get_loss(self, recon, local_points, length_logit, branch_length, token_mask, branch_mask, mu, logvar):
-        # recon:         [B, seq_len, 3]
-        # local_points:  [B, seq_len, 3]
-        # length_logit:  [B, max_branches, max_local_points]
-        # branch_length: [B, max_branches]
-        # token_mask:    [B, seq_len]
-        # branch_mask:   [B, max_branches]   True = valid branch
+    def get_loss(self, recon, local_points, length_logit, branch_length, token_mask,
+                 branch_mask, mu, logvar, branch_direction=None, dir_n_points=5):
+        # recon:             [B, seq_len, 3]
+        # local_points:      [B, seq_len, 3]
+        # length_logit:      [B, max_branches, max_local_points]
+        # branch_length:     [B, max_branches]
+        # token_mask:        [B, seq_len]
+        # branch_mask:       [B, max_branches]   True = valid branch
+        # branch_direction:  [B, max_branches, 3] unit vectors (optional)
         mask       = token_mask.unsqueeze(-1).float()                           # [B, seq_len, 1]
         recon_loss = F.mse_loss(recon * mask, local_points * mask, reduction="sum") / mask.sum().clamp(min=1.0)
         kl_loss    = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / mu.size(0)
@@ -285,11 +295,117 @@ class MultiBranchVAE(nn.Module):
             length_logit[branch_mask],    # [N_valid, max_local_points]
             length_target[branch_mask],   # [N_valid]
         )
-        return recon_loss, kl_loss, length_loss
+
+        if branch_direction is not None:
+            K  = min(dir_n_points, self.max_local_points)
+            Lp = self.max_local_points
+            # extract first K local points per branch and denormalize
+            recon_br = recon.view(recon.size(0), self.max_branches, Lp, 3)     # [B, max_branches, Lp, 3]
+            local_K  = recon_br[:, :, :K, :] * self.point_std + self.point_mean  # [B, max_branches, K, 3]
+
+            # mask out positions beyond branch_length when K > branch_length
+            k_ids    = torch.arange(K, device=recon.device)                    # [K]
+            k_valid  = k_ids.unsqueeze(0).unsqueeze(0) < branch_length.unsqueeze(-1)  # [B, max_branches, K]
+            avg_off  = (local_K * k_valid.unsqueeze(-1).float()).sum(2) / k_valid.float().sum(2).clamp(min=1.0).unsqueeze(-1)  # [B, max_branches, 3]
+
+            pred_dir = F.normalize(avg_off, dim=-1)                            # [B, max_branches, 3]
+            cos_sim  = (pred_dir * branch_direction).sum(dim=-1)               # [B, max_branches]
+            dir_loss = (1.0 - cos_sim)[branch_mask].mean()
+        else:
+            dir_loss = recon.new_tensor(0.0)
+
+        return recon_loss, kl_loss, length_loss, dir_loss
 
     @torch.no_grad()
     def sample(self, phi, cond, z=None):
         cond = cond._replace(ghd_embed=self.ghd_encoder(phi))
+        if z is None:
+            z = torch.randn(phi.size(0), self.latent_dim, device=phi.device)
+        return self.decoder.sample(z, cond)
+
+
+
+class GCNMeshEncoder(nn.Module):
+    """GCN UNet encoder: PyG Batch of reconstructed meshes → [B, ghd_dim].
+
+    Mesh reconstruction is handled externally (MultiCanonicalGHDReconstruct).
+    This module only contains the learnable GCN layers.
+
+    Three levels of GCNConv + SAGPooling; global readout at each level is
+    concatenated and projected to ghd_dim.
+
+    Input (forward):
+        data: torch_geometric.data.Batch with
+            x:          [total_N, 3]   vertex positions
+            edge_index: [2, total_E]
+            batch:      [total_N]
+    """
+
+    def __init__(self, ghd_dim, in_channels=3, hidden=32, pool_ratio=0.5):
+        super().__init__()
+        from torch_geometric.nn import GCNConv, SAGPooling
+        self.conv1 = GCNConv(in_channels, hidden)
+        self.pool1 = SAGPooling(hidden, ratio=pool_ratio)
+        self.conv2 = GCNConv(hidden, hidden * 2)
+        self.pool2 = SAGPooling(hidden * 2, ratio=pool_ratio)
+        self.conv3 = GCNConv(hidden * 2, hidden * 2)
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden + hidden * 2 + hidden * 2, hidden * 4),
+            nn.ReLU(),
+            nn.Linear(hidden * 4, ghd_dim),
+        )
+
+    def forward(self, data):
+        from torch_geometric.nn import global_mean_pool
+        x, ei, batch = data.x, data.edge_index, data.batch
+
+        x1 = F.relu(self.conv1(x, ei))                                     # [total_N, hidden]
+        x1, ei1, _, batch1, _, _ = self.pool1(x1, ei, batch=batch)
+        g1 = global_mean_pool(x1, batch1)                                   # [B, hidden]
+
+        x2 = F.relu(self.conv2(x1, ei1))                                   # [*, hidden*2]
+        x2, ei2, _, batch2, _, _ = self.pool2(x2, ei1, batch=batch1)
+        g2 = global_mean_pool(x2, batch2)                                   # [B, hidden*2]
+
+        x3 = F.relu(self.conv3(x2, ei2))                                   # [*, hidden*2]
+        g3 = global_mean_pool(x3, batch2)                                   # [B, hidden*2]
+
+        return self.mlp(torch.cat([g1, g2, g3], dim=-1))                   # [B, ghd_dim]
+
+
+class MultiBranchVAE_GCNConditioner(MultiBranchVAE):
+    """MultiBranchVAE with a GCN UNet mesh encoder instead of GHDTokenEncoder.
+
+    multi_recon (MultiCanonicalGHDReconstruct) reconstructs the mesh from phi
+    and returns a PyG Batch; GCNMeshEncoder encodes that into ghd_embed.
+
+    Usage:
+        multi_recon = MultiCanonicalGHDReconstruct(canonical_root, device=DEVICE)
+        model = MultiBranchVAE_GCNConditioner(multi_recon, ...)
+        model.set_normalization_stats(point_mean, point_std)
+    """
+
+    def __init__(self, multi_recon, hidden_dim=64, latent_dim=32, num_layers=4, nhead=4,
+                 max_local_points=127, num_types=3, max_branches=3,
+                 num_coeffs=144, ghd_dim=16, gcn_hidden=32, gcn_pool_ratio=0.5):
+        super().__init__(hidden_dim, latent_dim, num_layers, nhead,
+                         max_local_points, num_types, max_branches, num_coeffs, ghd_dim)
+        self.multi_recon = multi_recon
+        self.ghd_encoder = GCNMeshEncoder(ghd_dim, in_channels=3,
+                                          hidden=gcn_hidden, pool_ratio=gcn_pool_ratio)
+
+    def forward(self, local_points, token_mask, phi, cond):
+        pyg_batch = self.multi_recon.to_pyg_batch(phi, cond.aneurysm_type, self.point_std)
+        cond      = cond._replace(ghd_embed=self.ghd_encoder(pyg_batch))
+        mu, logvar = self.encoder(local_points, token_mask, cond)
+        z          = self.reparameterize(mu, logvar)
+        recon, length_logit = self.decoder(z, local_points, token_mask, cond)
+        return recon, length_logit, mu, logvar
+
+    @torch.no_grad()
+    def sample(self, phi, cond, z=None):
+        pyg_batch = self.multi_recon.to_pyg_batch(phi, cond.aneurysm_type, self.point_std)
+        cond      = cond._replace(ghd_embed=self.ghd_encoder(pyg_batch))
         if z is None:
             z = torch.randn(phi.size(0), self.latent_dim, device=phi.device)
         return self.decoder.sample(z, cond)

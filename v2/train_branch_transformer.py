@@ -9,19 +9,23 @@ sys.path = [path for path in sys.path if Path(path or ".").resolve() != ROOT]
 sys.path.insert(0, str(ROOT))
 
 from dataset.skeleton_dataset import VesselSkeletonDataset
-from v2.branch_transformer import MultiBranchVAE, MultiBranchConditions
+from v2.branch_transformer import MultiBranchVAE, MultiBranchVAE_GCNConditioner, MultiBranchConditions
 from v2.sanity_check import sanity_check
 
+# ── variant ───────────────────────────────────────────────────────────────────
+USE_GCN        = True   # True → MultiBranchVAE_GCNConditioner (GCN mesh encoder)
+                          # False → MultiBranchVAE (flat MLP on phi tokens)
 
 PROCESSED_ROOT = ROOT / "dataset" / "processed"
-SAVE_DIR       = ROOT / "checkpoints" / "v2" / "branch_transformer"
+CANONICAL_ROOT = ROOT / "dataset" / "canonical"   # only used when USE_GCN=True
+SAVE_DIR       = ROOT / "checkpoints" / "v2" / ("branch_transformer_gcn" if USE_GCN else "branch_transformer")
 
 DEVICE    = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EPOCHS    = 2000
 BATCH_SIZE = 32
 LR        = 1e-3
 
-HIDDEN_DIM            = 64
+HIDDEN_DIM            = 32
 LATENT_DIM            = 32
 NUM_LAYERS            = 4
 NHEAD                 = 4
@@ -30,9 +34,16 @@ MAX_BRANCHES          = 3
 MAX_POINTS_PER_BRANCH = 128   # max_local_points = MAX_POINTS_PER_BRANCH - 1 = 127
 NUM_TYPES             = 3
 
+# GCN encoder (only used when USE_GCN=True)
+GCN_HIDDEN     = 32
+GCN_POOL_RATIO = 0.5
+
 KL_WEIGHT        = 1e-3
 KL_ANNEAL_EPOCHS = 200
 LEN_WEIGHT       = 0.1
+DIR_WEIGHT       = 0.0
+
+LR_MIN = 1e-5   # cosine annealing floor
 
 SAVE_EVERY   = 200
 LOG_EVERY    = 10
@@ -95,12 +106,25 @@ def main():
     )
     loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, drop_last=True)
 
-    model = MultiBranchVAE(
-        hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, num_layers=NUM_LAYERS, nhead=NHEAD,
-        max_local_points=MAX_POINTS_PER_BRANCH - 1,
-        num_types=NUM_TYPES, max_branches=MAX_BRANCHES, ghd_dim=GHD_DIM,
-    ).to(DEVICE)
+    if USE_GCN:
+        from v2.ghd_reconstruct import MultiCanonicalGHDReconstruct
+        multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=DEVICE)
+        model = MultiBranchVAE_GCNConditioner(
+            multi_recon,
+            hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, num_layers=NUM_LAYERS, nhead=NHEAD,
+            max_local_points=MAX_POINTS_PER_BRANCH - 1,
+            num_types=NUM_TYPES, max_branches=MAX_BRANCHES, ghd_dim=GHD_DIM,
+            gcn_hidden=GCN_HIDDEN, gcn_pool_ratio=GCN_POOL_RATIO,
+        ).to(DEVICE)
+    else:
+        model = MultiBranchVAE(
+            hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, num_layers=NUM_LAYERS, nhead=NHEAD,
+            max_local_points=MAX_POINTS_PER_BRANCH - 1,
+            num_types=NUM_TYPES, max_branches=MAX_BRANCHES, ghd_dim=GHD_DIM,
+        ).to(DEVICE)
+    model.set_normalization_stats(dataset.point_mean, dataset.point_std)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=LR_MIN)
 
     for epoch in range(EPOCHS + 1):
         model.train()
@@ -112,12 +136,12 @@ def main():
             recon, length_logit, mu, logvar = model(
                 data["local_points"], data["token_mask"], data["phi"], data["cond"],
             )
-            recon_loss, kl_loss, length_loss = model.get_loss(
+            recon_loss, kl_loss, length_loss, dir_loss = model.get_loss(
                 recon, data["local_points"], length_logit,
                 data["branch_length"], data["token_mask"], data["branch_mask"],
-                mu, logvar,
+                mu, logvar, branch_direction=data["cond"].branch_direction,
             )
-            loss = recon_loss + kl_weight * kl_loss + LEN_WEIGHT * length_loss
+            loss = recon_loss + kl_weight * kl_loss + LEN_WEIGHT * length_loss + DIR_WEIGHT * dir_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -128,10 +152,13 @@ def main():
                 "recon":  float(recon_loss),
                 "kl":     float(kl_loss),
                 "length": float(length_loss),
+                "dir":    float(dir_loss),
             }
 
+        scheduler.step()
+
         if epoch % LOG_EVERY == 0:
-            print({"epoch": epoch, "kl_weight": round(kl_weight, 6), **metrics})
+            print({"epoch": epoch, "kl_weight": round(kl_weight, 6), "lr": scheduler.get_last_lr()[0], **metrics})
         if epoch % SAVE_EVERY == 0:
             save_checkpoint(model, optimizer, dataset, epoch)
         if epoch % SANITY_EVERY == 0:
@@ -146,4 +173,5 @@ if __name__ == "__main__":
 """
 conda activate new
 python v2/train_branch_transformer.py
+
 """
