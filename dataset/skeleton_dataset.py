@@ -209,3 +209,86 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         if not self.normalize:
             return points
         return points * self.point_std.to(points.device) + self.point_mean.to(points.device)
+
+
+def visualize_sample(dataset, idx, save_path=None):
+    """Sanity-check one dataset item.
+
+    Reconstructs absolute branch points from `start_points` +
+    `denormalize_local_points(local_points)` and overlays them on the
+    GHD mesh reconstructed from `phi`, mirroring
+    `dataset.preprocess.sanity_check_processed_checkpoint`.
+    """
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    from preprocess import _reconstruct_ghd_numpy, _set_axes_equal
+
+    item = dataset[idx]
+    checkpoint = {
+        "aneurysm_type": int(item["aneurysm_type"]),
+        "ghd": {"phi": item["phi"].numpy()},
+    }
+    verts, faces = _reconstruct_ghd_numpy(checkpoint, denormalize_shape=True)
+
+    local_points = dataset.denormalize_local_points(item["local_points"])
+    branch_points = []
+    for branch_idx in range(dataset.max_branches):
+        if not item["branch_mask"][branch_idx]:
+            continue
+        n = int(item["branch_length"][branch_idx])
+        start = item["start_points"][branch_idx].numpy()
+        offsets = local_points[branch_idx, :n].numpy()
+        pts = np.concatenate([start[None, :], start[None, :] + offsets], axis=0)
+        branch_points.append(pts)
+
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot_trisurf(verts[:, 0], verts[:, 1], verts[:, 2], triangles=faces,
+                    color="lightgray", edgecolor="none", alpha=0.25)
+
+    colors = plt.cm.tab10(np.linspace(0, 1, max(len(branch_points), 1)))
+    for i, pts in enumerate(branch_points):
+        color = colors[i % len(colors)]
+        ax.plot(pts[:, 0], pts[:, 1], pts[:, 2], linewidth=2.0, color=color, label=f"branch {i}")
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], s=8, color=color)
+        ax.scatter(*pts[0], s=40, marker="x", color=color)
+
+    ax.set_title(f"{item['case']} (type {int(item['aneurysm_type'])}: {item['canonical_type']})")
+    ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+    _set_axes_equal(ax, verts, *branch_points)
+    ax.legend(loc="upper right")
+    fig.tight_layout()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+    return fig
+
+
+if __name__ == "__main__":
+    import sys
+    import os
+
+    ROOT = '/media/yaplab2/HDD Storage/wenhao/AneuG/dataset'
+    
+    dataset = VesselSkeletonDataset(os.path.join(ROOT, 'processed'))
+    print(f"Loaded {len(dataset)} samples.")
+
+    out_dir = os.path.join(ROOT, 'processed', 'sanity_branches')
+    for idx in range(min(5, len(dataset))):
+        case = dataset.samples[idx]["case"]
+        save_path = os.path.join(out_dir, f"{case}_sanity_dataset.png")
+        visualize_sample(dataset, idx, save_path=save_path)
+        print(f"Saved sanity figure for {case} -> {save_path}")
+
+
+
+"""
+conda activate new
+python dataset/skeleton_dataset.py
+
+"""
