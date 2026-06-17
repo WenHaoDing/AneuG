@@ -1,14 +1,24 @@
 """
-Evaluation and visualisation for MultiBranchVAE / MultiBranchVAE_GCNConditioner.
+Fully-generative evaluation for MultiBranchVAE / MultiBranchVAE_GCNConditioner.
 
-For each case produces a side-by-side figure:
-  col 0  : ground-truth branches on GHD mesh
-  col 1-N: N_SAMPLES independently generated branches on the same mesh
+Pipeline (no ground-truth data involved):
+  1. Sample a random aneurysm type per sample.
+  2. Sample z_ghd ~ N(0, I) and decode it through the pre-trained GHD VAE
+     (TypeConditionalVAE), conditioned on the random type, to generate a GHD
+     shape (phi) and its scale.
+  3. Derive branch conditions (start points, outward directions, branch mask)
+     from the reconstructed mesh openings.
+  4. Generate branch points with the branch transformer using z = 0, i.e. the
+     mean/most-likely branches given the condition (deterministic).
+
+For each generated sample we render the reconstructed GHD mesh overlaid with
+its generated branches, arranged in a grid.
 
 conda activate new
 python v2/eval_branch_transformer.py
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -22,43 +32,64 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path = [path for path in sys.path if Path(path or ".").resolve() != ROOT]
 sys.path.insert(0, str(ROOT))
 
-from dataset.skeleton_dataset import VesselSkeletonDataset
 from dataset.preprocess import _reconstruct_ghd_numpy, _set_axes_equal
 from v2.branch_transformer import MultiBranchVAE, MultiBranchVAE_GCNConditioner, MultiBranchConditions
+from v2.ghd_reconstruct import MultiCanonicalGHDReconstruct
 from v2.train_branch_transformer import (
-    PROCESSED_ROOT, CANONICAL_ROOT, DEVICE,
+    CANONICAL_ROOT, DEVICE,
     HIDDEN_DIM, LATENT_DIM, NUM_LAYERS, NHEAD, GHD_DIM,
     MAX_BRANCHES, MAX_POINTS_PER_BRANCH, NUM_TYPES,
     GCN_HIDDEN, GCN_POOL_RATIO,
-    VAL_FRACTION, VAL_SEED,
+    load_ghd_vae,
 )
 
 # ── eval config ───────────────────────────────────────────────────────────────
-CHECKPOINT = ROOT / "checkpoints" / "v2" / "branch_transformer_gcn" / "epoch_00400.pth"
-USE_GCN    = True    # must match the checkpoint
-N_CASES    = 10      # number of cases to visualise
-N_SAMPLES  = 3       # independently generated samples per case
-FROM_VAL   = True    # True = val split only;  False = full dataset
-SAVE_DIR   = CHECKPOINT.parent / "eval"
+CHECKPOINT = ROOT / "tr_checkpoints" / "v2" / "branch_transformer" / "branch_transformer_gcn_h64_z8_kl1_largelen" / "epoch_02000.pth"
+NUM_LAYERS = 4
+# GHD VAE checkpoint — must match GHD_HIDDEN_DIM/GHD_LATENT_DIM in train_branch_transformer (h512/z108).
+GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "ghd_vae_h512_z108_kl1" / "epoch_10000.pth"
+USE_GCN    = True              # must match the checkpoint
+Z_ZERO     = False             # True → branch z = 0 (mean/most-likely);  False → z ~ N(0, I)
+N_GEN      = 12                # number of random samples to generate
+NCOLS      = 4                 # grid columns
+SEED       = 0                 # RNG seed for reproducible generation
+CANONICAL_TYPE_NAME = {0: "bifurcated", 1: "sidewall", 2: "sidewall"}
+SAVE_DIR   = CHECKPOINT.parent / "eval_generative"
 
 
 # ── model loading ─────────────────────────────────────────────────────────────
 
-def load_model(checkpoint_path):
+def dims_from_checkpoint_name(checkpoint_path, default_hidden, default_latent):
+    """Parse hidden/latent dims from the checkpoint folder name (…_h64_z8_kl1).
+
+    Only hidden_dim and latent_dim are encoded in the name; other architecture
+    hyper-parameters (nhead, num_layers, ghd_dim, GCN params, …) still come from
+    the train config import.
+    """
+    name = Path(checkpoint_path).parent.name
+    m = re.search(r"_h(\d+)_z(\d+)", name)
+    if not m:
+        print(f"[warn] no '_h<H>_z<Z>' in '{name}'; using defaults h{default_hidden}/z{default_latent}")
+        return default_hidden, default_latent
+    hidden, latent = int(m.group(1)), int(m.group(2))
+    print(f"Parsed dims from '{name}': hidden_dim={hidden}, latent_dim={latent}")
+    return hidden, latent
+
+
+def load_branch_model(checkpoint_path, multi_recon):
+    hidden_dim, latent_dim = dims_from_checkpoint_name(checkpoint_path, HIDDEN_DIM, LATENT_DIM)
     chk = torch.load(checkpoint_path, map_location=DEVICE)
     if USE_GCN:
-        from v2.ghd_reconstruct import MultiCanonicalGHDReconstruct
-        multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=DEVICE)
         model = MultiBranchVAE_GCNConditioner(
             multi_recon,
-            hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, num_layers=NUM_LAYERS, nhead=NHEAD,
+            hidden_dim=hidden_dim, latent_dim=latent_dim, num_layers=NUM_LAYERS, nhead=NHEAD,
             max_local_points=MAX_POINTS_PER_BRANCH - 1,
             num_types=NUM_TYPES, max_branches=MAX_BRANCHES, ghd_dim=GHD_DIM,
             gcn_hidden=GCN_HIDDEN, gcn_pool_ratio=GCN_POOL_RATIO,
         ).to(DEVICE)
     else:
         model = MultiBranchVAE(
-            hidden_dim=HIDDEN_DIM, latent_dim=LATENT_DIM, num_layers=NUM_LAYERS, nhead=NHEAD,
+            hidden_dim=hidden_dim, latent_dim=latent_dim, num_layers=NUM_LAYERS, nhead=NHEAD,
             max_local_points=MAX_POINTS_PER_BRANCH - 1,
             num_types=NUM_TYPES, max_branches=MAX_BRANCHES, ghd_dim=GHD_DIM,
         ).to(DEVICE)
@@ -68,38 +99,51 @@ def load_model(checkpoint_path):
     return model
 
 
-# ── branch extraction helpers ─────────────────────────────────────────────────
+# ── generation ────────────────────────────────────────────────────────────────
 
-def gt_branch_points(item, dataset):
-    """Absolute GT branch curves: start + denorm(local_points[:n])."""
-    local = dataset.denormalize_local_points(item["local_points"])  # [max_branches, max_lp, 3]
+@torch.no_grad()
+def generate_ghd(ghd_vae, ghd_mean, ghd_std, types):
+    """Sample z_ghd ~ N(0,I) and decode → (phi [B,144,3], scale [B])."""
+    B        = types.size(0)
+    z_ghd    = torch.randn(B, ghd_vae.latent_dim, device=DEVICE)
+    ghd_n, scale_n = ghd_vae.decode(z_ghd, types)                              # [B,432], [B,1]
+    phi      = (ghd_n * ghd_std[:, :432] + ghd_mean[:, :432]).reshape(B, -1, 3)
+    scale    = (scale_n * ghd_std[:, 432:] + ghd_mean[:, 432:]).squeeze(1)     # [B]
+    return phi, scale
+
+
+@torch.no_grad()
+def build_conditions(multi_recon, phi, types, scale, max_branches):
+    """Branch conditions from mesh openings, for a mixed-type batch."""
+    B      = phi.size(0)
+    starts = phi.new_zeros(B, max_branches, 3)
+    dirs   = phi.new_zeros(B, max_branches, 3)
+    mask   = torch.zeros(B, max_branches, dtype=torch.bool, device=phi.device)
+    for atype in sorted(set(int(t) for t in types.tolist())):
+        idx = (types == atype).nonzero(as_tuple=True)[0]
+        s, d, m = multi_recon.compute_branch_conditions(phi[idx], atype, max_branches)
+        starts[idx], dirs[idx], mask[idx] = s, d, m
+    return MultiBranchConditions(
+        aneurysm_type    = types,
+        scale            = scale,
+        start_points     = starts,
+        branch_direction = dirs,
+        branch_mask      = mask,
+    )
+
+
+def abs_branches(outputs_b, lengths_b, starts_b, mask_b, point_mean, point_std, max_branches):
+    """One sample's absolute branch curves: start + denorm(local offsets[:n])."""
+    max_lp = outputs_b.shape[0] // max_branches
+    offs   = (outputs_b.view(max_branches, max_lp, 3) * point_std + point_mean)  # [max_branches, max_lp, 3]
     result = []
-    for b in range(dataset.max_branches):
-        if not item["branch_mask"][b]:
+    for b in range(max_branches):
+        if not bool(mask_b[b]):
             continue
-        n     = int(item["branch_length"][b])
-        start = item["start_points"][b].numpy()                     # [3]
-        offs  = local[b, :n].numpy()                                # [n, 3]
-        result.append(np.concatenate([start[None], start[None] + offs], axis=0))
-    return result
-
-
-def gen_branch_points(outputs, lengths, item, dataset):
-    """Absolute generated branch curves from one model.sample() call.
-
-    outputs: [seq_len, 3]  (CPU, zeroed for absent branches)
-    lengths: [max_branches]
-    """
-    max_lp  = dataset.max_local_points
-    outputs = dataset.denormalize_local_points(outputs).view(dataset.max_branches, max_lp, 3)
-    result  = []
-    for b in range(dataset.max_branches):
-        if not item["branch_mask"][b]:
-            continue
-        n     = int(lengths[b].clamp(min=1))
-        start = item["start_points"][b].numpy()
-        offs  = outputs[b, :n].numpy()
-        result.append(np.concatenate([start[None], start[None] + offs], axis=0))
+        n     = int(lengths_b[b].clamp(min=1))
+        start = starts_b[b].cpu().numpy()
+        o     = offs[b, :n].cpu().numpy()
+        result.append(np.concatenate([start[None], start[None] + o], axis=0))
     return result
 
 
@@ -119,80 +163,63 @@ def plot_branches(ax, verts, faces, branch_pts, title):
     _set_axes_equal(ax, verts, *branch_pts)
 
 
-# ── per-case evaluation ───────────────────────────────────────────────────────
+# ── main ──────────────────────────────────────────────────────────────────────
 
 @torch.no_grad()
-def eval_case(model, item, dataset, save_path):
-    phi  = item["phi"].unsqueeze(0).to(DEVICE)                             # [1, 144, 3]
-    cond = MultiBranchConditions(
-        aneurysm_type    = item["aneurysm_type"].unsqueeze(0).to(DEVICE),
-        scale            = item["scale"].unsqueeze(0).to(DEVICE),
-        start_points     = item["start_points"].unsqueeze(0).to(DEVICE),
-        branch_direction = item["branch_direction"].unsqueeze(0).to(DEVICE),
-        branch_mask      = item["branch_mask"].unsqueeze(0).to(DEVICE),
-    )
+def main():
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
 
-    # GHD mesh (numpy reconstruction)
-    verts, faces = _reconstruct_ghd_numpy(
-        {"aneurysm_type": int(item["aneurysm_type"]), "ghd": {"phi": item["phi"].numpy()}},
-        denormalize_shape=True,
-    )
+    multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=DEVICE)
+    model       = load_branch_model(CHECKPOINT, multi_recon)
+    ghd_vae, ghd_mean, ghd_std = load_ghd_vae(GHD_VAE_CKPT, DEVICE)
+    print(f"Loaded branch transformer: {CHECKPOINT}")
+    print(f"Loaded GHD VAE:            {GHD_VAE_CKPT}")
 
-    gt_pts = gt_branch_points(item, dataset)
-    gen_pts_list = []
-    for _ in range(N_SAMPLES):
-        outputs, lengths, _ = model.sample(phi, cond)
-        gen_pts_list.append(gen_branch_points(outputs[0].cpu(), lengths[0].cpu(), item, dataset))
+    # 1. random types → 2. generate GHD shapes
+    types = torch.randint(0, NUM_TYPES, (N_GEN,), device=DEVICE)
+    phi, scale = generate_ghd(ghd_vae, ghd_mean, ghd_std, types)
 
-    # 1 GT column + N_SAMPLES generated columns
-    ncols = 1 + N_SAMPLES
-    fig   = plt.figure(figsize=(4 * ncols, 4))
-    fig.suptitle(
-        f"{item['case']}  (type {int(item['aneurysm_type'])}: {item['canonical_type']})",
-        fontsize=9,
-    )
+    # 3. branch conditions from mesh openings
+    cond = build_conditions(multi_recon, phi, types, scale, MAX_BRANCHES)
 
-    ax = fig.add_subplot(1, ncols, 1, projection="3d")
-    plot_branches(ax, verts, faces, gt_pts, "Ground Truth")
+    # 4. generate branches
+    #    Z_ZERO=True  → z = 0  (mean / most-likely branches given the condition)
+    #    Z_ZERO=False → z ~ N(0, I)  (sample diverse branches)
+    if Z_ZERO:
+        z = torch.zeros(N_GEN, model.latent_dim, device=DEVICE)
+    else:
+        z = torch.randn(N_GEN, model.latent_dim, device=DEVICE)
+    outputs, lengths, _ = model.sample(phi, cond, z=z)
 
-    for s, gen_pts in enumerate(gen_pts_list):
-        ax = fig.add_subplot(1, ncols, s + 2, projection="3d")
-        plot_branches(ax, verts, faces, gen_pts, f"Sample {s + 1}")
+    point_mean = model.point_mean   # [1, 3]
+    point_std  = model.point_std    # [1, 3]
+
+    z_label = "z=0" if Z_ZERO else "z~N(0,I)"
+    nrows = (N_GEN + NCOLS - 1) // NCOLS
+    fig   = plt.figure(figsize=(4 * NCOLS, 4 * nrows))
+    fig.suptitle(f"Generative samples ({z_label})  |  {CHECKPOINT.name}", fontsize=11)
+
+    for i in range(N_GEN):
+        atype = int(types[i])
+        verts, faces = _reconstruct_ghd_numpy(
+            {"aneurysm_type": atype, "ghd": {"phi": phi[i].cpu().numpy()}},
+            denormalize_shape=True,
+        )
+        branch_pts = abs_branches(
+            outputs[i], lengths[i], cond.start_points[i], cond.branch_mask[i],
+            point_mean, point_std, MAX_BRANCHES,
+        )
+        ax = fig.add_subplot(nrows, NCOLS, i + 1, projection="3d")
+        plot_branches(ax, verts, faces, branch_pts,
+                      f"#{i}  type {atype}: {CANONICAL_TYPE_NAME.get(atype, '?')}  (scale {float(scale[i]):.2f})")
 
     fig.tight_layout()
-    save_path.parent.mkdir(parents=True, exist_ok=True)
+    SAVE_DIR.mkdir(parents=True, exist_ok=True)
+    save_path = SAVE_DIR / f"generative_samples_{'z0' if Z_ZERO else 'zrandn'}.png"
     fig.savefig(save_path, dpi=150)
     plt.close(fig)
     print(f"Saved → {save_path}")
-
-
-# ── main ──────────────────────────────────────────────────────────────────────
-
-def main():
-    dataset = VesselSkeletonDataset(
-        PROCESSED_ROOT,
-        max_branches=MAX_BRANCHES,
-        max_points_per_branch=MAX_POINTS_PER_BRANCH,
-    )
-
-    if FROM_VAL:
-        n_val   = max(1, int(len(dataset) * VAL_FRACTION))
-        n_train = len(dataset) - n_val
-        _, val_set = torch.utils.data.random_split(
-            dataset, [n_train, n_val],
-            generator=torch.Generator().manual_seed(VAL_SEED),
-        )
-        indices = [val_set.indices[i] for i in range(min(N_CASES, len(val_set)))]
-    else:
-        indices = list(range(min(N_CASES, len(dataset))))
-
-    model = load_model(CHECKPOINT)
-    print(f"Loaded checkpoint: {CHECKPOINT}")
-    print(f"Evaluating {len(indices)} cases  ({N_SAMPLES} samples each) → {SAVE_DIR}")
-
-    for rank, idx in enumerate(indices):
-        item = dataset[idx]
-        eval_case(model, item, dataset, SAVE_DIR / f"{rank:03d}_{item['case']}.png")
 
 
 if __name__ == "__main__":

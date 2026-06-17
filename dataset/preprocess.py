@@ -141,7 +141,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 DEFAULT_GHD_ROOT = "/media/yaplab2/HDD Storage/almaha/Aneu_GHD/Fitting_Results_Final/ImperialNHS"
 DEFAULT_POST_ROOT = "/media/yaplab2/HDD Storage/wenhao/AneuSeg/PostTr_debug/ImperialNHS"
-DEFAULT_OUTPUT_DIR = "/media/yaplab2/HDD Storage/wenhao/AneuG/dataset/processed_debug"
+DEFAULT_OUTPUT_DIR = "/media/yaplab2/HDD Storage/wenhao/AneuG/dataset/processed"
 CANONICAL_ROOT = _REPO_ROOT / "dataset" / "canonical"
 
 CANONICAL_BY_TYPE = {

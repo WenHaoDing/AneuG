@@ -16,16 +16,20 @@ from v2.vae_models import TypeConditionalVAE
 
 
 PROCESSED_ROOT = ROOT / "dataset" / "processed"
-SAVE_DIR = ROOT / "checkpoints" / "v2" / "ghd_vae"
 
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 EPOCHS = 10000
-BATCH_SIZE = 128
+BATCH_SIZE = 8
 LR = 2e-3
 HIDDEN_DIM = 512
 LATENT_DIM = 108
+
+KL_BASE = 2.5e-4
+KL_MULT = 1  # integer multiplier (e.g. 1, 2, 4); goes into SAVE_DIR name
+KL_WEIGHT = KL_BASE * KL_MULT
+
+SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / f"ghd_vae_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT}"
 WITH_SCALE = True
-KL_WEIGHT = 2.5e-4
 SCALE_WEIGHT = 0.25
 MESH_WEIGHT = 100.0
 SAVE_EVERY = 1000

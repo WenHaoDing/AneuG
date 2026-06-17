@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import torch
+import torch.nn.functional as F
 
 from models.ghd_reconstruct import GHD_Reconstruct
 from utils.utils import safe_load_mesh
@@ -46,7 +48,8 @@ class MultiCanonicalGHDReconstruct:
             self.specs.update(specs)
         self.device = torch.device(device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
         self.reconstructors = {}
-        self._edge_cache = {}   # type_id → edge_index [2, E]
+        self._edge_cache    = {}   # type_id → edge_index [2, E]
+        self._opening_cache = {}   # type_id → list of long tensors [K_i]
 
     def get(self, aneurysm_type) -> GHD_Reconstruct:
         aneurysm_type = int(aneurysm_type)
@@ -116,6 +119,82 @@ class MultiCanonicalGHDReconstruct:
                 data_list[b] = Data(x=verts_all[k], edge_index=edge_index)
 
         return Batch.from_data_list(data_list)
+
+    def _load_openings(self, atype):
+        """Load and cache opening vertex indices for the given type from openings.npz."""
+        if atype not in self._opening_cache:
+            path = Path(self.specs[atype].root) / "openings.npz"
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"openings.npz not found at {path}. "
+                    "Run dataset/record_openings.ipynb first."
+                )
+            data = np.load(path)
+            n    = int(data["num_openings"])
+            self._opening_cache[atype] = [
+                torch.from_numpy(data[f"indices_{i}"]).long().to(self.device)
+                for i in range(n)
+            ]
+        return self._opening_cache[atype]
+
+    def compute_branch_conditions(self, phi, atype, max_branches=None):
+        """Compute start_points and directions for a same-type batch of phi.
+
+        All samples in phi must belong to the same aneurysm type.
+
+        Args:
+            phi:          float32 [B, num_coeffs, 3]
+            atype:        int — single aneurysm type shared by all samples
+            max_branches: int or None — output width; auto = num openings for this type
+
+        Returns:
+            start_points:      float32 [B, max_branches, 3]
+            branch_directions: float32 [B, max_branches, 3]  unit vectors
+            branch_mask:       bool    [B, max_branches]
+        """
+        B               = phi.size(0)
+        atype           = int(atype)
+        recon           = self.get(atype)
+        opening_indices = self._load_openings(atype)
+        n_open          = len(opening_indices)
+        if max_branches is None:
+            max_branches = n_open
+
+        starts    = phi.new_zeros(B, max_branches, 3)
+        dirs      = phi.new_zeros(B, max_branches, 3)
+        mask      = torch.zeros(B, max_branches, dtype=torch.bool, device=phi.device)
+
+        offset    = torch.einsum('nm,bmc->bnc', recon.GHD_eigvec, phi)
+        verts_all = (recon.canonical_Meshes.verts_packed().unsqueeze(0)
+                     + offset) * recon.norm_canonical                             # [B, N, 3]
+        mesh_ctr  = verts_all.mean(1)                                            # [B, 3]
+
+        for o in range(min(n_open, max_branches)):
+            bv        = verts_all[:, opening_indices[o], :]                      # [B, K_o, 3]
+            centroid  = bv.mean(1)                                               # [B, 3]
+            _, _, Vt  = torch.linalg.svd(bv - centroid.unsqueeze(1), full_matrices=False)
+            normal    = Vt[:, -1, :]                                             # [B, 3]
+            flip      = (normal * F.normalize(centroid - mesh_ctr, dim=-1)).sum(-1) < 0
+            normal    = torch.where(flip.unsqueeze(-1), -normal, normal)
+            starts[:, o] = centroid
+            dirs[:, o]   = F.normalize(normal, dim=-1)
+            mask[:, o]   = True
+
+        return starts, dirs, mask
+
+    def compute_branch_directions(self, phi, aneurysm_types):
+        """SVD outward normals for a mixed-type batch. Loops per type externally."""
+        B        = phi.size(0)
+        types    = aneurysm_types.tolist()
+        unique   = sorted(set(int(t) for t in types))
+        max_open = max(len(self._load_openings(t)) for t in unique)
+        dirs     = phi.new_zeros(B, max_open, 3)
+        for atype in unique:
+            idx      = [b for b in range(B) if int(types[b]) == atype]
+            _, d, _  = self.compute_branch_conditions(phi[idx], atype, max_branches=max_open)
+            for k, b in enumerate(idx):
+                dirs[b] = d[k]
+        return dirs
 
     def forward_as_meshes(self, ghd, aneurysm_type, **kwargs):
         return self.get(aneurysm_type).ghd_forward_as_Meshes(ghd, **kwargs)

@@ -143,7 +143,10 @@ class Encoder(nn.Module):
         # pooling with masking, essential as different cases have very different numbers of valid tokens.
         pooled  = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1.0)        # [B, hidden_dim*2]
         pooled  = torch.cat([pooled, g_emb], dim=-1)                          # [B, hidden_dim*2 + hidden_dim]
-        return self.fc_mu(pooled), self.fc_var(pooled)                        # [B, latent_dim] × 2
+        # Clamp logvar so exp(0.5*logvar) (reparameterize) and logvar.exp() (KL)
+        # cannot overflow to inf -> NaN.
+        logvar  = self.fc_var(pooled).clamp(-10.0, 10.0)
+        return self.fc_mu(pooled), logvar                                     # [B, latent_dim] × 2
 
 
 class Decoder(nn.Module):
@@ -278,7 +281,7 @@ class MultiBranchVAE(nn.Module):
         return recon, length_logit, mu, logvar
 
     def get_loss(self, recon, local_points, length_logit, branch_length, token_mask,
-                 branch_mask, mu, logvar, branch_direction=None, dir_n_points=5):
+                 branch_mask, mu, logvar):
         # recon:             [B, seq_len, 3]
         # local_points:      [B, seq_len, 3]
         # length_logit:      [B, max_branches, max_local_points]
@@ -296,25 +299,29 @@ class MultiBranchVAE(nn.Module):
             length_target[branch_mask],   # [N_valid]
         )
 
-        if branch_direction is not None:
-            K  = min(dir_n_points, self.max_local_points)
-            Lp = self.max_local_points
-            # extract first K local points per branch and denormalize
-            recon_br = recon.view(recon.size(0), self.max_branches, Lp, 3)     # [B, max_branches, Lp, 3]
-            local_K  = recon_br[:, :, :K, :] * self.point_std + self.point_mean  # [B, max_branches, K, 3]
+        return recon_loss, kl_loss, length_loss
 
-            # mask out positions beyond branch_length when K > branch_length
-            k_ids    = torch.arange(K, device=recon.device)                    # [K]
-            k_valid  = k_ids.unsqueeze(0).unsqueeze(0) < branch_length.unsqueeze(-1)  # [B, max_branches, K]
-            avg_off  = (local_K * k_valid.unsqueeze(-1).float()).sum(2) / k_valid.float().sum(2).clamp(min=1.0).unsqueeze(-1)  # [B, max_branches, 3]
+    def get_dir_loss(self, recon, branch_length, branch_mask, branch_direction, n_points=10):
+        # recon:            [B, seq_len, 3]
+        # branch_length:    [B, max_branches]
+        # branch_mask:      [B, max_branches]
+        # branch_direction: [B, max_branches, 3]  unit target vectors
+        K        = min(n_points, self.max_local_points)
+        Lp       = self.max_local_points
+        recon_br = recon.view(recon.size(0), self.max_branches, Lp, 3)
+        local_K  = recon_br[:, :, :K, :] * self.point_std + self.point_mean  # [B, max_branches, K, 3]
 
-            pred_dir = F.normalize(avg_off, dim=-1)                            # [B, max_branches, 3]
-            cos_sim  = (pred_dir * branch_direction).sum(dim=-1)               # [B, max_branches]
-            dir_loss = (1.0 - cos_sim)[branch_mask].mean()
-        else:
-            dir_loss = recon.new_tensor(0.0)
+        k_ids    = torch.arange(K, device=recon.device)
+        k_valid  = k_ids.unsqueeze(0).unsqueeze(0) < branch_length.unsqueeze(-1)  # [B, max_branches, K]
+        avg_off  = (local_K * k_valid.unsqueeze(-1).float()).sum(2) / k_valid.float().sum(2).clamp(min=1.0).unsqueeze(-1)
 
-        return recon_loss, kl_loss, length_loss, dir_loss
+        pred_dir = F.normalize(avg_off, dim=-1)
+        cos_sim  = (pred_dir * branch_direction).sum(dim=-1)                  # [B, max_branches]
+        return (1.0 - cos_sim)[branch_mask].mean()
+
+    def encode_phi(self, phi, _aneurysm_types=None):
+        """Encode phi → ghd_embed [B, ghd_dim].  Override in GCN variant."""
+        return self.ghd_encoder(phi)
 
     @torch.no_grad()
     def sample(self, phi, cond, z=None):
@@ -401,6 +408,10 @@ class MultiBranchVAE_GCNConditioner(MultiBranchVAE):
         z          = self.reparameterize(mu, logvar)
         recon, length_logit = self.decoder(z, local_points, token_mask, cond)
         return recon, length_logit, mu, logvar
+
+    def encode_phi(self, phi, aneurysm_types):
+        pyg_batch = self.multi_recon.to_pyg_batch(phi, aneurysm_types, self.point_std)
+        return self.ghd_encoder(pyg_batch)
 
     @torch.no_grad()
     def sample(self, phi, cond, z=None):
