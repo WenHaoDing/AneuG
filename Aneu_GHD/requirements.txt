@@ -1,0 +1,12 @@
+numpy>=1.24
+scipy>=1.10
+trimesh>=4.0
+probreg>=0.3.7
+
+# PyTorch — install the version matching your CUDA before running pip install
+# https://pytorch.org/get-started/locally/
+torch>=2.1.0
+
+# pytorch3d — not on PyPI, install from source or wheel:
+# https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
+pytorch3d>=0.7.4
