@@ -26,6 +26,13 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
                        short/pad branches).
       point_mask:      bool    [max_branches, max_points_per_branch - 1]
       token_mask:      bool    [max_branches * (max_points_per_branch - 1)]
+      point_weights:   float32 [max_branches, max_points_per_branch - 1]
+                       per-point loss weight, larger where the curve bends more.
+                       Within each branch the valid weights sum to the branch's
+                       point count (mean weight 1), so a weighted loss keeps the
+                       same scale as an unweighted one. 0 on pad/short entries.
+      token_weights:   float32 [max_branches * (max_points_per_branch - 1)]
+                       point_weights flattened (parallel to token_mask).
       branch_mask:     bool    [max_branches]
       branch_state:    int64   [max_branches], 0=pad, 1=valid, 2=short
       arc_length:      float32 [max_branches]
@@ -44,6 +51,7 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         point_interval=0.1,
         min_arc_length=1.0,
         normalize=True,
+        curvature_weight=1.0,
     ):
         self.root = Path(root)
         self.max_branches = max_branches
@@ -52,6 +60,8 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         self.point_interval = point_interval
         self.min_arc_length = min_arc_length
         self.normalize = normalize
+        # strength of the curvature boost in point_weights (0 = uniform weights)
+        self.curvature_weight = curvature_weight
         self.paths = self._collect_paths(cases)
         self.samples = self._load()
         self.point_mean, self.point_std = self._fit_norm()
@@ -146,6 +156,36 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
             return np.zeros(3, dtype=np.float32)
         return (diff / norm).astype(np.float32)
 
+    @staticmethod
+    def _curvature(points):
+        """Per-point spatial curvature proxy of a polyline (N, 3), shape (N,) >= 0.
+
+        Uses the second-difference magnitude |p[i-1] - 2 p[i] + p[i+1]|; since the
+        points are resampled at a (within-branch) uniform arc-length interval this
+        is proportional to the geometric curvature. Endpoints replicate their
+        nearest interior value.
+        """
+        points = np.asarray(points, dtype=np.float64)
+        n = len(points)
+        curv = np.zeros(n)
+        if n >= 3:
+            second = points[2:] - 2.0 * points[1:-1] + points[:-2]   # [n-2, 3]
+            curv[1:-1] = np.linalg.norm(second, axis=1)
+            curv[0], curv[-1] = curv[1], curv[-2]
+        return curv
+
+    def _curvature_weights(self, resampled, n_local):
+        """Loss weights for resampled[1:] (length n_local), larger where curvature
+        is high, normalized so the weights sum to n_local (mean weight 1)."""
+        curv = self._curvature(resampled)[1:]                       # weights align with local_points
+        mean_c = curv.mean()
+        if mean_c > 1e-12:
+            raw = 1.0 + self.curvature_weight * (curv / mean_c)
+        else:
+            raw = np.ones_like(curv)                                # straight branch → uniform
+        raw *= n_local / raw.sum()                                  # sum(weights) == n_local
+        return raw.astype(np.float32)
+
     def __len__(self):
         return len(self.samples)
 
@@ -156,6 +196,7 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         branch_direction = torch.zeros(self.max_branches, 3)
         branch_length = torch.zeros(self.max_branches, dtype=torch.long)
         point_mask = torch.zeros(self.max_branches, self.max_local_points, dtype=torch.bool)
+        point_weights = torch.zeros(self.max_branches, self.max_local_points)
         branch_mask = torch.zeros(self.max_branches, dtype=torch.bool)
         branch_state = torch.zeros(self.max_branches, dtype=torch.long)
         arc_length = torch.zeros(self.max_branches)
@@ -181,9 +222,13 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
             if self.normalize:
                 local = (local - self.point_mean) / self.point_std
 
+            weights = torch.as_tensor(
+                self._curvature_weights(resampled, n_local), dtype=torch.float32
+            )
             local_points[branch_idx, :n_local] = local
             start_points[branch_idx] = start
             point_mask[branch_idx, :n_local] = True
+            point_weights[branch_idx, :n_local] = weights
             branch_mask[branch_idx] = True
             branch_state[branch_idx] = 1
             branch_length[branch_idx] = n_local
@@ -196,6 +241,8 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
             "branch_length": branch_length,
             "point_mask": point_mask,
             "token_mask": point_mask.flatten(),
+            "point_weights": point_weights,
+            "token_weights": point_weights.flatten(),
             "branch_mask": branch_mask,
             "branch_state": branch_state,
             "arc_length": arc_length,
@@ -223,7 +270,7 @@ def visualize_sample(dataset, idx, save_path=None):
     matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as plt
 
-    from preprocess import _reconstruct_ghd_numpy, _set_axes_equal
+    from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy, _set_axes_equal
 
     item = dataset[idx]
     checkpoint = {

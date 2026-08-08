@@ -1,0 +1,11 @@
+{
+  "root": "/media/yaplab2/wd8tb/wenhao/datasets/angioflowv2_merged",
+  "key": "pos",
+  "n_cases": 100,
+  "n_failed": 0,
+  "target_edge_m": 0.0001250769700113039,
+  "target_edge_mm": 0.1250769700113039,
+  "sd_mm": 0.021721133136684705,
+  "current_regularizer_target_mm": 0.1319,
+  "failures": []
+}

@@ -8,5 +8,8 @@ Aneu_GHD/fitting_results/
 dataset/processed/
 dataset/processed_debug/
 dataset/smoke_centerlines/
+dataset/temp/
 checkpoints_v1/
 tr_checkpoints/
+v2/synthetic_v1/
+wandb/
