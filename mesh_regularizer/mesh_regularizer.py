@@ -298,7 +298,9 @@ def roughness_at_scale(mesh, r, R, seeds, chunk=3000, return_coverage=False):
         Mw = M * w[:, :, None]
         AtA = np.einsum("smi,smj->sij", Mw, M) + np.eye(6)[None] * 1e-12
         Atb = np.einsum("smi,sm->si", Mw, z)
-        c = np.linalg.solve(AtA, Atb)
+        # NumPy >=2.0 no longer treats an (S,M)-shaped b as a batch of right-hand-side
+        # vectors against (S,M,M) a; give it an explicit trailing axis and squeeze back.
+        c = np.linalg.solve(AtA, Atb[..., None])[..., 0]
         res = z - np.einsum("smi,si->sm", M, c)
         rho[a:a + chunk] = np.sqrt((w * res**2).sum(1) / nw) / r
     if return_coverage:

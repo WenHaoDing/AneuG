@@ -19,12 +19,14 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import trimesh
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != ROOT]
 sys.path.insert(0, str(ROOT))
 
 from dataset.skeleton_dataset_fourier import reconstruct_branch
+from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy
 from models.branch_transformer import MultiBranchConditions
 from models.branch_mlp_vae import BranchFourierVAE, BranchFourierVAE_GCNConditioner
 from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
@@ -91,6 +93,20 @@ def _build_conditions(multi_recon, phi, types, scale, max_branches):
         s, d, m = multi_recon.compute_branch_conditions(phi[idx], atype, max_branches)
         starts[idx], dirs[idx], mask[idx] = s, d, m
     return MultiBranchConditions(types, scale, starts, dirs, mask)
+
+
+def polydata_tris(mesh):
+    """(verts, faces) numpy arrays from a pyvista PolyData (triangles)."""
+    return np.asarray(mesh.points), mesh.faces.reshape(-1, 4)[:, 1:]
+
+
+def _bare_ghd_mesh(phi_i, atype, obj_path):
+    """Capped GHD-only mesh (no branch tubes), used when fuse=False or fusion fails."""
+    verts, faces = _reconstruct_ghd_numpy(
+        {"aneurysm_type": atype, "ghd": {"phi": phi_i.cpu().numpy()}}, denormalize_shape=True)
+    if obj_path is not None:
+        trimesh.Trimesh(verts, faces, process=False).export(obj_path)
+    return verts, faces
 
 
 def _branch_centerlines(start_b, vec_b, coeff_b, pres_b, mask_b, thresh):
@@ -221,17 +237,12 @@ def generate_synthetic_shapes(
                     extrude_length=extrude_length, min_branch_arc=min_branch_arc,
                     smooth=fuse_smooth, save_path=obj_path,
                 )
-                verts = np.asarray(merged.points)
-                faces = merged.faces.reshape(-1, 4)[:, 1:]
+                verts, faces = polydata_tris(merged)
             except Exception as exc:
                 print(f"[warn] sample {i} (type {atype}): fusion failed ({exc}); falling back to GHD mesh")
-                from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy
-                verts, faces = _reconstruct_ghd_numpy(
-                    {"aneurysm_type": atype, "ghd": {"phi": phi[i].cpu().numpy()}}, denormalize_shape=True)
+                verts, faces = _bare_ghd_mesh(phi[i], atype, obj_path)
         else:
-            from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy
-            verts, faces = _reconstruct_ghd_numpy(
-                {"aneurysm_type": atype, "ghd": {"phi": phi[i].cpu().numpy()}}, denormalize_shape=True)
+            verts, faces = _bare_ghd_mesh(phi[i], atype, obj_path)
 
         results.append({
             "type": atype,

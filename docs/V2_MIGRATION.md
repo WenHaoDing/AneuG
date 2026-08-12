@@ -53,8 +53,7 @@ follows so they can be reviewed independently:
 
 ### Generation and export
 
-- `scripts/generate/generate_synthetic.py`: configured synthetic generation driver.
-- `scripts/generate/export_synthetic.py`: exports complete synthetic cases and metadata.
+- `scripts/generate/generate_synthetic.py`: exports complete synthetic cases and metadata.
 
 ### Visualization
 

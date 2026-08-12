@@ -27,5 +27,8 @@ SURFACE_SAVE_ROOT = _env(
     "CFDMESH_SURFACE_SAVE_ROOT",
     "/media/yaplab2/HDD Storage/wenhao/AneuSeg/cfd_meshing/processed_shapes/aneux_cfd_batch1")
 
-# -- volume stage (populated when the vmtk mesher is moved in) ---------------------------
+# -- volume stage -------------------------------------------------------------------------
+# Empty by default: generate_cfd_volume_meshes.py then writes in place next to the surface
+# stage's own output (SURFACE_SAVE_ROOT/<case>/), since the volume mesher needs that
+# case's .obj and fusion npz sitting right there anyway. Set this to redirect elsewhere.
 VOLUME_SAVE_ROOT = _env("CFDMESH_VOLUME_SAVE_ROOT", "")
