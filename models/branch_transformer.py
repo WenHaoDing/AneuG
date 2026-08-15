@@ -368,7 +368,10 @@ class GCNMeshEncoder(nn.Module):
             nn.Linear(hidden * 4, ghd_dim),
         )
 
-    def forward(self, data):
+    def _pool(self, data):
+        """GCN trunk + multi-level global pooling, before the final ghd_dim
+        projection. Exposed separately so subclasses can add extra heads off
+        the same pooled features without duplicating the GCN/pooling logic."""
         from torch_geometric.nn import global_mean_pool
         x, ei, batch = data.x, data.edge_index, data.batch
 
@@ -383,7 +386,157 @@ class GCNMeshEncoder(nn.Module):
         x3 = F.relu(self.conv3(x2, ei2))                                   # [*, hidden*2]
         g3 = global_mean_pool(x3, batch2)                                   # [B, hidden*2]
 
-        return self.mlp(torch.cat([g1, g2, g3], dim=-1))                   # [B, ghd_dim]
+        return torch.cat([g1, g2, g3], dim=-1)                             # [B, hidden*5]
+
+    def forward(self, data):
+        return self.mlp(self._pool(data))                                  # [B, ghd_dim]
+
+
+class BranchConditionsClaydoll(NamedTuple):
+    """Conditions for the claydoll (unclipped-centerline, predicted per-branch
+    start point) model variants — shared across the Fourier-MLP-VAE and
+    point-sequence-transformer families (models/branch_mlp_vae_claydoll.py,
+    models/branch_transformer_claydoll.py). No branch_direction field: unlike
+    MultiBranchConditions, claydoll variants drop per-slot direction
+    conditioning by default (see models/branch_mlp_vae_claydoll.py's module
+    docstring)."""
+    aneurysm_type: torch.Tensor          # int64   [B]
+    scale:         torch.Tensor          # float32 [B]
+    branch_mask:   torch.Tensor          # bool    [B, max_branches]
+    start_points:  torch.Tensor = None   # float32 [B, max_branches, 3] — filled in by forward/sample (predicted)
+    ghd_embed:     torch.Tensor = None   # float32 [B, ghd_dim]         — filled in by forward/sample
+
+
+class GCNMeshEncoderWithStartPoints(GCNMeshEncoder):
+    """GCNMeshEncoder plus a second head predicting each branch's own start
+    point off the same pooled mesh features — no duplicated GCN/pooling logic.
+    Shared across claydoll model families; see BranchConditionsClaydoll."""
+
+    def __init__(self, ghd_dim, max_branches, in_channels=3, hidden=32, pool_ratio=0.5):
+        super().__init__(ghd_dim, in_channels=in_channels, hidden=hidden, pool_ratio=pool_ratio)
+        self.max_branches = max_branches
+        pooled_dim = hidden + hidden * 2 + hidden * 2
+        self.start_points_head = nn.Linear(pooled_dim, max_branches * 3)
+
+    def forward(self, data):
+        pooled = self._pool(data)
+        ghd_embed = self.mlp(pooled)                                            # [B, ghd_dim]
+        start_points_pred = self.start_points_head(pooled).view(-1, self.max_branches, 3)
+        return ghd_embed, start_points_pred
+
+
+class BranchConditionsClaydollAttn(NamedTuple):
+    """BranchConditionsClaydoll plus a fifth per-slot piece: the local-attention
+    readout from GCNMeshEncoderWithLocalAttention. Shared across claydoll model
+    families; see that class's docstring."""
+    aneurysm_type: torch.Tensor          # int64   [B]
+    scale:         torch.Tensor          # float32 [B]
+    branch_mask:   torch.Tensor          # bool    [B, max_branches]
+    start_points:  torch.Tensor = None   # float32 [B, max_branches, 3] — filled in by forward/sample (predicted)
+    ghd_embed:     torch.Tensor = None   # float32 [B, ghd_dim]         — filled in by forward/sample
+    local_embed:   torch.Tensor = None   # float32 [B, max_branches, local_dim] — filled in by forward/sample
+
+
+class GCNMeshEncoderWithLocalAttention(GCNMeshEncoderWithStartPoints):
+    """GCNMeshEncoderWithStartPoints plus a per-branch local-attention readout
+    over pool1-level tokens (features + original mesh position). Shared across
+    claydoll model families (models/branch_mlp_vae_claydoll_attn.py,
+    models/branch_transformer_claydoll_attn.py) — see
+    models/branch_mlp_vae_claydoll_attn.py's module docstring for the full
+    design rationale (split between this GCN-specific plumbing and
+    SlotQueryCrossAttention's generic attention readout)."""
+
+    def __init__(self, ghd_dim, max_branches, in_channels=3, hidden=32, pool_ratio=0.5,
+                local_dim=32, attn_heads=4):
+        super().__init__(ghd_dim, max_branches, in_channels=in_channels,
+                         hidden=hidden, pool_ratio=pool_ratio)
+        token_dim = hidden + 3   # pool1 feature dim + concatenated original xyz position
+        self.query_slot_embed = nn.Embedding(max_branches, 16)
+        self.query_in_proj = nn.Linear(16 + 3, local_dim)   # slot embed + predicted start xyz -> query
+        self.local_attn = SlotQueryCrossAttention(
+            query_dim=local_dim, token_dim=token_dim, out_dim=local_dim, num_heads=attn_heads,
+        )
+
+    def forward(self, data):
+        from torch_geometric.nn import global_mean_pool
+        from torch_geometric.utils import to_dense_batch
+        x, ei, batch = data.x, data.edge_index, data.batch
+
+        x1 = F.relu(self.conv1(x, ei))                                     # [total_N, hidden]
+        x1, ei1, _, batch1, perm1, _ = self.pool1(x1, ei, batch=batch)
+        g1 = global_mean_pool(x1, batch1)                                   # [B, hidden]
+
+        x2 = F.relu(self.conv2(x1, ei1))                                   # [*, hidden*2]
+        x2, ei2, _, batch2, _, _ = self.pool2(x2, ei1, batch=batch1)
+        g2 = global_mean_pool(x2, batch2)                                   # [B, hidden*2]
+
+        x3 = F.relu(self.conv3(x2, ei2))                                   # [*, hidden*2]
+        g3 = global_mean_pool(x3, batch2)                                   # [B, hidden*2]
+
+        pooled = torch.cat([g1, g2, g3], dim=-1)                           # [B, hidden*5]
+        ghd_embed = self.mlp(pooled)                                        # [B, ghd_dim]
+        start_points_pred = self.start_points_head(pooled).view(-1, self.max_branches, 3)
+
+        # Intermediate-level tokens: pool1 features + each surviving node's
+        # ORIGINAL mesh position — perm1 indexes into the pre-pool1 node set,
+        # which is the same node set/order as `x` (conv1 doesn't change node
+        # count), so x[perm1] recovers the true (unlearned) xyz per token.
+        node_xyz = x[perm1]                                                 # [N1, 3]
+        tokens = torch.cat([x1, node_xyz], dim=-1)                         # [N1, hidden+3]
+        tokens_dense, token_mask = to_dense_batch(tokens, batch1)          # [B, Nmax, hidden+3], [B, Nmax]
+
+        B = pooled.size(0)
+        slot_ids = torch.arange(self.max_branches, device=x.device)
+        slot_q = self.query_slot_embed(slot_ids).unsqueeze(0).expand(B, -1, -1)   # [B, mb, 16]
+        query = self.query_in_proj(torch.cat([slot_q, start_points_pred], dim=-1))  # [B, mb, local_dim]
+
+        local_embed = self.local_attn(query, tokens_dense, token_mask)     # [B, mb, local_dim]
+
+        return ghd_embed, start_points_pred, local_embed
+
+
+class SlotQueryCrossAttention(nn.Module):
+    """Per-slot (branch) query attends over a padded/masked token set.
+
+    Generic cross-attention readout, deliberately unaware of where its inputs
+    come from: given one query vector per branch slot and a batch of
+    variable-length token sets (e.g. intermediate per-node encoder features,
+    optionally concatenated with position), returns one attended vector per
+    slot. Query construction and token gathering are the caller's job — e.g.
+    models/branch_mlp_vae_v2_attn.py's GCNMeshEncoderWithLocalAttention builds
+    queries from a per-slot embedding + a predicted spatial anchor, and gathers
+    tokens from an intermediate GCN pooling level via that pool's permutation
+    indices. Kept here (rather than inline in that GCN-specific file) so a
+    future transformer-token-based encoder in this module can reuse the same
+    attention readout without duplicating it.
+
+    Input:
+        query:      [B, max_branches, query_dim]
+        tokens:     [B, N, token_dim]   padded/batched token set
+        token_mask: [B, N] bool, True where tokens[:, n] is a real (non-pad) token
+    Output:
+        [B, max_branches, out_dim]
+    """
+
+    def __init__(self, query_dim, token_dim, out_dim, num_heads=4):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(
+            embed_dim=query_dim, num_heads=num_heads,
+            kdim=token_dim, vdim=token_dim, batch_first=True,
+        )
+        self.out_proj = nn.Linear(query_dim, out_dim) if out_dim != query_dim else nn.Identity()
+
+    def forward(self, query, tokens, token_mask, need_weights=False):
+        """need_weights=True additionally returns the per-slot attention
+        distribution over tokens, [B, max_branches, N] (averaged across
+        heads, softmax already applied, ~0 on padded tokens) — e.g. for a
+        soft-argmax readout over token positions, or an auxiliary
+        classification-style loss on the distribution itself."""
+        attended, weights = self.attn(query, tokens, tokens,
+                                      key_padding_mask=~token_mask, need_weights=need_weights,
+                                      average_attn_weights=True)
+        out = self.out_proj(attended)
+        return (out, weights) if need_weights else out
 
 
 class MultiBranchVAE_GCNConditioner(MultiBranchVAE):

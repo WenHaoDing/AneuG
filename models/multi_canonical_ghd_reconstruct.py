@@ -82,20 +82,28 @@ class MultiCanonicalGHDReconstruct:
             self._edge_cache[atype] = torch.unique(edges.t().contiguous(), dim=1)
         return self._edge_cache[atype]
 
-    def to_pyg_batch(self, phi, aneurysm_types, point_std=None):
+    def to_pyg_batch(self, phi, aneurysm_types, point_std=None, include_normals=False):
         """Reconstruct meshes from GHD coefficients and return a PyG Batch.
 
         Args:
-            phi:            float32 [B, num_coeffs, 3]
-            aneurysm_types: int64   [B]
-            point_std:      float32 [1, 3] or None  — dataset branch point_std.
-                            Vertices are divided by point_std after denormalization
-                            so that the mesh coordinate scale matches the normalized
-                            local_points the model is trained to predict.
+            phi:             float32 [B, num_coeffs, 3]
+            aneurysm_types:  int64   [B]
+            point_std:       float32 [1, 3] or None  — dataset branch point_std.
+                             Vertices are divided by point_std after denormalization
+                             so that the mesh coordinate scale matches the normalized
+                             local_points the model is trained to predict.
+            include_normals: if True, per-vertex normals (pytorch3d
+                             Meshes.verts_normals_padded — averaged from
+                             adjacent face normals) are concatenated onto x,
+                             [N_t, 3] -> [N_t, 6]. Computed from verts BEFORE
+                             the point_std division (normals are directions,
+                             not positions — dividing by a per-axis std would
+                             break unit length and skew direction). Default
+                             False so every existing caller is unaffected.
 
         Returns:
             torch_geometric.data.Batch  — B graphs, each with:
-                x:          [N_t, 3]   reconstructed vertex positions
+                x:          [N_t, 3] or [N_t, 6] if include_normals
                 edge_index: [2, E_t]   mesh edges (undirected, cached per type)
         """
         from torch_geometric.data import Data, Batch
@@ -113,11 +121,22 @@ class MultiCanonicalGHDReconstruct:
             # / point_std: match the scale of normalized local_points the model predicts
             offset    = torch.einsum('nm,bmc->bnc', recon.GHD_eigvec, phi_sub)
             verts_all = (recon.canonical_Meshes.verts_packed().unsqueeze(0) + offset) * recon.norm_canonical  # [K, N, 3]
+
+            if include_normals:
+                from pytorch3d.structures import Meshes
+                faces = recon.canonical_Meshes.faces_packed()   # topology fixed under GHD deformation
+                normals_all = Meshes(
+                    verts=list(verts_all), faces=[faces] * verts_all.shape[0]
+                ).verts_normals_padded()                                          # [K, N, 3]
+
             if point_std is not None:
                 verts_all = verts_all / point_std.to(verts_all.device)           # [K, N, 3]
             edge_index = self._get_edge_index(atype)
             for k, b in enumerate(idx):
-                data_list[b] = Data(x=verts_all[k], edge_index=edge_index)
+                x = verts_all[k]
+                if include_normals:
+                    x = torch.cat([x, normals_all[k]], dim=-1)                    # [N, 6]
+                data_list[b] = Data(x=x, edge_index=edge_index)
 
         return Batch.from_data_list(data_list)
 
