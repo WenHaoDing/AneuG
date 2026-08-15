@@ -45,12 +45,20 @@ Reference geometry shown WHILE brushing (context only, not the label itself):
     shape), they're only there so the labeler knows roughly which physical
     opening is "branch 0" vs. "branch 1" vs. "branch 2".
 
-Output schema matches dataset/preprocess_endcaps.py's (case, aneurysm_type,
-phi, endpoints, tangents, branch_mask, in_patch — everything
-dataset/endcap_dataset.py's EndcapDataset actually reads), saved to a
-SEPARATE directory so automatic and manual labels can be compared or merged
-later rather than one silently overwriting the other. Resumable: a case
-already present in the output directory is skipped on the next run.
+No separate output folder: manual labels are written back into the SAME
+per-case checkpoint under runtime/dataset/processed_endcaps/<case>.npy that
+dataset/preprocess_endcaps.py already produces, as new manual_endpoints /
+manual_tangents / manual_branch_mask / manual_in_patch fields alongside the
+existing automatic endpoints / tangents / branch_mask / in_patch — so nothing
+is silently overwritten, and dataset/endcap_dataset.py's EndcapDataset can
+prefer the manual fields when present, falling back to automatic otherwise.
+Resumable: a case whose record already has manual_branch_mask is skipped.
+
+Synthetic cases have no automatic label to begin with (no real centerline to
+derive one from), so a manually-labeled synthetic case is just written as a
+brand-new record straight into runtime/dataset/processed_endcaps/ under a
+"synthetic_seed{seed}_{i}" case id, using the plain (non-"manual_"-prefixed)
+schema fields directly — there's nothing automatic to preserve alongside.
 
 conda activate new   (needs pyvista with a real display / working GL context —
 will not work over a plain SSH session without X forwarding or a virtual
@@ -77,8 +85,7 @@ TYPE_N_OPEN = {0: 3, 1: 2, 2: 2}   # candidate branch count per type — type 2 
                                     # either way, so labeling only ever needs 2 or 3 branches per case.
 
 DEFAULT_REAL_DIR     = ROOT / "runtime" / "dataset" / "processed"          # source of real centerlines
-DEFAULT_ENDCAPS_DIR  = ROOT / "runtime" / "dataset" / "processed_endcaps"  # source of automatic reference labels
-DEFAULT_OUTPUT_DIR   = ROOT / "runtime" / "dataset" / "processed_endcaps_manual"
+DEFAULT_ENDCAPS_DIR  = ROOT / "runtime" / "dataset" / "processed_endcaps"  # read automatic labels from AND write manual labels into
 CANONICAL_ROOT       = ROOT / "dataset" / "canonical"
 GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
 
@@ -224,10 +231,12 @@ def _derive_label(verts, faces, picked_face_ids, mesh_centroid):
     return patch_vertex_idx, endpoint, tangent
 
 
-def label_real_case(rec, real_chk, endcaps_rec, output_dir):
+def label_real_case(rec, endcaps_path, endcaps_rec):
     """rec: runtime/dataset/processed/<case>.npy checkpoint (dict). endcaps_rec:
-    dataset/processed_endcaps/<case>.npy record, or None if that case has no
-    automatic label (shouldn't normally happen, but handled gracefully)."""
+    runtime/dataset/processed_endcaps/<case>.npy record (dict) to update IN PLACE
+    with manual_* fields and re-save to endcaps_path — the automatic endpoints /
+    tangents / branch_mask / in_patch fields already in endcaps_rec are left
+    untouched, so nothing is lost if the manual pass is redone later."""
     case = rec["case"]
     atype = int(rec["aneurysm_type"])
     n_open = TYPE_N_OPEN.get(atype, MAX_BRANCHES)
@@ -236,10 +245,10 @@ def label_real_case(rec, real_chk, endcaps_rec, output_dir):
     mesh_centroid = verts.mean(axis=0)
     branch_points = rec["clipped_centerline"]["branch_points"][:n_open]
 
-    endpoints = np.zeros((MAX_BRANCHES, 3), dtype=np.float32)
-    tangents = np.zeros((MAX_BRANCHES, 3), dtype=np.float32)
-    branch_mask = np.zeros(MAX_BRANCHES, dtype=bool)
-    in_patch = np.zeros((MAX_BRANCHES, len(verts)), dtype=bool)
+    manual_endpoints = np.zeros((MAX_BRANCHES, 3), dtype=np.float32)
+    manual_tangents = np.zeros((MAX_BRANCHES, 3), dtype=np.float32)
+    manual_branch_mask = np.zeros(MAX_BRANCHES, dtype=bool)
+    manual_in_patch = np.zeros((MAX_BRANCHES, len(verts)), dtype=bool)
 
     for b in range(n_open):
         cl_pts = branch_points[b] if b < len(branch_points) else None
@@ -258,22 +267,29 @@ def label_real_case(rec, real_chk, endcaps_rec, output_dir):
             return False
 
         patch_idx, endpoint, tangent = _derive_label(verts, faces, picked, mesh_centroid)
-        endpoints[b] = endpoint
-        tangents[b] = tangent
-        branch_mask[b] = True
-        in_patch[b, patch_idx] = True
+        manual_endpoints[b] = endpoint
+        manual_tangents[b] = tangent
+        manual_branch_mask[b] = True
+        manual_in_patch[b, patch_idx] = True
 
-    np.save(output_dir / f"{case}.npy", {
+    endcaps_rec = dict(endcaps_rec) if endcaps_rec is not None else {
         "case": case, "aneurysm_type": atype,
         "phi": np.asarray(rec["ghd"]["phi"], dtype=np.float32),
-        "endpoints": endpoints, "tangents": tangents,
-        "branch_mask": branch_mask, "in_patch": in_patch,
-    }, allow_pickle=True)
-    print(f"[label_endcaps] saved {case}")
+    }
+    endcaps_rec.update({
+        "manual_endpoints": manual_endpoints, "manual_tangents": manual_tangents,
+        "manual_branch_mask": manual_branch_mask, "manual_in_patch": manual_in_patch,
+    })
+    np.save(endcaps_path, endcaps_rec, allow_pickle=True)
+    print(f"[label_endcaps] updated {endcaps_path} with manual labels")
     return True
 
 
-def label_synthetic_case(case_id, atype, phi, multi_recon, output_dir):
+def label_synthetic_case(case_id, atype, phi, multi_recon, endcaps_dir):
+    """No automatic record exists for a fresh synthetic sample, so this writes
+    a brand-new runtime/dataset/processed_endcaps/<case_id>.npy record directly,
+    using the plain (non-"manual_"-prefixed) schema — there's nothing automatic
+    to preserve alongside it."""
     verts, faces = _reconstruct_ghd_numpy(
         {"aneurysm_type": atype, "ghd": {"phi": phi}}, denormalize_shape=True)
     mesh_centroid = verts.mean(axis=0)
@@ -303,11 +319,12 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, output_dir):
         branch_mask[b] = True
         in_patch[b, patch_idx] = True
 
-    np.save(output_dir / f"{case_id}.npy", {
+    np.save(endcaps_dir / f"{case_id}.npy", {
         "case": case_id, "aneurysm_type": atype,
         "phi": np.asarray(phi, dtype=np.float32),
         "endpoints": endpoints, "tangents": tangents,
         "branch_mask": branch_mask, "in_patch": in_patch,
+        "is_synthetic": True,
     }, allow_pickle=True)
     print(f"[label_endcaps] saved {case_id}")
     return True
@@ -317,32 +334,32 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["real", "synthetic"], required=True)
     parser.add_argument("--real-dir", default=str(DEFAULT_REAL_DIR))
-    parser.add_argument("--endcaps-dir", default=str(DEFAULT_ENDCAPS_DIR))
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    parser.add_argument("--endcaps-dir", default=str(DEFAULT_ENDCAPS_DIR),
+                         help="Read automatic labels from here (real mode) and write all manual labels here "
+                              "(both modes) — no separate output folder.")
     parser.add_argument("--case", action="append", dest="cases", help="Real mode: label only these cases.")
     parser.add_argument("--n-synthetic", type=int, default=20)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu", help="Only used in synthetic mode, to run the frozen GHD VAE.")
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    endcaps_dir = Path(args.endcaps_dir)
+    endcaps_dir.mkdir(parents=True, exist_ok=True)
 
     if args.mode == "real":
         real_dir = Path(args.real_dir)
-        endcaps_dir = Path(args.endcaps_dir)
         paths = ([real_dir / f"{c}.npy" for c in args.cases] if args.cases
                  else sorted(real_dir.glob("*.npy")))
         for path in paths:
             if not path.exists():
                 print(f"[SKIP] {path} not found"); continue
             case = path.stem
-            if (output_dir / f"{case}.npy").exists():
-                continue   # already manually labeled — resumable
-            rec = np.load(path, allow_pickle=True).item()
             endcaps_path = endcaps_dir / f"{case}.npy"
             endcaps_rec = np.load(endcaps_path, allow_pickle=True).item() if endcaps_path.exists() else None
-            label_real_case(rec, rec, endcaps_rec, output_dir)
+            if endcaps_rec is not None and "manual_branch_mask" in endcaps_rec:
+                continue   # already manually labeled — resumable
+            rec = np.load(path, allow_pickle=True).item()
+            label_real_case(rec, endcaps_path, endcaps_rec)
 
     else:
         import torch
@@ -364,11 +381,11 @@ def main():
 
         for i in range(args.n_synthetic):
             case_id = f"synthetic_seed{args.seed}_{i:04d}"
-            if (output_dir / f"{case_id}.npy").exists():
+            if (endcaps_dir / f"{case_id}.npy").exists():
                 continue   # resumable
-            label_synthetic_case(case_id, int(types[i]), phi_all[i].cpu().numpy(), multi_recon, output_dir)
+            label_synthetic_case(case_id, int(types[i]), phi_all[i].cpu().numpy(), multi_recon, endcaps_dir)
 
-    print(f"Done. Manual labels in {output_dir}")
+    print(f"Done. Manual labels written into {endcaps_dir}")
 
 
 if __name__ == "__main__":

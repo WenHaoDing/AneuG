@@ -12,6 +12,13 @@ to_pyg_batch produces for that aneurysm_type (both ultimately load the same
 dataset/canonical/<type>/mesh.obj), so it can be used directly without this
 dataset ever building a mesh itself.
 
+Manual labels (see dataset/label_endcaps.py) live in the same checkpoint as
+manual_endpoints / manual_tangents / manual_branch_mask / manual_in_patch,
+alongside the automatic endpoints / tangents / branch_mask / in_patch —
+__getitem__ prefers the manual fields when a case has them, falling back to
+automatic otherwise, so labeling a case is enough to have it used for
+training with no extra wiring.
+
 Batching in_patch needs a custom collate: different aneurysm types have
 different (fixed, per-type) vertex counts, so it can't be torch.stack'd like
 the fixed-size fields (endpoints/tangents/branch_mask). It's concatenated
@@ -64,14 +71,16 @@ class EndcapDataset(torch.utils.data.Dataset):
         # MERGE_TYPE2_INTO_TYPE1, so type 2 never surfaces anywhere in this
         # pipeline's data, training, or sanity panels.
         aneurysm_type = 1 if int(rec["aneurysm_type"]) == 2 else int(rec["aneurysm_type"])
+        has_manual = "manual_branch_mask" in rec and rec["manual_branch_mask"].any()
+        prefix = "manual_" if has_manual else ""
         return {
             "case": rec["case"],
             "aneurysm_type": torch.as_tensor(aneurysm_type, dtype=torch.long),
             "phi": torch.as_tensor(rec["phi"], dtype=torch.float32),
-            "endpoints": torch.as_tensor(rec["endpoints"][:self.max_branches], dtype=torch.float32),
-            "tangents": torch.as_tensor(rec["tangents"][:self.max_branches], dtype=torch.float32),
-            "branch_mask": torch.as_tensor(rec["branch_mask"][:self.max_branches], dtype=torch.bool),
-            "in_patch": torch.as_tensor(rec["in_patch"][:self.max_branches], dtype=torch.bool),  # [mb, N_type]
+            "endpoints": torch.as_tensor(rec[f"{prefix}endpoints"][:self.max_branches], dtype=torch.float32),
+            "tangents": torch.as_tensor(rec[f"{prefix}tangents"][:self.max_branches], dtype=torch.float32),
+            "branch_mask": torch.as_tensor(rec[f"{prefix}branch_mask"][:self.max_branches], dtype=torch.bool),
+            "in_patch": torch.as_tensor(rec[f"{prefix}in_patch"][:self.max_branches], dtype=torch.bool),  # [mb, N_type]
         }
 
 
