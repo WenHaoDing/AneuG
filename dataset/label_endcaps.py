@@ -200,12 +200,15 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
         f"region (repeat to add more), 'z' clears, 'c' confirms",
         font_size=11, position="upper_left",
     )
-    # show=True so PyVista prints its own accurate on-screen picking instructions for
-    # whatever version is installed locally, since 'r' below is otherwise ambiguous:
+    # show=False: don't let PyVista draw its OWN highlight for the picked cells -- that
+    # highlight only ever shows the LATEST drag's selection (not the running total), which
+    # fights visually with _refresh_highlight's cumulative orange one above. show_message=True
+    # keeps its on-screen instructional text (separate from `show`), since that's still useful
+    # and accurate for whatever version is installed locally. 'r' below is otherwise ambiguous:
     # enable_cell_picking's own rubber-band-select interactor style ALSO binds 'r' as a
     # built-in (toggles between camera-rotate and box-select mode) -- binding "clear" to
     # 'r' as well collided with that, so clearing uses 'z' instead to stay unambiguous.
-    plotter.enable_cell_picking(callback=_on_pick, through=False, show=True)
+    plotter.enable_cell_picking(callback=_on_pick, through=False, show=False, show_message=True)
     plotter.add_key_event("z", _reset)
     plotter.add_key_event("c", _confirm)
     plotter.show()
