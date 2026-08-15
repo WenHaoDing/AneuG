@@ -13,12 +13,17 @@ That's a reasonable proxy but a fixed radius doesn't adapt to vessel
 calibre — it over-covers thin vessels and under-covers wide ones. This tool
 lets a human brush the real region directly, for:
 
-- **Real cases** — refining/replacing the automatic label, with the real
-  centerline and the automatic guess shown as reference.
+- **Real cases** — refining the cap region only, with the real centerline
+  and the automatic guess shown as reference. Endpoint and tangent are NOT
+  touched: they already come from ray-crossing along the real patient
+  centerline (`preprocess_endcaps.py`), which is better-grounded than the
+  centroid/normal of a hand-dragged patch. Brushing exists to fix the
+  fixed-radius cap-region proxy, not to replace ground-truth geometry.
 - **Synthetic cases** — which have no automatic label at all (no real
   centerline exists for a freshly generated shape), using the frozen GHD-VAE
   to sample a mesh and the fixed canonical opening indices as an approximate
-  branch-identity guide.
+  branch-identity guide. Here the brush IS the only source, so endpoint and
+  tangent are derived from it too (see "What gets saved").
 
 ## Setup
 
@@ -65,8 +70,8 @@ python dataset/label_endcaps.py --mode synthetic --n-synthetic 20 --seed 0
 ```
 
 All paths default to the repo layout but are overridable:
-`--real-dir`, `--endcaps-dir`, `--device` (synthetic mode only — which device
-to run the GHD-VAE on).
+`--real-dir`, `--endcaps-dir` (real mode), `--synthetic-dir` (synthetic mode),
+`--device` (synthetic mode only — which device to run the GHD-VAE on).
 
 ## Controls
 
@@ -84,7 +89,7 @@ branches):
 
 Skipping doesn't save anything for that case — rerun later to retry it (a
 case's record is only updated once **all** of its branches are confirmed).
-Already-labeled cases (their record already has `manual_branch_mask`) are
+Already-labeled cases (their record already has `manual_in_patch`) are
 skipped automatically on the next run, so it's safe to stop and resume
 across sessions.
 
@@ -103,34 +108,54 @@ across sessions.
 
 ## What gets saved
 
-No separate output folder. For a **real** case, the manual label is written
-back into the SAME `runtime/dataset/processed_endcaps/<case>.npy` record that
-`preprocess_endcaps.py` already produced, as new fields alongside (not
-replacing) the automatic ones:
+No separate output folder. For a **real** case, brushing writes back into the
+SAME `runtime/dataset/processed_endcaps/<case>.npy` record that
+`preprocess_endcaps.py` already produced, adding only `manual_in_patch` —
+the automatic `endpoints` / `tangents` / `branch_mask` are left exactly as
+they were:
 
 ```python
 {
-    # ...existing automatic fields (endpoints, tangents, branch_mask, in_patch)...
-    "manual_endpoints": np.ndarray[3, 3] float32,  # per-branch, padded to max_branches
-    "manual_tangents":  np.ndarray[3, 3] float32,
-    "manual_branch_mask": np.ndarray[3] bool,
-    "manual_in_patch": np.ndarray[3, N] bool,       # N = vertex count for that aneurysm_type
+    # ...existing automatic fields, UNCHANGED: endpoints, tangents, branch_mask, in_patch...
+    "manual_in_patch": np.ndarray[3, N] bool,   # N = vertex count for that aneurysm_type
 }
 ```
 
-A **synthetic** case has no automatic record to begin with, so it's saved as
-a brand-new `runtime/dataset/processed_endcaps/synthetic_seed{seed}_{i}.npy`
-record using the plain (non-`manual_`-prefixed) field names directly.
+(Rare fallback: if a real case somehow has no automatic record at all — every
+case should, since `preprocess_endcaps.py` covers the whole real dataset —
+there's nothing to defer to, so that one case gets a full `manual_endpoints`
+/ `manual_tangents` / `manual_branch_mask` / `manual_in_patch` set derived
+from the brush instead, as the only available source.)
+
+A **synthetic** case has no automatic record and no real case in
+`runtime/dataset/processed/` to attach to — a genuinely different population,
+not a refinement of an existing one — so it's saved into its OWN folder,
+`runtime/dataset/processed_endcaps_synthetic/synthetic_seed{seed}_{i}.npy`,
+using the plain (non-`manual_`-prefixed) field names directly. Here the brush
+IS the endpoint/tangent source (there's no ray-crossing centerline to defer
+to), so all four fields come from it. Keeping synthetic cases out of
+`processed_endcaps/` also means a real `preprocess_endcaps.py` rerun can't
+accidentally interact with them.
 
 `endpoint` = centroid of the brushed patch's vertices. `tangent` = SVD-based
 outward surface normal of the patch (same technique used elsewhere in this
 codebase, e.g. `MultiCanonicalGHDReconstruct.reconstruct_fused_mesh`) — the
 cap is roughly a disk cutting across the vessel tube, so the disk's normal
-approximates the vessel's own axial direction.
+approximates the vessel's own axial direction. This derivation is used for
+synthetic cases' endpoint/tangent (their only source) and for every case's
+`in_patch` — never for a real case's endpoint/tangent.
 
-`dataset/endcap_dataset.py`'s `EndcapDataset` already knows to prefer
-`manual_*` fields over the automatic ones when both exist, so a labeled case
-is picked up for training with no further wiring.
+`dataset/endcap_dataset.py`'s `EndcapDataset` prefers `manual_in_patch` over
+automatic `in_patch` when present, but always uses the automatic
+endpoints/tangents/branch_mask when they exist, and accepts a list of roots —
+so a labeled real case is picked up for training automatically, and combining
+real + synthetic is one line:
+```python
+EndcapDataset([
+    ROOT / "runtime" / "dataset" / "processed_endcaps",
+    ROOT / "runtime" / "dataset" / "processed_endcaps_synthetic",
+])
+```
 
 ## Known rough edge — flag if you hit it
 

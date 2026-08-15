@@ -13,11 +13,22 @@ dataset/canonical/<type>/mesh.obj), so it can be used directly without this
 dataset ever building a mesh itself.
 
 Manual labels (see dataset/label_endcaps.py) live in the same checkpoint as
-manual_endpoints / manual_tangents / manual_branch_mask / manual_in_patch,
-alongside the automatic endpoints / tangents / branch_mask / in_patch —
-__getitem__ prefers the manual fields when a case has them, falling back to
-automatic otherwise, so labeling a case is enough to have it used for
-training with no extra wiring.
+manual_in_patch, alongside the automatic endpoints / tangents / branch_mask /
+in_patch. __getitem__ prefers manual_in_patch over automatic in_patch when
+present, but ALWAYS uses the automatic endpoints/tangents/branch_mask —
+brushing only refines the cap region; endpoint/tangent stay the
+ray-crossing-derived real values (see dataset/label_endcaps.py's module
+docstring for why). A real case with no automatic record at all (shouldn't
+normally happen) falls back to manual_endpoints/manual_tangents/manual_branch_mask
+as its only source. A synthetic case (dataset/label_endcaps.py's synthetic
+mode) has only the plain fields to begin with — no manual_* — so it's read
+exactly as written, endpoint/tangent included.
+
+`root` accepts either one directory or a list of them, so real
+(processed_endcaps) and manually-labeled synthetic (processed_endcaps_synthetic
+— a separate folder, since synthetic cases have no automatic counterpart to
+sit alongside) can be combined into one dataset:
+EndcapDataset([ROOT/"processed_endcaps", ROOT/"processed_endcaps_synthetic"]).
 
 Batching in_patch needs a custom collate: different aneurysm types have
 different (fixed, per-type) vertex counts, so it can't be torch.stack'd like
@@ -44,10 +55,10 @@ if str(ROOT) not in sys.path:
 
 class EndcapDataset(torch.utils.data.Dataset):
     def __init__(self, root, cases=None, max_branches=3):
-        self.root = Path(root)
+        self.roots = [Path(root)] if isinstance(root, (str, Path)) else [Path(r) for r in root]
         self.max_branches = max_branches
-        self.paths = ([self.root / f"{c}.npy" for c in cases] if cases is not None
-                      else sorted(self.root.glob("*.npy")))
+        self.paths = ([r / f"{c}.npy" for r in self.roots for c in cases] if cases is not None
+                      else [p for r in self.roots for p in sorted(r.glob("*.npy"))])
         self.samples = self._load()
 
     def _load(self):
@@ -57,7 +68,7 @@ class EndcapDataset(torch.utils.data.Dataset):
                 continue
             samples.append(np.load(path, allow_pickle=True).item())
         if not samples:
-            raise RuntimeError(f"No processed endcap checkpoints found in {self.root}")
+            raise RuntimeError(f"No processed endcap checkpoints found in {self.roots}")
         return samples
 
     def __len__(self):
@@ -71,16 +82,23 @@ class EndcapDataset(torch.utils.data.Dataset):
         # MERGE_TYPE2_INTO_TYPE1, so type 2 never surfaces anywhere in this
         # pipeline's data, training, or sanity panels.
         aneurysm_type = 1 if int(rec["aneurysm_type"]) == 2 else int(rec["aneurysm_type"])
-        has_manual = "manual_branch_mask" in rec and rec["manual_branch_mask"].any()
-        prefix = "manual_" if has_manual else ""
+        # Ground-truth (automatic) endpoint/tangent/branch_mask win when present — only
+        # in_patch prefers the manual brush (see module docstring for why the split isn't
+        # symmetric). Falls back to manual_* per-field for the rare case with no automatic
+        # record at all (real, no ground truth) or none at all (won't happen — synthetic
+        # records only ever have the plain fields).
+        endpoints_key = "endpoints" if "endpoints" in rec else "manual_endpoints"
+        tangents_key = "tangents" if "tangents" in rec else "manual_tangents"
+        branch_mask_key = "branch_mask" if "branch_mask" in rec else "manual_branch_mask"
+        in_patch_key = "manual_in_patch" if "manual_in_patch" in rec else "in_patch"
         return {
             "case": rec["case"],
             "aneurysm_type": torch.as_tensor(aneurysm_type, dtype=torch.long),
             "phi": torch.as_tensor(rec["phi"], dtype=torch.float32),
-            "endpoints": torch.as_tensor(rec[f"{prefix}endpoints"][:self.max_branches], dtype=torch.float32),
-            "tangents": torch.as_tensor(rec[f"{prefix}tangents"][:self.max_branches], dtype=torch.float32),
-            "branch_mask": torch.as_tensor(rec[f"{prefix}branch_mask"][:self.max_branches], dtype=torch.bool),
-            "in_patch": torch.as_tensor(rec[f"{prefix}in_patch"][:self.max_branches], dtype=torch.bool),  # [mb, N_type]
+            "endpoints": torch.as_tensor(rec[endpoints_key][:self.max_branches], dtype=torch.float32),
+            "tangents": torch.as_tensor(rec[tangents_key][:self.max_branches], dtype=torch.float32),
+            "branch_mask": torch.as_tensor(rec[branch_mask_key][:self.max_branches], dtype=torch.bool),
+            "in_patch": torch.as_tensor(rec[in_patch_key][:self.max_branches], dtype=torch.bool),  # [mb, N_type]
         }
 
 
