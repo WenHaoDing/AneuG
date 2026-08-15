@@ -137,11 +137,14 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
     markers) to the plotter before picking starts — see _real_reference /
     _synthetic_reference below.
 
-    Interaction: drag rectangles over the mesh surface to select faces
+    Interaction: LEFT-CLICK-DRAG a box over the mesh surface to select faces
     (through=False restricts selection to the nearest/visible surface, not
     cells behind it — appropriate for "painting" an external cap region);
-    repeat to add more to the running selection; 'r' clears it and starts
-    over; 'c' confirms and closes this branch's window.
+    repeat (drag again) to add more to the running selection; 'z' clears it
+    and starts over; 'c' confirms and closes this branch's window. (Not 'r'
+    for clear — enable_cell_picking's own rubber-band-select interactor style
+    already uses 'r' as a built-in toggle between camera-rotate and
+    box-select mode, so binding "clear" there too would collide with it.)
 
     NOT independently tested (no display on this machine) — the one call
     most likely to need adjustment on your end is picked.cell_data's key for
@@ -193,12 +196,17 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
         plotter.close()
 
     plotter.add_text(
-        f"Branch {branch_idx + 1}/{n_branches}: drag boxes over the cap region "
-        f"(repeat to add more), 'r' clears, 'c' confirms",
+        f"Branch {branch_idx + 1}/{n_branches}: LEFT-CLICK-DRAG a box over the cap "
+        f"region (repeat to add more), 'z' clears, 'c' confirms",
         font_size=11, position="upper_left",
     )
-    plotter.enable_cell_picking(callback=_on_pick, through=False, show=False)
-    plotter.add_key_event("r", _reset)
+    # show=True so PyVista prints its own accurate on-screen picking instructions for
+    # whatever version is installed locally, since 'r' below is otherwise ambiguous:
+    # enable_cell_picking's own rubber-band-select interactor style ALSO binds 'r' as a
+    # built-in (toggles between camera-rotate and box-select mode) -- binding "clear" to
+    # 'r' as well collided with that, so clearing uses 'z' instead to stay unambiguous.
+    plotter.enable_cell_picking(callback=_on_pick, through=False, show=True)
+    plotter.add_key_event("z", _reset)
     plotter.add_key_event("c", _confirm)
     plotter.show()
 

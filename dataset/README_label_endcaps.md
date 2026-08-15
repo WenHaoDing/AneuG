@@ -81,11 +81,17 @@ branches):
 
 | action | key/mouse |
 |---|---|
-| select faces | drag a rectangle over the mesh |
-| add more faces to the selection | drag again (accumulates) |
-| clear this branch's selection | `r` |
+| select faces | **left-click and drag** a box over the mesh (not a single click) |
+| add more faces to the selection | drag another box elsewhere (accumulates, doesn't replace) |
+| clear this branch's selection | `z` |
 | confirm this branch and move on | `c` |
 | skip this branch/case | close the window without pressing `c` |
+
+Not `r` for clearing — PyVista's box-select interactor style already binds
+`r` itself (it toggles between camera-rotate and box-select mode), so `z` is
+used instead to avoid the two colliding. The window also shows PyVista's own
+built-in picking hint on screen, which is the authoritative description for
+whatever version you have installed if this differs slightly.
 
 Skipping doesn't save anything for that case — rerun later to retry it (a
 case's record is only updated once **all** of its branches are confirmed).
