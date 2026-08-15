@@ -146,11 +146,11 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
     already uses 'r' as a built-in toggle between camera-rotate and
     box-select mode, so binding "clear" there too would collide with it.)
 
-    NOT independently tested (no display on this machine) — the one call
-    most likely to need adjustment on your end is picked.cell_data's key for
-    the original mesh's cell indices. If _on_pick's warning fires (prints
-    picked.array_names), swap "vtkOriginalCellIds" below for whatever key
-    your PyVista version actually uses.
+    _on_pick tries both "original_cell_ids" (PyVista >=0.44's
+    enable_rectangle_visible_picking) and "vtkOriginalCellIds" (older
+    versions) for picked.cell_data's key holding the original mesh's cell
+    indices. If its warning fires anyway (prints picked.array_names), add
+    whatever key your PyVista version actually uses.
 
     Returns a sorted list of picked face (cell) indices, or None if the
     window was closed without confirming a non-empty selection (skip this
@@ -173,14 +173,32 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
             state["highlight"] = None
         if picked_cells:
             sub = mesh.extract_cells(sorted(picked_cells))
-            state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.95, show_edges=True)
+            # pickable=False: this highlight is re-added on every pick, so if it stayed
+            # pickable a later drag could hit it too and enable_cell_picking would then
+            # hand _on_pick a MultiBlock (one block per hit actor) instead of the single
+            # mesh it expects -- see _on_pick's MultiBlock handling below for the same
+            # reason applied to the static reference geometry.
+            state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.95,
+                                                    show_edges=True, pickable=False)
 
     def _on_pick(picked):
-        if picked is None or picked.n_cells == 0:
+        if picked is None:
             return
-        ids = picked.cell_data.get("vtkOriginalCellIds")
+        if isinstance(picked, pv.MultiBlock):
+            # Only reached if some non-mesh actor slipped through without pickable=False;
+            # combine() merges all hit blocks back into one mesh so the rest of this
+            # function doesn't need to special-case it.
+            picked = picked.combine()
+        if picked.n_cells == 0:
+            return
+        # PyVista 0.48's enable_rectangle_visible_picking stores original cell indices
+        # under "original_cell_ids" (not "vtkOriginalCellIds" as in older versions/docs);
+        # try both so this keeps working across versions.
+        ids = picked.cell_data.get("original_cell_ids")
         if ids is None:
-            print(f"[label_endcaps] 'vtkOriginalCellIds' not in picked.cell_data; "
+            ids = picked.cell_data.get("vtkOriginalCellIds")
+        if ids is None:
+            print(f"[label_endcaps] no original-cell-id array in picked.cell_data; "
                   f"available arrays: {picked.array_names}. Edit _on_pick in "
                   f"dataset/label_endcaps.py to use the right key for your PyVista version.")
             return
@@ -220,8 +238,11 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
 
 def _add_arrow_and_point(plotter, origin, direction, color_point, color_arrow="yellow", scale=2.0):
     import pyvista as pv
-    plotter.add_mesh(pv.Sphere(radius=0.15, center=origin), color=color_point)
-    plotter.add_mesh(pv.Arrow(start=origin, direction=direction, scale=scale), color=color_arrow)
+    # pickable=False: reference-only geometry must never be selectable, or a brush drag
+    # near it turns _on_pick's `picked` into a MultiBlock instead of the mesh's own
+    # UnstructuredGrid (see _on_pick).
+    plotter.add_mesh(pv.Sphere(radius=0.15, center=origin), color=color_point, pickable=False)
+    plotter.add_mesh(pv.Arrow(start=origin, direction=direction, scale=scale), color=color_arrow, pickable=False)
 
 
 def _real_reference(plotter, branch_idx, centerline_pts, auto_endpoint, auto_tangent, auto_patch_pts):
@@ -232,11 +253,11 @@ def _real_reference(plotter, branch_idx, centerline_pts, auto_endpoint, auto_tan
     c = BRANCH_COLORS[branch_idx % len(BRANCH_COLORS)]
     if centerline_pts is not None and len(centerline_pts) > 1:
         line = pv.lines_from_points(centerline_pts[:60])   # cap length shown, matches preprocess_endcaps.py
-        plotter.add_mesh(line, color=c, line_width=3)
+        plotter.add_mesh(line, color=c, line_width=3, pickable=False)
     if auto_endpoint is not None and auto_tangent is not None:
         _add_arrow_and_point(plotter, auto_endpoint, auto_tangent, color_point=c)
     if auto_patch_pts is not None and len(auto_patch_pts) > 0:
-        plotter.add_points(auto_patch_pts, color=c, point_size=6, opacity=0.35)
+        plotter.add_points(auto_patch_pts, color=c, point_size=6, opacity=0.35, pickable=False)
 
 
 def _synthetic_reference(plotter, branch_idx, opening_pts):
@@ -244,7 +265,7 @@ def _synthetic_reference(plotter, branch_idx, opening_pts):
     indices for this branch slot — approximate, for branch identity only."""
     c = BRANCH_COLORS[branch_idx % len(BRANCH_COLORS)]
     if opening_pts is not None and len(opening_pts) > 0:
-        plotter.add_points(opening_pts, color=c, point_size=10, opacity=0.5)
+        plotter.add_points(opening_pts, color=c, point_size=10, opacity=0.5, pickable=False)
         plotter.add_text(
             f"faint {c} dots (branch {branch_idx}) = approximate canonical opening, NOT precise",
             position="lower_left", font_size=9,
