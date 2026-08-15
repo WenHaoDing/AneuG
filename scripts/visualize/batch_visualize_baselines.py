@@ -26,7 +26,7 @@ from models.ghd_vae import TypeConditionalVAE
 from models.ghd_vqvae import ConditionalGHDVQVAE
 
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 OUT_DIR = ROOT / "checkpoints" / "v2" / "renders_baseline"
 
 CHECKPOINTS = [

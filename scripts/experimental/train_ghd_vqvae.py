@@ -14,7 +14,7 @@ from dataset.preprocess_ImperialNHS import get_ghd_reconstruct
 from models.ghd_vqvae import ConditionalGHDVQVAE
 
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 SAVE_DIR = ROOT / "checkpoints" / "v2" / "ghd_vqvae"
 
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")

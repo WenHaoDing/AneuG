@@ -74,7 +74,7 @@ _args = _parse_args()
 USE_ATTN = _args.attn   # True → local cross-attention over intermediate GCN tokens (claydoll_attn);
                         # False → single global-pooled ghd_embed, differentiated by slot + predicted start (claydoll)
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed_claydoll"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_claydoll"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 DEVICE     = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
@@ -117,12 +117,12 @@ TYPE_N_OPEN = {0: 3, 1: 2, 2: 2}
 CANONICAL_TYPE_NAME = {0: "bifurcated", 1: "sidewall", 2: "sidewall"}
 
 _VARIANT = "branch_transformer_claydoll_attn" if USE_ATTN else "branch_transformer_claydoll"
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / "branch_transformer_claydoll" / f"{_VARIANT}_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT}_start{START_POINTS_WEIGHT:g}"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "branch_transformer_claydoll" / f"{_VARIANT}_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT}_start{START_POINTS_WEIGHT:g}"
 
 # Stage-1 GHD VAE, frozen — only used to sample synthetic phi for the fully-
 # generative sanity panel (same checkpoint the other claydoll pipeline uses;
 # stage 1 is shared/unchanged between all v2/claydoll variants).
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
 
 SAVE_EVERY   = 200
 LOG_EVERY    = 10

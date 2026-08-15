@@ -1,6 +1,6 @@
 """
 Endcap dataset (endpoint + tangent + local patch) — derived from the
-already-processed dataset/processed checkpoints, not raw scans.
+already-processed runtime/dataset/processed checkpoints, not raw scans.
 
 Context (Plan C): rather than predicting each branch's start point as a raw,
 ungrounded xyz regression (models/branch_mlp_vae_claydoll.py's
@@ -15,7 +15,7 @@ per-vertex classification target so the attention distribution itself has a
 direct supervision signal, not just the downstream regression loss. This
 script produces all three targets.
 
-Endpoint target: why not just reuse dataset/processed's own clipped_centerline
+Endpoint target: why not just reuse runtime/dataset/processed's own clipped_centerline
 branch_points[0] directly — empirically, point[0] sits ~0.4-1.6mm OUTSIDE the
 canonical/GHD-reconstructed mesh surface (verified: 15-case spot check, see
 conversation), almost exactly along the branch's own forward tangent — because
@@ -63,7 +63,7 @@ Kept deliberately minimal (per instruction: no need to record so much stuff):
 each output checkpoint has case / aneurysm_type / phi (needed to reconstruct
 the mesh later) plus endpoints / tangents / branch_mask / used_fallback /
 used_elongation / in_patch / patch_distances. Nothing else from
-dataset/processed's much richer schema is carried over.
+runtime/dataset/processed's much richer schema is carried over.
 
 conda activate new
 python dataset/preprocess_endcaps.py --save-sanity
@@ -84,8 +84,8 @@ if str(ROOT) not in sys.path:
 
 from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy, _set_axes_equal
 
-DEFAULT_INPUT_DIR = ROOT / "dataset" / "processed"
-DEFAULT_OUTPUT_DIR = ROOT / "dataset" / "processed_endcaps"
+DEFAULT_INPUT_DIR = ROOT / "runtime" / "dataset" / "processed"
+DEFAULT_OUTPUT_DIR = ROOT / "runtime" / "dataset" / "processed_endcaps"
 MAX_BRANCHES = 3
 SEARCH_WINDOW_MM = 8.0        # how far forward along the branch's OWN points to look for a crossing
 TANGENT_TAIL_POINTS = 5       # points used to estimate direction when extrapolating past a short branch

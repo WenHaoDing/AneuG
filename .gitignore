@@ -5,11 +5,6 @@ datasets/
 Aneu_GHD/mesh_comparisons/
 Aneu_GHD/seg_post/
 Aneu_GHD/fitting_results/
-dataset/processed/
-dataset/processed_claydoll/
-dataset/processed_endcaps/
-dataset/temp/
-checkpoints_v1/
-tr_checkpoints/
+runtime/
 v2/synthetic_v1/
 wandb/

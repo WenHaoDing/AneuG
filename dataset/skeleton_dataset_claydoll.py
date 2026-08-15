@@ -131,7 +131,7 @@ class VesselSkeletonDatasetClaydoll(VesselSkeletonDataset):
 if __name__ == "__main__":
     from dataset.skeleton_dataset import visualize_sample
 
-    PROCESSED_ROOT = ROOT / "dataset" / "processed_claydoll"
+    PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_claydoll"
     dataset = VesselSkeletonDatasetClaydoll(PROCESSED_ROOT)
     print(f"Loaded {len(dataset)} samples.")
     print(f"point_mean={dataset.point_mean.tolist()}  point_std={dataset.point_std.tolist()}")

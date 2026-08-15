@@ -16,7 +16,7 @@ from visualization.sanity_check import sanity_check
 USE_GCN        = True   # True → MultiBranchVAE_GCNConditioner (GCN mesh encoder)
                           # False → MultiBranchVAE (flat MLP on phi tokens)
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"   # only used when USE_GCN=True
 SAVE_DIR       = ROOT / "checkpoints" / "v2" / ("branch_transformer_gcn" if USE_GCN else "branch_transformer")
 

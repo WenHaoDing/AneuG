@@ -76,11 +76,11 @@ TYPE_N_OPEN = {0: 3, 1: 2, 2: 2}   # candidate branch count per type — type 2 
                                     # in this pipeline, but the mesh geometry (Sidewall template) is identical
                                     # either way, so labeling only ever needs 2 or 3 branches per case.
 
-DEFAULT_REAL_DIR     = ROOT / "dataset" / "processed"          # source of real centerlines
-DEFAULT_ENDCAPS_DIR  = ROOT / "dataset" / "processed_endcaps"  # source of automatic reference labels
-DEFAULT_OUTPUT_DIR   = ROOT / "dataset" / "processed_endcaps_manual"
+DEFAULT_REAL_DIR     = ROOT / "runtime" / "dataset" / "processed"          # source of real centerlines
+DEFAULT_ENDCAPS_DIR  = ROOT / "runtime" / "dataset" / "processed_endcaps"  # source of automatic reference labels
+DEFAULT_OUTPUT_DIR   = ROOT / "runtime" / "dataset" / "processed_endcaps_manual"
 CANONICAL_ROOT       = ROOT / "dataset" / "canonical"
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
 
 BRANCH_COLORS = ["black", "blue", "red"]
 
@@ -225,7 +225,7 @@ def _derive_label(verts, faces, picked_face_ids, mesh_centroid):
 
 
 def label_real_case(rec, real_chk, endcaps_rec, output_dir):
-    """rec: dataset/processed/<case>.npy checkpoint (dict). endcaps_rec:
+    """rec: runtime/dataset/processed/<case>.npy checkpoint (dict). endcaps_rec:
     dataset/processed_endcaps/<case>.npy record, or None if that case has no
     automatic label (shouldn't normally happen, but handled gracefully)."""
     case = rec["case"]

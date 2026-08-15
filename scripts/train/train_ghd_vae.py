@@ -28,7 +28,7 @@ def _parse_args():
                    help="Ramp KL weight linearly over this many epochs (0 = full strength from epoch 0).")
     p.add_argument("--save-root", default=None,
                    help="Root under which SAVE_DIR = <save-root>/stage1/ghd_vae_h..._z..._kl... is built "
-                        "(default: tr_checkpoints/v2).")
+                        "(default: runtime/tr_checkpoints/v2).")
     p.add_argument("--device", default=None, help="e.g. cuda:0, cuda:1, cpu (default: cuda:1).")
     # Only parse real argv when run as a script — importing this module for
     # smoke tests/reuse shouldn't choke on pytest/ipython's own argv.
@@ -37,7 +37,7 @@ def _parse_args():
 
 _args = _parse_args()
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 
 DEVICE = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
 EPOCHS = 5000
@@ -51,7 +51,7 @@ KL_MULT = _args.kl_mult   # multiplier (e.g. 0.5, 1, 2, 4); goes into SAVE_DIR n
 KL_WEIGHT = KL_BASE * KL_MULT
 KL_ANNEAL_EPOCHS = _args.kl_anneal_epochs   # 0 = no annealing (full KL_WEIGHT from epoch 0)
 
-SAVE_ROOT = Path(_args.save_root) if _args.save_root else ROOT / "tr_checkpoints" / "v2"
+SAVE_ROOT = Path(_args.save_root) if _args.save_root else ROOT / "runtime" / "tr_checkpoints" / "v2"
 _anneal_suffix = f"_anneal{KL_ANNEAL_EPOCHS}" if KL_ANNEAL_EPOCHS > 0 else ""
 SAVE_DIR = SAVE_ROOT / "stage1" / f"ghd_vae_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT:g}{_anneal_suffix}"
 WITH_SCALE = True

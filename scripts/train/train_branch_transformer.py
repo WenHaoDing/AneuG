@@ -17,7 +17,7 @@ from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
 USE_GCN        = True   # True → MultiBranchVAE_GCNConditioner (GCN mesh encoder)
                           # False → MultiBranchVAE (flat MLP on phi tokens)
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"   # only used when USE_GCN=True
 
 DEVICE    = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -52,12 +52,12 @@ USE_POINT_WEIGHTS = True
 CURVATURE_WEIGHT  = 0.25   # dataset curvature-boost strength (0 = uniform weights)
 
 _VARIANT = "branch_transformer_gcn" if USE_GCN else "branch_transformer"
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / "branch_transformer" / f"{_VARIANT}_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT}_weighted_weak"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "branch_transformer" / f"{_VARIANT}_h{HIDDEN_DIM}_z{LATENT_DIM}_kl{KL_MULT}_weighted_weak"
 
 LR_MIN = 1e-5   # cosine annealing floor
 
 # pre-trained GHD VAE (TypeConditionalVAE from train_ghd_vae.py)
-GHD_VAE_CKPT    = ROOT / "tr_checkpoints" / "v2" / "ghd_vae" / "epoch_10000.pth"
+GHD_VAE_CKPT    = ROOT / "runtime" / "tr_checkpoints" / "v2" / "ghd_vae" / "epoch_10000.pth"
 GHD_INPUT_DIM   = 432   # 144 * 3
 GHD_HIDDEN_DIM  = 512
 GHD_LATENT_DIM  = 108

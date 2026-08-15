@@ -23,7 +23,7 @@ import re
 
 import numpy as np
 
-REAL_ROOT = "dataset/processed"
+REAL_ROOT = "runtime/dataset/processed"
 # map both real ("bifurcated") and synth ("bifurcation") labels to one group key
 GROUP = {"bifurcated": "bifurcation", "bifurcation": "bifurcation",
          "sidewall": "sidewall"}

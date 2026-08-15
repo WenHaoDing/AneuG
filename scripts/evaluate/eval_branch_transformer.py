@@ -44,9 +44,9 @@ from scripts.train.train_branch_transformer import (
 )
 
 # ── eval config ───────────────────────────────────────────────────────────────
-CHECKPOINT = ROOT / "tr_checkpoints" / "v2" / "branch_transformer" / "branch_transformer_gcn_h64_z8_kl1_weighted" / "epoch_02000.pth"
+CHECKPOINT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "branch_transformer" / "branch_transformer_gcn_h64_z8_kl1_weighted" / "epoch_02000.pth"
 # GHD VAE checkpoint — must match GHD_HIDDEN_DIM/GHD_LATENT_DIM in train_branch_transformer (h512/z108).
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "ghd_vae_h512_z108_kl1" / "epoch_10000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "ghd_vae_h512_z108_kl1" / "epoch_10000.pth"
 USE_GCN    = True              # must match the checkpoint
 Z_ZERO     = False             # True → branch z = 0 (mean/most-likely);  False → z ~ N(0, I)
 Z_AMP = 1

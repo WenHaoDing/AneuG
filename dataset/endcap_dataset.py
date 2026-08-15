@@ -99,7 +99,7 @@ def collate_endcaps(batch):
 if __name__ == "__main__":
     from torch.utils.data import DataLoader
 
-    ds = EndcapDataset(ROOT / "dataset" / "processed_endcaps")
+    ds = EndcapDataset(ROOT / "runtime" / "dataset" / "processed_endcaps")
     print(f"Loaded {len(ds)} samples.")
     loader = DataLoader(ds, batch_size=8, shuffle=True, collate_fn=collate_endcaps)
     batch = next(iter(loader))

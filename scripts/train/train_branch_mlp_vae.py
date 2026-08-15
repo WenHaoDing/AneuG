@@ -28,7 +28,7 @@ from utils.generate_synthetic import load_ghd_vae
 # ── variant ───────────────────────────────────────────────────────────────────
 USE_GCN        = True   # True → GCN mesh encoder for phi;  False → GHDTokenEncoder (simple MLP)
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"   # only used when USE_GCN=True
 
 DEVICE     = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -69,7 +69,7 @@ def opening_mask_from_types(aneurysm_type, max_branches):
     return torch.arange(max_branches).unsqueeze(0) < n.unsqueeze(1)
 
 _VARIANT = "branch_mlp_vae_gcn" if USE_GCN else "branch_mlp_vae"
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae" / f"{_VARIANT}_h{HIDDEN_DIM}_l{NUM_LAYERS}_z{LATENT_DIM}_kl{KL_MULT}"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae" / f"{_VARIANT}_h{HIDDEN_DIM}_l{NUM_LAYERS}_z{LATENT_DIM}_kl{KL_MULT}"
 
 # Synthetic-direction loss: sample phi from a frozen GHD VAE, reconstruct the
 # mesh openings (start + outward direction) via multi_recon, generate Fourier
@@ -79,7 +79,7 @@ SYN_DIR_WEIGHT = 0.5      # 0 disables the synthetic-direction loss
 B_SYN          = 24       # synthetic batch size; must be divisible by NUM_TYPES
 SYN_DIR_GHD_Z_AMP = 3.0   # synthetic GHD latent sampled ~ U(-SYN_DIR_GHD_Z_AMP, SYN_DIR_GHD_Z_AMP)
 
-GHD_VAE_CKPT   = ROOT / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
+GHD_VAE_CKPT   = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
 # GHD VAE architecture is loaded from GHD_VAE_CKPT's own "args" (see utils.generate_synthetic.load_ghd_vae)
 
 SAVE_EVERY   = 500

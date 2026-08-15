@@ -65,7 +65,7 @@ _args = _parse_args()
 USE_ATTN = _args.attn   # True → local cross-attention over intermediate GCN tokens (claydoll_attn);
                         # False → single global-pooled ghd_embed, differentiated by slot + predicted start (claydoll)
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed_claydoll"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_claydoll"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 DEVICE     = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
@@ -117,12 +117,12 @@ def opening_mask_from_types(aneurysm_type, max_branches):
 _VARIANT = "branch_mlp_vae_claydoll_attn" if USE_ATTN else "branch_mlp_vae_claydoll"
 # _pmse{POINT_MSE_WEIGHT} disambiguates from runs launched before the point_mse
 # loss existed (same h/l/z/kl hyperparameters, different SAVE_DIR — no collision).
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae_claydoll" / f"{_VARIANT}_h{HIDDEN_DIM}_l{NUM_LAYERS}_z{LATENT_DIM}_kl{KL_MULT}_pmse{POINT_MSE_WEIGHT:g}"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae_claydoll" / f"{_VARIANT}_h{HIDDEN_DIM}_l{NUM_LAYERS}_z{LATENT_DIM}_kl{KL_MULT}_pmse{POINT_MSE_WEIGHT:g}"
 
 # Stage-1 GHD VAE, frozen — only used to sample synthetic phi for the fully-
 # generative sanity panel (same checkpoint the clipped pipeline uses; stage 1
 # is shared/unchanged between both pipelines).
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_05000.pth"
 
 SAVE_EVERY   = 500
 LOG_EVERY    = 10

@@ -19,7 +19,7 @@ from models.vae_models import KL_divergence
 from models.ghd_vae import TypeConditionalVAE
 
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
 SAVE_DIR = ROOT / "checkpoints" / "v2" / "ghd_vae_tune2"
 
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")

@@ -289,7 +289,7 @@ def visualize_sample(dataset, idx, save_path=None, n_points=128):
 if __name__ == "__main__":
     import os
 
-    PROCESSED_ROOT = ROOT / "dataset" / "processed_claydoll"
+    PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_claydoll"
     K = 8
 
     dataset = VesselSkeletonDatasetFourierClaydoll(PROCESSED_ROOT, k=K)

@@ -123,7 +123,7 @@ from preprocess_AneuX import (
 GHD_ROOT = "/media/yaplab2/HDD Storage/almaha/Aneu_GHD/fitting_results_NewAneuX/Final"
 GEOMETRY_ROOT = "/media/yaplab2/wd8tb/wenhao/angioflow/data/geometry/AneuX"
 DEFAULT_ANEURYSM_TYPES = (0, 1, 2)   # AneuX preprocessing is restricted to types 1 and 2
-DEFAULT_OUTPUT_DIR = str(_REPO_ROOT / "dataset" / "processed_claydoll")
+DEFAULT_OUTPUT_DIR = str(_REPO_ROOT / "runtime" / "dataset" / "processed_claydoll")
 
 # Mean nearest-neighbor distance (mm) above which a clipped->merged branch match
 # is rejected as unreliable rather than silently accepted.

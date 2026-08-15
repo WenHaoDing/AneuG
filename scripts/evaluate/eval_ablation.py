@@ -4,7 +4,7 @@ Ablation sweep over stage1 (GHD VAE) and stage2 (branch MLP-VAE) checkpoints.
 For each stage1 checkpoint, pairs it with a fixed reference stage2 checkpoint and
 generates N_GEN samples (24 by default). For each stage2 checkpoint, pairs it with
 a fixed reference stage1 checkpoint and does the same. One image per checkpoint
-under evaluation (the "ablated" stage), saved to tr_checkpoints/v2/ablation_eval/.
+under evaluation (the "ablated" stage), saved to runtime/tr_checkpoints/v2/ablation_eval/.
 
 conda activate new
 python scripts/evaluate/eval_ablation.py
@@ -26,8 +26,8 @@ from utils.generate_synthetic import generate_synthetic_shapes
 from scripts.evaluate.eval_branch_mlp_vae import plot_branches, CANONICAL_TYPE_NAME
 
 # ── eval config ───────────────────────────────────────────────────────────────
-STAGE1_DIR = ROOT / "tr_checkpoints" / "v2" / "stage1"
-STAGE2_DIR = ROOT / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae"
+STAGE1_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage1"
+STAGE2_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae"
 
 STAGE1_EPOCH = "epoch_05000.pth"   # final epoch for every stage1 config
 STAGE2_EPOCH = "epoch_03000.pth"   # final epoch for every stage2 config
@@ -51,7 +51,7 @@ MIN_BRANCH_ARC = 3.0
 FUSE_SMOOTH    = True
 
 DEVICE   = "cuda:0"
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2" / "ablation_eval"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2" / "ablation_eval"
 
 
 def discover_configs(stage_dir, epoch_name):

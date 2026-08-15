@@ -115,7 +115,7 @@ from preprocess_ImperialNHS import (
     _set_axes_equal,
 )
 
-DEFAULT_OUTPUT_DIR = str(_REPO_ROOT / "dataset" / "processed_claydoll")
+DEFAULT_OUTPUT_DIR = str(_REPO_ROOT / "runtime" / "dataset" / "processed_claydoll")
 
 # Mean nearest-neighbor distance (mm) above which a clipped->merged branch match
 # is rejected as unreliable rather than silently accepted.

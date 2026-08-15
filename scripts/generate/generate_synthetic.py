@@ -71,9 +71,9 @@ DEVICE = "cuda:0"
 
 # Checkpoints for eval_branch_mlp_vae.py predate the "args" convention that
 # utils.generate_synthetic's loaders require, so this uses a known-working pair
-# from tr_checkpoints/v2 instead.
-GHD_VAE_CKPT    = ROOT / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_01000.pth"
-BRANCH_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae" / "branch_mlp_vae_gcn_h512_l4_z4_kl5" / "epoch_00500.pth"
+# from runtime/tr_checkpoints/v2 instead.
+GHD_VAE_CKPT    = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage1" / "ghd_vae_h512_z16_kl2" / "epoch_01000.pth"
+BRANCH_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "stage2" / "branch_mlp_vae" / "branch_mlp_vae_gcn_h512_l4_z4_kl5" / "epoch_00500.pth"
 
 PRESENCE_THRESH = 0.5      # branch kept (tubed) iff predicted presence > this
 
@@ -84,7 +84,7 @@ def export(out_dir, n=50, batch=12, seed=1, save_merged=True, validate=True,
            min_branches=1, reject_invalid=True, max_attempts_factor=5,
            compute_selfx=True, max_selfx_frac=None, max_dome_selfx=0,
            force_type=None, start_index=0, ghd_amp=1.0, branch_amp=1.0,
-           phi_source="vae", gmm_k=40, real_root="dataset/processed",
+           phi_source="vae", gmm_k=40, real_root="runtime/dataset/processed",
            extrude_length=3.0, min_branch_arc=3.0, fuse_smooth=True,
            min_torsion=True, smooth_n_rings=3, smooth_n_iter=10, smooth_lam=0.5,
            planarize_n_iter=10, planarize_lam=0.5):
@@ -306,7 +306,7 @@ def _parse_args():
                    help="vae = N(0,I) prior (under-covers real); gmm = Gaussian fit to "
                         "real phi (matches real spread)")
     p.add_argument("--gmm-k", type=int, default=40, help="PCA dims for the real-phi Gaussian")
-    p.add_argument("--real-root", type=str, default="dataset/processed",
+    p.add_argument("--real-root", type=str, default="runtime/dataset/processed",
                    help="real phi source for --phi-source gmm")
     p.add_argument("--no-selfx", action="store_true",
                    help="skip mesh self-intersection measurement (recorded in metrics.json)")

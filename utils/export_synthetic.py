@@ -534,7 +534,7 @@ class RealPhiGMM:
     that fall in the Gaussian tail are caught downstream by the dome filter.
     """
 
-    def __init__(self, real_root="dataset/processed", k=40):
+    def __init__(self, real_root="runtime/dataset/processed", k=40):
         self.real_root = real_root
         self.k = k
         self._fit = {}   # group -> (mu, comp[k,432], chol[k,k])

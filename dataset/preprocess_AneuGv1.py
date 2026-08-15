@@ -24,7 +24,7 @@ Key differences from v2
 
 v1 checkpoint format
 --------------------
-ghd_root (checkpoints_v1/ghd_fitting)
+ghd_root (runtime/checkpoints_v1/ghd_fitting)
 ├── case name
     └── vanilla
         └── ghb_fitting_checkpoint_5.pkl
@@ -34,7 +34,7 @@ ghd_root (checkpoints_v1/ghd_fitting)
                 ├── T: float32 [1, 3]  (translation, t_vec)
                 └── GHD_coefficient: float32 [144, 3]  (phi)
 
-centreline_root (checkpoints_v1/centreline_fitting/stable)
+centreline_root (runtime/checkpoints_v1/centreline_fitting/stable)
 ├── case_name.pth
     └── torch dict (relevant fields):
         ├── label: str
@@ -97,8 +97,8 @@ from dataset.preprocess_ImperialNHS import (  # noqa: E402
     _so3_exp_map_numpy,
 )
 
-DEFAULT_GHD_ROOT = str(_REPO_ROOT / "checkpoints_v1" / "ghd_fitting")
-DEFAULT_CENTRELINE_ROOT = str(_REPO_ROOT / "checkpoints_v1" / "centreline_fitting" / "stable")
+DEFAULT_GHD_ROOT = str(_REPO_ROOT / "runtime" / "checkpoints_v1" / "ghd_fitting")
+DEFAULT_CENTRELINE_ROOT = str(_REPO_ROOT / "runtime" / "checkpoints_v1" / "centreline_fitting" / "stable")
 # Write into the same folder as the v2 pipeline so a single processed root holds
 # both versions for combined downstream training.
 DEFAULT_OUTPUT_DIR = V2_OUTPUT_DIR

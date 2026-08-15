@@ -320,7 +320,7 @@ if __name__ == "__main__":
     import sys
     import os
 
-    ROOT = '/media/yaplab2/HDD Storage/wenhao/AneuG/dataset'
+    ROOT = '/media/yaplab2/HDD Storage/wenhao/AneuG/runtime/dataset'
     
     dataset = VesselSkeletonDataset(os.path.join(ROOT, 'processed'))
     print(f"Loaded {len(dataset)} samples.")

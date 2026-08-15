@@ -170,7 +170,7 @@ DATASET_CONFIGS = {
 DEFAULT_DATASET = "aneux"
 DEFAULT_GHD_ROOT = DATASET_CONFIGS[DEFAULT_DATASET]["ghd_root"]
 DEFAULT_POST_ROOT = DATASET_CONFIGS[DEFAULT_DATASET]["geometry_root"]
-DEFAULT_OUTPUT_DIR = "/media/yaplab2/HDD Storage/wenhao/AneuG/dataset/temp"
+DEFAULT_OUTPUT_DIR = "/media/yaplab2/HDD Storage/wenhao/AneuG/runtime/dataset/temp"
 CANONICAL_ROOT = _REPO_ROOT / "dataset" / "canonical"
 
 CANONICAL_BY_TYPE = {
@@ -832,7 +832,7 @@ if __name__ == "__main__":
 conda activate new
 python dataset/preprocess_AneuX.py --dataset imperialnhs
 python dataset/preprocess_AneuX.py --dataset aneux --aneurysm-types 1 2 \
-    --output-dir "/media/yaplab2/HDD Storage/wenhao/AneuG/dataset/temp" \
+    --output-dir "/media/yaplab2/HDD Storage/wenhao/AneuG/runtime/dataset/temp" \
     --save-sanity
 
 """

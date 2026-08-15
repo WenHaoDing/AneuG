@@ -37,9 +37,9 @@ from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
 from utils.generate_synthetic import load_ghd_vae
 
 # ── eval config ───────────────────────────────────────────────────────────────
-CHECKPOINT = ROOT / "tr_checkpoints" / "v2_1" / "endcap_predictor" / "h32_gps2_tw1_pw0.1" / "epoch_02000.pth"
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
-PROCESSED_ROOT = ROOT / "dataset" / "processed_endcaps"
+CHECKPOINT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "endcap_predictor" / "h32_gps2_tw1_pw0.1" / "epoch_02000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_endcaps"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 N_REAL      = 8

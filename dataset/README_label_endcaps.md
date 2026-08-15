@@ -29,22 +29,32 @@ pip install pyvista         # needs a real display / working GL context —
                              # or a virtual framebuffer
 ```
 
-Needs the repo's `dataset/processed/` (real cases), `dataset/processed_endcaps/`
-(automatic reference labels), and — for synthetic mode only —
-`dataset/canonical/` plus a trained GHD-VAE checkpoint. All three are
-gitignored, so copy them over from this machine separately; they won't come
-with `git clone`/`git pull`.
+Needs the repo's `runtime/dataset/processed/` (real cases),
+`runtime/dataset/processed_endcaps/` (automatic reference labels), and — for
+synthetic mode only — `dataset/canonical/` (small, checked into git, comes
+with `git clone`/`git pull` as normal) plus a trained GHD-VAE checkpoint under
+`runtime/tr_checkpoints/`.
+
+Everything under `runtime/` is gitignored and lives in one folder specifically
+so it can be synced with a single rsync — copy (or rsync) that whole folder
+over from this machine; it won't come with `git clone`/`git pull`:
+```bash
+rsync -avz --progress <this-machine>:"AneuG/runtime/" ./runtime/
+```
+You don't need the entire folder — for this script you only need
+`runtime/dataset/processed/`, `runtime/dataset/processed_endcaps/`, and (synthetic
+mode only) the one GHD-VAE checkpoint below.
 
 Default synthetic-mode checkpoint path (edit `GHD_VAE_CKPT` near the top of
 the script if yours lives elsewhere):
 ```
-tr_checkpoints/v2_1/stage1/ghd_vae_h512_z16_kl0.5/epoch_05000.pth
+runtime/tr_checkpoints/v2_1/stage1/ghd_vae_h512_z16_kl0.5/epoch_05000.pth
 ```
 
 ## Running it
 
 ```bash
-# Real cases — labels every case in dataset/processed/ not already in the output dir
+# Real cases — labels every case in runtime/dataset/processed/ not already in the output dir
 python dataset/label_endcaps.py --mode real
 
 # Just a few specific cases
@@ -93,7 +103,7 @@ on the next run, so it's safe to stop and resume across sessions.
 ## What gets saved
 
 One `.npy` per case in `--output-dir` (default
-`dataset/processed_endcaps_manual/`), schema-compatible with
+`runtime/dataset/processed_endcaps_manual/`), schema-compatible with
 `dataset/endcap_dataset.py`'s `EndcapDataset`:
 
 ```python
@@ -114,7 +124,7 @@ codebase, e.g. `MultiCanonicalGHDReconstruct.reconstruct_fused_mesh`) — the
 cap is roughly a disk cutting across the vessel tube, so the disk's normal
 approximates the vessel's own axial direction.
 
-This is a **separate output directory** from `dataset/processed_endcaps/`
+This is a **separate output directory** from `runtime/dataset/processed_endcaps/`
 (the automatic labels) — nothing gets silently overwritten. Point
 `EndcapDataset` at whichever directory (or a merge of both) you want to
 train against.

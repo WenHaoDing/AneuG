@@ -61,7 +61,7 @@ def _parse_args():
 
 _args = _parse_args()
 
-PROCESSED_ROOT = ROOT / "dataset" / "processed_endcaps"
+PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_endcaps"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 DEVICE     = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
@@ -84,12 +84,12 @@ TANGENT_WEIGHT = 1.0
 PATCH_WEIGHT   = 0.1   # auxiliary — the main regression loss carries precision, this just helps it get there
 
 _VARIANT = "endcap_predictor"
-SAVE_DIR = ROOT / "tr_checkpoints" / "v2_1" / _VARIANT / f"h{HIDDEN}_gps{GPS_LAYERS}_tw{TANGENT_WEIGHT:g}_pw{PATCH_WEIGHT:g}"
+SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / _VARIANT / f"h{HIDDEN}_gps{GPS_LAYERS}_tw{TANGENT_WEIGHT:g}_pw{PATCH_WEIGHT:g}"
 
 # Frozen stage-1 GHD VAE — only used to sample synthetic phi for the fully-
 # generative sanity panel. Post type2->type1 merge (confirmed via its own
 # saved hparams["merge_type2_into_type1"] == True).
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
 
 SAVE_EVERY   = 200
 LOG_EVERY    = 10

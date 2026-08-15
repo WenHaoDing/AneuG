@@ -24,8 +24,8 @@ from dataset.preprocess_ImperialNHS import _set_axes_equal
 from utils.generate_synthetic import generate_synthetic_shapes
 
 # ── eval config ───────────────────────────────────────────────────────────────
-CHECKPOINT = ROOT / "tr_checkpoints" / "v2" / "branch_mlp_vae" / "branch_mlp_vae_h128_z16_kl1" / "epoch_03000.pth"
-GHD_VAE_CKPT = ROOT / "tr_checkpoints" / "v2" / "ghd_vae_h512_z32_kl1" / "epoch_10000.pth"
+CHECKPOINT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "branch_mlp_vae" / "branch_mlp_vae_h128_z16_kl1" / "epoch_03000.pth"
+GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2" / "ghd_vae_h512_z32_kl1" / "epoch_10000.pth"
 Z_ZERO     = True              # True → branch z = 0 (mean/most-likely);  False → z ~ N(0, Z_AMP^2)
 N_GEN      = 12                # number of samples to generate
 NCOLS      = 4

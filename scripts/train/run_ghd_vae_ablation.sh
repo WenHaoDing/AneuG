@@ -2,7 +2,7 @@
 # GHD-VAE ablation sweep (stage 1), post type2->type1 merge.
 #
 # Design (agreed in conversation — NOT a replication of the old
-# tr_checkpoints/v2/stage1 grid, which produced no actionable conclusions):
+# runtime/tr_checkpoints/v2/stage1 grid, which produced no actionable conclusions):
 # a "cross" sweep from the known-reasonable baseline h512/z16/kl2, one axis
 # at a time (cheaper and easier to eyeball a trend from than a full grid,
 # important since the only quality signal available is visual inspection of
@@ -14,7 +14,7 @@
 #     (does a wider network recover reconstruction detail lost to strong KL?)
 #   - annealing comparison at the baseline:  kl_anneal_epochs=500 vs. 0
 #
-# 9 distinct configs total. Saved under tr_checkpoints/v2_1 (not v2, so the
+# 9 distinct configs total. Saved under runtime/tr_checkpoints/v2_1 (not v2, so the
 # old runs are left untouched) via train_ghd_vae.py's --save-root.
 #
 # Runs sequentially within each GPU (one tmux session per GPU, configs queued
@@ -31,7 +31,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 if [ "$#" -gt 0 ]; then GPUS=("$@"); else GPUS=(cuda:0 cuda:1 cuda:2); fi
-SAVE_ROOT="tr_checkpoints/v2_1"
+SAVE_ROOT="runtime/tr_checkpoints/v2_1"
 
 # hidden_dim latent_dim kl_mult kl_anneal_epochs
 CONFIGS=(
