@@ -3,14 +3,24 @@ record_topology.py — interactive tool to record a canonical shape's full
 topology (openings + centerline branches + neck) into ONE consolidated file,
 replacing the openings-only dataset/record_openings.ipynb.
 
-Run this on a machine WITH A DISPLAY (like dataset/label_endcaps.py, this
-workstation is headless) for the PICKING steps. VMTK extraction and the
-sanity renders don't need a display, but are kept in the same script/session
-since they follow on immediately from picking.
+Picking (steps 1-4) needs a real display (like dataset/label_endcaps.py, this
+workstation is headless). VMTK extraction (steps 5-8) needs the vmtk env but
+NOT a display. These don't have to be the same machine -- --mode pick and
+--mode process split the script exactly at that boundary, handing off via
+canonical_picks.npy. --mode all (default) does both in one go, for a machine
+that has both a display and vmtk.
 
+# one machine with both:
 conda activate vmtk_autogen
 python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --aneurysm-type 1
-python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Bifurcated --aneurysm-type 0
+
+# split across two machines (e.g. local workstation has a display but no vmtk,
+# a headless machine has vmtk but no display):
+#   on the machine WITH A DISPLAY (any env with pyvista/trimesh, no vmtk needed):
+python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --aneurysm-type 1 --mode pick
+#   copy canonical_picks.npy to the machine WITH VMTK, then:
+conda activate vmtk_autogen
+python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --mode process
 
 What it does, in order
 -----------------------
@@ -91,7 +101,11 @@ ANEUSEG_DIR = ROOT / "AneuSeg"
 if str(ANEUSEG_DIR) not in sys.path:
     sys.path.insert(0, str(ANEUSEG_DIR))
 
-from IAgents.tools.centerline_extraction import vmtk_extract_centerline, centerline_post_v3
+# NOT imported at module level: IAgents.tools.centerline_extraction pulls in
+# vmtk (and several other heavy deps) at ITS top level, which would make
+# --mode pick fail to even start on a machine that has a display but no vmtk
+# env. Imported lazily inside extract_and_match_branches instead, so only
+# --mode process/all (which actually need vmtk) require it.
 
 TYPE_N_OPEN = {0: 3, 1: 2, 2: 2}
 BRANCH_COLORS = ["red", "blue", "green", "orange", "purple", "cyan"]
@@ -380,6 +394,8 @@ def extract_and_match_branches(canonical_dir, mesh_path, opening_centroids, ref_
     0..n-1 by nearest far-endpoint (Hungarian assignment, robust to more
     detected branches than openings). Returns (branch_points_by_opening,
     split_point)."""
+    from IAgents.tools.centerline_extraction import vmtk_extract_centerline, centerline_post_v3
+
     endpoints = [np.asarray(c) for c in opening_centroids]
     cl_smooth, _ = vmtk_extract_centerline(str(canonical_dir), source_id, endpoints,
                                            mesh_filename=Path(mesh_path).name)
@@ -483,40 +499,50 @@ def render_sanity_images(canonical_dir, mesh_pv, opening_indices, opening_cross_
     return render_dir
 
 
-# ── main ─────────────────────────────────────────────────────────────────────
+# ── pick / process split ─────────────────────────────────────────────────────
+# vmtk (needed for centerline extraction) and a real display (needed for
+# interactive picking) don't have to live on the same machine -- e.g. a local
+# workstation with a display but no vmtk env, and a headless machine with
+# vmtk but no display. --mode pick does ONLY steps 1-4 (no vmtk import at
+# module load time even) and saves an intermediate canonical_picks.npy;
+# --mode process picks that up and does steps 5-8 (no display needed, off-
+# screen rendering only). --mode all (default) does everything in one go,
+# for a machine that has both.
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--canonical-dir", required=True)
-    parser.add_argument("--aneurysm-type", type=int, required=True, choices=[0, 1, 2],
-                        help="0=bifurcated, 1/2=sidewall (1 and 2 share the same canonical shape).")
-    parser.add_argument("--source-id", type=int, default=0,
-                        help="Which opening (in picked sequence order) VMTK treats as the source "
-                             "point; the rest become targets. Doesn't affect the resulting topology.")
-    args = parser.parse_args()
+PICKS_NAME = "canonical_picks.npy"
 
-    canonical_dir = Path(args.canonical_dir)
+
+def load_mesh_and_loops(canonical_dir, aneurysm_type):
     mesh_path = canonical_dir / "mesh.obj"
     mesh_trimmed_path = canonical_dir / "mesh_trimmed.obj"
 
     mesh = trimesh.load(mesh_path, process=False)
     mesh_trimmed = trimesh.load(mesh_trimmed_path, process=False)
     full_verts = np.asarray(mesh.vertices)
-    mesh_centroid = full_verts.mean(axis=0)
 
     loops_trimmed = find_boundary_loops(mesh_trimmed.faces)
     loops_full = [map_loop_to_full(loop, np.asarray(mesh_trimmed.vertices), full_verts)
                  for loop in loops_trimmed]
     print(f"Found {len(loops_full)} boundary loop(s): sizes {[len(l) for l in loops_full]}")
-    expected = TYPE_N_OPEN[args.aneurysm_type]
+    expected = TYPE_N_OPEN[aneurysm_type]
     if len(loops_full) != expected:
-        print(f"Warning: expected {expected} opening(s) for aneurysm_type={args.aneurysm_type}, "
+        print(f"Warning: expected {expected} opening(s) for aneurysm_type={aneurysm_type}, "
               f"found {len(loops_full)}.")
+    return mesh, full_verts, loops_full
 
+
+def run_pick(canonical_dir, aneurysm_type):
+    """Steps 1-4 only (no vmtk import needed at all): pick the opening
+    sequence, orient each ring outward, brush the neck. Saves
+    canonical_picks.npy for run_process to pick up later, possibly on a
+    different machine."""
     import pyvista as pv
+
+    mesh, full_verts, loops_full = load_mesh_and_loops(canonical_dir, aneurysm_type)
+    mesh_centroid = full_verts.mean(axis=0)
     mesh_pv = pv.PolyData(full_verts, np.hstack([np.full((len(mesh.faces), 1), 3), mesh.faces]).ravel())
 
-    print("\n--- Step 1/3: pick the opening sequence ---")
+    print("\n--- Step 1/2: pick the opening sequence ---")
     sequence = pick_opening_sequence(mesh_pv, loops_full, full_verts)
 
     opening_indices, opening_cross_vecs, opening_centroids = [], [], []
@@ -526,19 +552,59 @@ def main():
         opening_cross_vecs.append(cv)
         opening_centroids.append(centroid)
 
-    print("\n--- Step 2/3: brush the aneurysm neck ---")
+    print("\n--- Step 2/2: brush the aneurysm neck ---")
     neck_idx, neck_points = pick_neck_points(mesh_pv)
     neck_centroid = neck_points.mean(axis=0)
+
+    picks = {
+        "aneurysm_type": aneurysm_type,
+        "opening_indices": [idx.astype(np.int64) for idx in opening_indices],
+        "opening_cross_vectors": [cv.astype(np.float32) for cv in opening_cross_vecs],
+        "opening_centroids": [c.astype(np.float32) for c in opening_centroids],
+        "neck_vertex_indices": neck_idx.astype(np.int64),
+        "neck_points": neck_points.astype(np.float32),
+        "neck_centroid": neck_centroid.astype(np.float32),
+    }
+    out_path = canonical_dir / PICKS_NAME
+    np.save(out_path, picks, allow_pickle=True)
+    print(f"\nSaved picks -> {out_path}")
+    print(f"Run with --mode process on a machine with vmtk to finish (no display needed there).")
+
+
+def run_process(canonical_dir, source_id=0):
+    """Steps 5-8: load canonical_picks.npy (from run_pick, possibly on a
+    different machine), run vmtk centerline extraction + branch matching,
+    save the final canonical_topology.npy, and render sanity images. No
+    display needed -- off-screen rendering only."""
+    import pyvista as pv
+
+    picks_path = canonical_dir / PICKS_NAME
+    if not picks_path.exists():
+        raise FileNotFoundError(
+            f"{picks_path} not found. Run with --mode pick first (on a machine with a display)."
+        )
+    picks = np.load(picks_path, allow_pickle=True).item()
+    aneurysm_type = picks["aneurysm_type"]
+    opening_indices = picks["opening_indices"]
+    opening_cross_vecs = picks["opening_cross_vectors"]
+    opening_centroids = picks["opening_centroids"]
+    neck_points = picks["neck_points"]
+    neck_centroid = picks["neck_centroid"]
+
+    mesh_path = canonical_dir / "mesh.obj"
+    mesh = trimesh.load(mesh_path, process=False)
+    full_verts = np.asarray(mesh.vertices)
+    mesh_pv = pv.PolyData(full_verts, np.hstack([np.full((len(mesh.faces), 1), 3), mesh.faces]).ravel())
 
     print("\n--- Step 3/3: VMTK centerline extraction + branch matching ---")
     branch_points_by_opening, split_point = extract_and_match_branches(
         canonical_dir, mesh_path, opening_centroids, neck_centroid,
-        args.aneurysm_type, source_id=args.source_id,
+        aneurysm_type, source_id=source_id,
     )
 
     out_path = canonical_dir / CONSOLIDATED_NAME
     topology = {
-        "aneurysm_type": args.aneurysm_type,
+        "aneurysm_type": aneurysm_type,
         "num_openings": len(opening_indices),
         "openings": [
             {
@@ -549,7 +615,7 @@ def main():
             }
             for i in range(len(opening_indices))
         ],
-        "neck_vertex_indices": neck_idx.astype(np.int64),
+        "neck_vertex_indices": picks["neck_vertex_indices"].astype(np.int64),
         "neck_points": neck_points.astype(np.float32),
         "neck_centroid": neck_centroid.astype(np.float32),
         "split_point": split_point.astype(np.float32),
@@ -562,6 +628,37 @@ def main():
         neck_points, branch_points_by_opening, split_point,
     )
     print(f"Sanity images saved to {render_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--canonical-dir", required=True)
+    parser.add_argument("--aneurysm-type", type=int, choices=[0, 1, 2],
+                        help="0=bifurcated, 1/2=sidewall (1 and 2 share the same canonical shape). "
+                             "Required for --mode pick/all.")
+    parser.add_argument("--mode", choices=["pick", "process", "all"], default="all",
+                        help="pick: interactive steps only (needs a display, NOT vmtk), saves "
+                             "canonical_picks.npy. process: vmtk + save + render (needs vmtk, "
+                             "NOT a display), reads canonical_picks.npy from a prior --mode pick "
+                             "run -- possibly on a different machine. all: everything in one go, "
+                             "for a machine with both.")
+    parser.add_argument("--source-id", type=int, default=0,
+                        help="Which opening (in picked sequence order) VMTK treats as the source "
+                             "point; the rest become targets. Doesn't affect the resulting topology.")
+    args = parser.parse_args()
+
+    canonical_dir = Path(args.canonical_dir)
+
+    if args.mode in ("pick", "all") and args.aneurysm_type is None:
+        parser.error("--aneurysm-type is required for --mode pick/all")
+
+    if args.mode == "pick":
+        run_pick(canonical_dir, args.aneurysm_type)
+    elif args.mode == "process":
+        run_process(canonical_dir, source_id=args.source_id)
+    else:
+        run_pick(canonical_dir, args.aneurysm_type)
+        run_process(canonical_dir, source_id=args.source_id)
 
 
 if __name__ == "__main__":
