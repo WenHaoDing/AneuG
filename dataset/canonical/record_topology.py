@@ -188,16 +188,24 @@ def orient_opening_outward(idx_ordered, full_verts, mesh_centroid):
 # ── interactive picking (needs a real display) ──────────────────────────────
 
 def pick_opening_sequence(mesh_pv, loops_full, full_verts):
-    """One fresh window per opening slot: click near the loop you want next.
-    Already-assigned loops are shown in their final color + index label;
-    unassigned loops are shown faint grey. Returns a list of loop indices
+    """One fresh window per opening slot: click near the loop you want next,
+    then press 'c' to confirm it and close the window (click again first if
+    you want to change your pick -- clicking doesn't close the window by
+    itself, only 'c' does). Already-assigned loops are shown in their final
+    color + index label; unassigned loops are shown faint grey; your current
+    tentative pick is highlighted orange. Returns a list of loop indices
     (into loops_full) in the picked sequence, or raises if the user closes a
-    window without picking (so the caller doesn't silently write a partial
-    canonical_topology.npy).
+    window without confirming a pick (so the caller doesn't silently write a
+    partial canonical_topology.npy).
 
     NOT independently tested (no display on this machine) -- same caveat as
     dataset/label_endcaps.py: if _on_pick's warning about 'vtkOriginalCellIds'
-    fires, adjust it there for your PyVista version.
+    fires, adjust it there for your PyVista version. Also flagging enable_point_picking
+    itself as unverified here: it's documented as a plain left-click picker (unlike
+    enable_cell_picking's rubber-band-drag style used elsewhere in this project, which
+    turned out to need a specific gesture we only found by testing), but if left-click
+    alone doesn't trigger _on_pick, check the terminal for PyVista's own on-screen
+    hint (show_message=True) and adjust the enable_point_picking call below.
     """
     import pyvista as pv
 
@@ -206,7 +214,7 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
     sequence = []
 
     for slot in range(n):
-        picked_loop = {"idx": None}
+        state = {"idx": None, "highlight": None, "confirmed": False}
         plotter = pv.Plotter()
         plotter.add_mesh(mesh_pv, color="whitesmoke", opacity=0.5, show_edges=False)
 
@@ -219,6 +227,14 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
             pts = full_verts[loops_full[li]]
             plotter.add_points(pts, color="grey", point_size=8, opacity=0.6)
 
+        def _refresh_highlight():
+            if state["highlight"] is not None:
+                plotter.remove_actor(state["highlight"])
+                state["highlight"] = None
+            if state["idx"] is not None:
+                pts = full_verts[loops_full[state["idx"]]]
+                state["highlight"] = plotter.add_points(pts, color="orange", point_size=14)
+
         def _on_pick(picked):
             if picked is None or picked.n_points == 0:
                 return
@@ -228,24 +244,34 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
                 d = np.linalg.norm(full_verts[loops_full[li]] - click_pt, axis=1).min()
                 if d < best_d:
                     best_d, best_li = d, li
-            picked_loop["idx"] = best_li
-            print(f"  Picked loop {best_li} for opening {slot} (nearest click, dist={best_d:.2f})")
+            state["idx"] = best_li
+            print(f"  Tentatively picked loop {best_li} for opening {slot} (nearest click, "
+                  f"dist={best_d:.2f}) -- click again to change, 'c' to confirm.")
+            _refresh_highlight()
+
+        def _confirm():
+            if state["idx"] is None:
+                print("  Nothing picked yet -- click near a (grey) loop first, then press 'c'.")
+                return
+            state["confirmed"] = True
+            plotter.close()
 
         plotter.add_text(
-            f"Click near the boundary loop that is opening {slot} "
-            f"({len(remaining)} unassigned loop(s) left, in grey)",
+            f"Opening {slot}: click near the loop you want next (orange = current pick, "
+            f"grey = unassigned, {len(remaining)} left), then 'c' to confirm and continue",
             font_size=11, position="upper_left",
         )
         plotter.enable_point_picking(callback=_on_pick, show_message=True, use_picker=True)
+        plotter.add_key_event("c", _confirm)
         plotter.show()
 
-        if picked_loop["idx"] is None:
+        if not state["confirmed"] or state["idx"] is None:
             raise RuntimeError(
-                f"No loop picked for opening {slot} — window was closed without a pick. "
+                f"No loop confirmed for opening {slot} — window was closed without pressing 'c'. "
                 "Rerun the script (nothing has been saved yet)."
             )
-        sequence.append(picked_loop["idx"])
-        remaining.remove(picked_loop["idx"])
+        sequence.append(state["idx"])
+        remaining.remove(state["idx"])
 
     return sequence
 
