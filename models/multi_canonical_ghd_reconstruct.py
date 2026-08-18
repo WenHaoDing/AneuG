@@ -141,20 +141,36 @@ class MultiCanonicalGHDReconstruct:
         return Batch.from_data_list(data_list)
 
     def _load_openings(self, atype):
-        """Load and cache opening vertex indices for the given type from openings.npz."""
+        """Load and cache opening vertex indices for the given type.
+
+        Prefers canonical_topology.npy (dataset/canonical/record_topology.py's
+        consolidated file: a single pickled dict with openings + neck +
+        centerline branches all in one, matching this codebase's own
+        merged_centerline.npy convention), falling back to the older
+        openings-only openings.npz (dataset/record_openings.ipynb) for any
+        canonical type not yet migrated to the new script."""
         if atype not in self._opening_cache:
-            path = Path(self.specs[atype].root) / "openings.npz"
-            if not path.exists():
+            root = Path(self.specs[atype].root)
+            new_path = root / "canonical_topology.npy"
+            legacy_path = root / "openings.npz"
+            if new_path.exists():
+                topology = np.load(new_path, allow_pickle=True).item()
+                self._opening_cache[atype] = [
+                    torch.from_numpy(o["indices"]).long().to(self.device)
+                    for o in topology["openings"]
+                ]
+            elif legacy_path.exists():
+                data = np.load(legacy_path)
+                n    = int(data["num_openings"])
+                self._opening_cache[atype] = [
+                    torch.from_numpy(data[f"indices_{i}"]).long().to(self.device)
+                    for i in range(n)
+                ]
+            else:
                 raise FileNotFoundError(
-                    f"openings.npz not found at {path}. "
-                    "Run dataset/record_openings.ipynb first."
+                    f"Neither canonical_topology.npy nor openings.npz found at {root}. "
+                    "Run dataset/canonical/record_topology.py first."
                 )
-            data = np.load(path)
-            n    = int(data["num_openings"])
-            self._opening_cache[atype] = [
-                torch.from_numpy(data[f"indices_{i}"]).long().to(self.device)
-                for i in range(n)
-            ]
         return self._opening_cache[atype]
 
     def compute_branch_conditions(self, phi, atype, max_branches=None):
