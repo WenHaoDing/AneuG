@@ -47,11 +47,17 @@ What it does, in order
    vector) so future code walking that ring the same way gets a consistent
    outward sense.
 
-4. Interactive: brush the aneurysm-neck vertices (one shared brush, single
-   confirm) -- same brush mechanic as label_endcaps.py's brush_one_branch,
-   just one region instead of per-branch. The centroid of these points is
-   the reference point AneuSeg's centerline machinery needs in place of a
-   real case's aneurysm_centroid:
+4. Interactive: brush the aneurysm DOME -- the whole bulging sac, not the
+   thin neck ring directly (much more forgiving to cover completely; one
+   shared brush, single confirm, same mechanic as label_endcaps.py's
+   brush_one_branch). The neck is then DERIVED, not picked: the dome patch
+   is treated as its own trimmed mesh and its boundary loop is found with
+   the same edge-walk technique used for mesh.obj's own openings
+   (detect_neck_from_dome / find_boundary_loops) -- the neck is simply where
+   the dome patch meets the rest of the vessel. Both the dome's vertex
+   indices (into mesh.obj) and the derived neck ring are recorded. The
+   neck centroid is the reference point AneuSeg's centerline machinery needs
+   in place of a real case's aneurysm_centroid:
      - Bifurcated: which detected bifurcation zone is "the" one (relevant if
        VMTK's branch extractor ever finds more than one bifurcation-like
        region -- merge_centerline_v3 already picks the nearest to this point).
@@ -74,8 +80,9 @@ What it does, in order
 7. Saves everything into ONE file: <canonical-dir>/canonical_topology.npy --
    a single pickled dict (matching this codebase's own merged_centerline.npy
    convention, not a flat openings.npz-style key explosion): opening indices
-   (outward-oriented, into mesh.obj), opening cross vectors, neck points +
-   centroid, per-branch centerline points (matched to opening order), and
+   (outward-oriented, into mesh.obj), opening cross vectors, dome vertex
+   indices (into mesh.obj), neck points + centroid (the dome patch's own
+   boundary), per-branch centerline points (matched to opening order), and
    the bifurcation/split point. MultiCanonicalGHDReconstruct._load_openings
    reads this directly; the old openings.npz format is no longer written.
 
@@ -83,8 +90,8 @@ What it does, in order
    <canonical-dir>/topology_sanity/ showing: opening nodes labelled by
    index (so you can confirm the walk-through is right, not random), each
    opening's cross vector as an arrow labelled by index (confirm outward),
-   and centerline branches in per-opening-matched colors plus the neck
-   points and bifurcation/split point.
+   the dome patch (faint gold) and derived neck ring (black), and centerline
+   branches in per-opening-matched colors plus the bifurcation/split point.
 """
 
 import argparse
@@ -284,88 +291,95 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
     return sequence
 
 
-def _mesh_edge_graph(verts, faces):
-    """Sparse symmetric weighted (edge-length) adjacency matrix over all mesh
-    vertices -- same construction preprocess_endcaps.py uses for graph-distance
-    patches."""
+def _picked_faces_largest_component(faces_all, picked_face_ids):
+    """Face-adjacency (share-an-edge) connected components of the picked face
+    subset. A dome brush is a big, forgiving 2D blob -- much easier to cover
+    without gaps in one pass than a thin neck ring was -- so rather than
+    trying to bridge disconnected pieces (which isn't well-defined for a 2D
+    patch the way it was for a 1D ring), a stray disconnected island just
+    means a misclick: keep the largest piece and tell the user what got
+    dropped, so they can redo the brush if it wasn't a misclick."""
     from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
 
-    edges = np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    edges = np.unique(np.sort(edges, axis=1), axis=0)
-    lengths = np.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1)
-    n = len(verts)
-    graph = coo_matrix((lengths, (edges[:, 0], edges[:, 1])), shape=(n, n))
-    return (graph + graph.T).tocsr()
+    picked_face_ids = np.array(sorted(set(int(i) for i in picked_face_ids)))
+    sub_faces = faces_all[picked_face_ids]  # [P, 3], global vertex indices
 
+    edge_to_local_faces = defaultdict(list)
+    for local_i, f in enumerate(sub_faces):
+        for e in [(f[0], f[1]), (f[1], f[2]), (f[2], f[0])]:
+            edge_to_local_faces[tuple(sorted(e))].append(local_i)
 
-def connect_neck_components(verts, faces, picked_idx):
-    """A brush pass over a curved, rotating 3D view can easily miss a few
-    vertices between two clicked regions, leaving the neck pick as several
-    disconnected islands rather than one patch. If that happens, bridge the
-    closest pair of islands with the shortest mesh-SURFACE path between them
-    (via the same edge-length graph preprocess_endcaps.py uses), repeating
-    until the whole neck selection is one connected region, and returns the
-    expanded (still index-into-mesh.obj) vertex set."""
-    from scipy.sparse.csgraph import connected_components, dijkstra
+    rows, cols = [], []
+    for local_faces in edge_to_local_faces.values():
+        for a in range(len(local_faces)):
+            for b in range(a + 1, len(local_faces)):
+                rows.append(local_faces[a])
+                cols.append(local_faces[b])
 
-    graph = _mesh_edge_graph(verts, faces)
-    picked_idx = np.array(sorted(set(int(i) for i in picked_idx)))
-
-    sub = graph[picked_idx][:, picked_idx]
-    n_comp, labels = connected_components(sub, directed=False)
+    p = len(sub_faces)
+    adj = coo_matrix((np.ones(len(rows)), (rows, cols)), shape=(p, p))
+    n_comp, labels = connected_components(adj, directed=False)
     if n_comp <= 1:
-        return picked_idx
+        return picked_face_ids
 
-    print(f"  Neck pick has {n_comp} disconnected cluster(s) — "
-          f"bridging with shortest mesh-surface paths.")
-    components = [picked_idx[labels == c].tolist() for c in range(n_comp)]
-    bridge = set()
-
-    while len(components) > 1:
-        best = None  # (dist, path, ci, cj)
-        for ci, comp in enumerate(components):
-            dist, pred, _sources = dijkstra(graph, indices=comp, min_only=True, return_predecessors=True)
-            for cj, other in enumerate(components):
-                if ci == cj:
-                    continue
-                k = int(np.argmin(dist[other]))
-                d = float(dist[other][k])
-                if best is None or d < best[0]:
-                    target, cur = other[k], other[k]
-                    path = [target]
-                    while pred[cur] != -9999:
-                        cur = pred[cur]
-                        path.append(cur)
-                    best = (d, path, ci, cj)
-        d, path, ci, cj = best
-        print(f"    bridging cluster {ci} <-> cluster {cj}: {len(path)} extra vertex(es), "
-              f"{d:.2f} mm apart")
-        bridge.update(path)
-        merged = components[ci] + components[cj] + path
-        components = [c for k, c in enumerate(components) if k not in (ci, cj)] + [merged]
-
-    return np.array(sorted(set(picked_idx.tolist()) | bridge))
+    sizes = np.bincount(labels)
+    keep = int(np.argmax(sizes))
+    print(f"  Dome pick has {n_comp} disconnected piece(s) (face counts {sizes.tolist()}) -- "
+          f"keeping the largest ({sizes[keep]} faces), discarding the rest as likely stray clicks. "
+          f"Redo the brush if that's wrong.")
+    return picked_face_ids[labels == keep]
 
 
-def pick_neck_points(mesh_pv):
-    """Brush the aneurysm-neck vertices -- same brush mechanic as
-    label_endcaps.py's brush_one_branch (drag boxes to accumulate, 'z'
-    clears, 'c' confirms), just one region instead of per-branch. The
-    confirmed selection is passed through connect_neck_components before
-    being returned, so a brush that missed a few connecting vertices between
-    two clicked regions doesn't silently leave the neck as several islands."""
+def detect_neck_from_dome(faces_all, dome_face_ids):
+    """Treats the picked dome patch as its own trimmed mesh and finds ITS
+    boundary loop -- the neck is where the dome patch meets the rest of the
+    vessel, exactly the same edge-walk technique used to find mesh_trimmed.obj's
+    openings (find_boundary_loops), just applied to a hand-picked patch instead
+    of a pre-trimmed file. dome_face_ids indexes faces_all (mesh.obj's own face
+    array), so the returned loop is already in mesh.obj vertex indexing -- no
+    mapping step needed, unlike the openings (which come from the SEPARATE
+    mesh_trimmed.obj file and do need one).
+
+    Returns (neck_loop_indices, dome_vertex_indices)."""
+    dome_faces = faces_all[dome_face_ids]
+    loops = find_boundary_loops(dome_faces)
+    if len(loops) == 0:
+        raise RuntimeError(
+            "Dome patch has no boundary -- did the brush accidentally cover the WHOLE "
+            "closed mesh? Redo the brush covering just the dome bulge."
+        )
+    if len(loops) > 1:
+        sizes = [len(l) for l in loops]
+        print(f"  Warning: dome patch has {len(loops)} boundary loops (sizes {sizes}), expected "
+              f"exactly 1 for a clean disk-shaped patch -- using the largest. If the dome brush "
+              f"has a hole in it or wraps around the vessel, redo it.")
+    neck_loop = max(loops, key=len)
+    dome_vertex_indices = np.unique(dome_faces.ravel())
+    return neck_loop, dome_vertex_indices
+
+
+def pick_dome_points(mesh_pv):
+    """Brush the aneurysm DOME (the whole bulging sac, not the thin neck
+    ring -- much easier to cover completely) -- same brush mechanic as
+    label_endcaps.py's brush_one_branch (drag boxes to accumulate faces, 'z'
+    clears, 'c' confirms). The neck is derived afterward from this patch's
+    own boundary (detect_neck_from_dome), not picked directly. Returns the
+    confirmed dome face ids (into mesh.obj's face array, post
+    largest-connected-component cleanup)."""
     import pyvista as pv
 
-    picked_points = set()
+    picked_faces = set()
     state = {"highlight": None, "confirmed": False}
+    faces = mesh_pv.faces.reshape(-1, 4)[:, 1:]
 
     def _refresh_highlight():
         if state["highlight"] is not None:
             plotter.remove_actor(state["highlight"])
             state["highlight"] = None
-        if picked_points:
-            pts = np.asarray(mesh_pv.points)[sorted(picked_points)]
-            state["highlight"] = plotter.add_points(pts, color="orange", point_size=14)
+        if picked_faces:
+            sub = mesh_pv.extract_cells(sorted(picked_faces))
+            state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.9, show_edges=True)
 
     def _on_pick(picked):
         if picked is None or picked.n_cells == 0:
@@ -376,13 +390,11 @@ def pick_neck_points(mesh_pv):
                   f"available arrays: {picked.array_names}. Edit _on_pick in "
                   f"dataset/canonical/record_topology.py to use the right key for your PyVista version.")
             return
-        faces = mesh_pv.faces.reshape(-1, 4)[:, 1:]
-        for fid in np.asarray(ids):
-            picked_points.update(faces[int(fid)].tolist())
+        picked_faces.update(int(i) for i in np.asarray(ids))
         _refresh_highlight()
 
     def _reset():
-        picked_points.clear()
+        picked_faces.clear()
         _refresh_highlight()
 
     def _confirm():
@@ -392,8 +404,8 @@ def pick_neck_points(mesh_pv):
     plotter = pv.Plotter()
     plotter.add_mesh(mesh_pv, color="whitesmoke", opacity=0.55, show_edges=False)
     plotter.add_text(
-        "Drag boxes over the aneurysm NECK region (repeat to add more), "
-        "'z' clears, 'c' confirms",
+        "Drag boxes over the WHOLE aneurysm DOME (repeat/rotate to cover it fully -- "
+        "don't worry about precision at the edge), 'z' clears, 'c' confirms",
         font_size=11, position="upper_left",
     )
     plotter.enable_cell_picking(callback=_on_pick, through=False, show=False, show_message=True)
@@ -401,13 +413,10 @@ def pick_neck_points(mesh_pv):
     plotter.add_key_event("c", _confirm)
     plotter.show()
 
-    if not state["confirmed"] or not picked_points:
-        raise RuntimeError("No neck points confirmed — window was closed without a pick. "
+    if not state["confirmed"] or not picked_faces:
+        raise RuntimeError("No dome patch confirmed — window was closed without a pick. "
                            "Rerun the script (nothing has been saved yet).")
-    verts = np.asarray(mesh_pv.points)
-    faces = mesh_pv.faces.reshape(-1, 4)[:, 1:]
-    idx = connect_neck_components(verts, faces, np.array(sorted(picked_points)))
-    return idx, verts[idx]
+    return _picked_faces_largest_component(faces, np.array(sorted(picked_faces)))
 
 
 # ── VMTK centerline + branch matching ───────────────────────────────────────
@@ -475,7 +484,7 @@ def extract_and_match_branches(canonical_dir, mesh_path, opening_centroids, ref_
 
 def render_sanity_images(canonical_dir, mesh_pv, opening_indices, opening_cross_vecs,
                          neck_points, branch_points_by_opening, split_point,
-                         n_angles=6):
+                         n_angles=6, dome_vertex_indices=None):
     import pyvista as pv
 
     render_dir = Path(canonical_dir) / "topology_sanity"
@@ -505,6 +514,10 @@ def render_sanity_images(canonical_dir, mesh_pv, opening_indices, opening_cross_
                                      text_color=c, shape=None)
             arrow = pv.Arrow(start=centroid, direction=opening_cross_vecs[o], scale=arrow_scale)
             plotter.add_mesh(arrow, color=c)
+
+        if dome_vertex_indices is not None and len(dome_vertex_indices) > 0:
+            plotter.add_points(full_verts[dome_vertex_indices], color="gold", point_size=4,
+                               opacity=0.3, label="dome")
 
         if neck_points is not None and len(neck_points) > 0:
             plotter.add_points(neck_points, color="black", point_size=6, opacity=0.5, label="neck")
@@ -586,15 +599,22 @@ def run_pick(canonical_dir, aneurysm_type):
         opening_cross_vecs.append(cv)
         opening_centroids.append(centroid)
 
-    print("\n--- Step 2/2: brush the aneurysm neck ---")
-    neck_idx, neck_points = pick_neck_points(mesh_pv)
+    print("\n--- Step 2/2: brush the aneurysm dome (neck is derived from its boundary) ---")
+    dome_face_ids = pick_dome_points(mesh_pv)
+    faces = mesh_pv.faces.reshape(-1, 4)[:, 1:]
+    neck_idx, dome_vertex_idx = detect_neck_from_dome(faces, dome_face_ids)
+    neck_points = full_verts[neck_idx]
     neck_centroid = neck_points.mean(axis=0)
+    print(f"  Dome patch: {len(dome_vertex_idx)} vertices, {len(dome_face_ids)} faces. "
+          f"Detected neck: {len(neck_idx)} boundary vertices.")
 
     picks = {
         "aneurysm_type": aneurysm_type,
         "opening_indices": [idx.astype(np.int64) for idx in opening_indices],
         "opening_cross_vectors": [cv.astype(np.float32) for cv in opening_cross_vecs],
         "opening_centroids": [c.astype(np.float32) for c in opening_centroids],
+        "dome_face_indices": dome_face_ids.astype(np.int64),
+        "dome_vertex_indices": dome_vertex_idx.astype(np.int64),
         "neck_vertex_indices": neck_idx.astype(np.int64),
         "neck_points": neck_points.astype(np.float32),
         "neck_centroid": neck_centroid.astype(np.float32),
@@ -624,6 +644,7 @@ def run_process(canonical_dir, source_id=0):
     opening_centroids = picks["opening_centroids"]
     neck_points = picks["neck_points"]
     neck_centroid = picks["neck_centroid"]
+    dome_vertex_indices = picks.get("dome_vertex_indices")  # None for a picks file from before dome brushing
 
     mesh_path = canonical_dir / "mesh.obj"
     mesh = trimesh.load(mesh_path, process=False)
@@ -649,6 +670,8 @@ def run_process(canonical_dir, source_id=0):
             }
             for i in range(len(opening_indices))
         ],
+        "dome_vertex_indices": (dome_vertex_indices.astype(np.int64)
+                                if dome_vertex_indices is not None else None),
         "neck_vertex_indices": picks["neck_vertex_indices"].astype(np.int64),
         "neck_points": neck_points.astype(np.float32),
         "neck_centroid": neck_centroid.astype(np.float32),
@@ -660,6 +683,7 @@ def run_process(canonical_dir, source_id=0):
     render_dir = render_sanity_images(
         canonical_dir, mesh_pv, opening_indices, opening_cross_vecs,
         neck_points, branch_points_by_opening, split_point,
+        dome_vertex_indices=dome_vertex_indices,
     )
     print(f"Sanity images saved to {render_dir}")
 
