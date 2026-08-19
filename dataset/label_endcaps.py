@@ -215,7 +215,8 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference):
 
     plotter.add_text(
         f"Branch {branch_idx + 1}/{n_branches}: LEFT-CLICK-DRAG a box over the cap "
-        f"region (repeat to add more), 'z' clears, 'c' confirms",
+        f"region (repeat to add more; if the cap wraps out of view, 'r' toggles ROTATE vs. "
+        f"SELECT mode -- through=False only picks the visible surface), 'z' clears, 'c' confirms",
         font_size=11, position="upper_left",
     )
     # show=False: don't let PyVista draw its OWN highlight for the picked cells -- that

@@ -22,6 +22,7 @@ python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Bi
 #   copy canonical_picks.npy to the machine WITH VMTK, then:
 conda activate vmtk_autogen
 python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --mode process
+python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Bifurcated --mode process
 
 What it does, in order
 -----------------------
@@ -366,7 +367,18 @@ def pick_dome_points(mesh_pv):
     clears, 'c' confirms). The neck is derived afterward from this patch's
     own boundary (detect_neck_from_dome), not picked directly. Returns the
     confirmed dome face ids (into mesh.obj's face array, post
-    largest-connected-component cleanup)."""
+    largest-connected-component cleanup).
+
+    IMPORTANT: through=False picks only the VISIBLE (camera-facing) surface,
+    so one drag can only ever cover the side of the dome currently facing
+    you. A dome is a real 3D bulge (unlike label_endcaps.py's flatter cap
+    patches, where this rarely matters) -- getting the WHOLE dome needs
+    multiple drags from multiple angles, rotating between them via 'r'
+    (toggles the rubber-band interactor between ROTATE and SELECT mode --
+    left-drag only rotates in ROTATE mode, only selects in SELECT mode).
+    Forgetting this and only ever dragging from one angle silently picks
+    just the near half of the dome, which is a real bug this fixes (the
+    on-screen instructions now spell out the 'r' toggle explicitly)."""
     import pyvista as pv
 
     picked_faces = set()
@@ -404,10 +416,20 @@ def pick_dome_points(mesh_pv):
     plotter = pv.Plotter()
     plotter.add_mesh(mesh_pv, color="whitesmoke", opacity=0.55, show_edges=False)
     plotter.add_text(
-        "Drag boxes over the WHOLE aneurysm DOME (repeat/rotate to cover it fully -- "
-        "don't worry about precision at the edge), 'z' clears, 'c' confirms",
+        "Drag boxes over the aneurysm DOME. through=False only picks the VISIBLE (near) "
+        "surface, so a 3D bulge needs multiple angles: press 'r' to toggle into ROTATE mode "
+        "(left-drag rotates instead of selecting), rotate to see the far side, press 'r' AGAIN "
+        "to go back to SELECT mode, then drag over the newly-visible part. Repeat until the "
+        "whole dome is orange. 'z' clears, 'c' confirms.",
         font_size=11, position="upper_left",
     )
+    # through=False (visible-surface-only picking) means a single drag can only ever
+    # select the side of the dome currently facing the camera -- picking a full 3D bulge
+    # needs the 'r'-toggle-then-rotate-then-'r'-back workflow explained above. This is the
+    # same underlying rubber-band interactor style flagged in label_endcaps.py's brush
+    # (where 'r' had to be freed up from "clear" for exactly this reason) -- it was fine
+    # to leave unexplained there since a flat cap patch rarely needs a second angle, but a
+    # dome is a genuine 3D blob and got missed here originally, which is the bug being fixed.
     plotter.enable_cell_picking(callback=_on_pick, through=False, show=False, show_message=True)
     plotter.add_key_event("z", _reset)
     plotter.add_key_event("c", _confirm)
@@ -493,9 +515,13 @@ def render_sanity_images(canonical_dir, mesh_pv, opening_indices, opening_cross_
 
     focal = np.array(mesh_pv.center)
     bounds = mesh_pv.bounds
-    xy_diag = np.sqrt((bounds[1] - bounds[0]) ** 2 + (bounds[3] - bounds[2]) ** 2)
-    cam_dist = xy_diag * 1.4
-    arrow_scale = xy_diag * 0.15
+    # full 3D bounding-box diagonal, not just the X/Y footprint -- a tube-shaped
+    # vessel canonical is typically most elongated along Z, so an XY-only diagonal
+    # badly underestimates how far back the camera needs to sit and crops the mesh.
+    diag = np.sqrt((bounds[1] - bounds[0]) ** 2 + (bounds[3] - bounds[2]) ** 2
+                   + (bounds[5] - bounds[4]) ** 2)
+    cam_dist = diag * 1.6
+    arrow_scale = diag * 0.1
 
     for i in range(n_angles):
         angle_deg = round(360 * i / n_angles)
