@@ -18,6 +18,7 @@ python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Si
 # a headless machine has vmtk but no display):
 #   on the machine WITH A DISPLAY (any env with pyvista/trimesh, no vmtk needed):
 python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --aneurysm-type 1 --mode pick
+python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Bifurcated --aneurysm-type 0 --mode pick
 #   copy canonical_picks.npy to the machine WITH VMTK, then:
 conda activate vmtk_autogen
 python dataset/canonical/record_topology.py --canonical-dir dataset/canonical/Sidewall --mode process
@@ -235,10 +236,15 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
                 pts = full_verts[loops_full[state["idx"]]]
                 state["highlight"] = plotter.add_points(pts, color="orange", point_size=14)
 
-        def _on_pick(picked):
-            if picked is None or picked.n_points == 0:
+        def _on_pick(point):
+            # enable_point_picking's callback receives the picked 3D point
+            # itself (a plain [3] coordinate) -- NOT a picked sub-mesh with
+            # .points/.n_points the way enable_cell_picking's callback does
+            # elsewhere in this script. use_picker=True (removed below) would
+            # instead call this with (point, picker), a 2-arg signature.
+            if point is None:
                 return
-            click_pt = np.asarray(picked.points).mean(axis=0)
+            click_pt = np.asarray(point)
             best_li, best_d = None, np.inf
             for li in remaining:
                 d = np.linalg.norm(full_verts[loops_full[li]] - click_pt, axis=1).min()
@@ -257,11 +263,13 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
             plotter.close()
 
         plotter.add_text(
-            f"Opening {slot}: click near the loop you want next (orange = current pick, "
+            f"Opening {slot}: LEFT-CLICK near the loop you want next (orange = current pick, "
             f"grey = unassigned, {len(remaining)} left), then 'c' to confirm and continue",
             font_size=11, position="upper_left",
         )
-        plotter.enable_point_picking(callback=_on_pick, show_message=True, use_picker=True)
+        # left_clicking=True: enable_point_picking defaults to RIGHT-click, which would be
+        # inconsistent with pick_neck_points' left-click-drag brush elsewhere in this script.
+        plotter.enable_point_picking(callback=_on_pick, show_message=True, left_clicking=True)
         plotter.add_key_event("c", _confirm)
         plotter.show()
 
