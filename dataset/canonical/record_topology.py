@@ -391,14 +391,36 @@ def pick_dome_points(mesh_pv):
             state["highlight"] = None
         if picked_faces:
             sub = mesh_pv.extract_cells(sorted(picked_faces))
-            state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.9, show_edges=True)
+            # pickable=False: this highlight is re-added on every pick, so if it stayed
+            # pickable a later drag could hit it too and enable_cell_picking would then
+            # hand _on_pick a MultiBlock (one block per hit actor) instead of the single
+            # mesh it expects -- see _on_pick's MultiBlock handling below for the same
+            # reason applied to the static reference geometry (matches label_endcaps.py's
+            # brush_one_branch, which hit this exact crash first).
+            state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.9,
+                                                    show_edges=True, pickable=False)
 
     def _on_pick(picked):
-        if picked is None or picked.n_cells == 0:
+        if picked is None:
             return
-        ids = picked.cell_data.get("vtkOriginalCellIds")
+        if isinstance(picked, pv.MultiBlock):
+            # Only reached if some non-mesh actor slipped through without pickable=False;
+            # combine() merges all hit blocks back into one mesh so the rest of this
+            # function doesn't need to special-case it. (Real bug hit while rotating to
+            # reach the far side of a dome: the un-fixed version crashed with
+            # AttributeError('MultiBlock' object has no attribute 'n_cells') here and the
+            # picking session stopped registering further drags.)
+            picked = picked.combine()
+        if picked.n_cells == 0:
+            return
+        # PyVista 0.48's enable_rectangle_visible_picking stores original cell indices
+        # under "original_cell_ids" (not "vtkOriginalCellIds" as in older versions/docs);
+        # try both so this keeps working across versions.
+        ids = picked.cell_data.get("original_cell_ids")
         if ids is None:
-            print(f"[record_topology] 'vtkOriginalCellIds' not in picked.cell_data; "
+            ids = picked.cell_data.get("vtkOriginalCellIds")
+        if ids is None:
+            print(f"[record_topology] no original-cell-id array in picked.cell_data; "
                   f"available arrays: {picked.array_names}. Edit _on_pick in "
                   f"dataset/canonical/record_topology.py to use the right key for your PyVista version.")
             return
