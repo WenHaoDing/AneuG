@@ -47,8 +47,7 @@ class GHD_Reconstruct(object):
         """
         Normalize the vertices to the canonical mesh
         """
-        norm_canonical = torch.max(torch.norm(self.canonical_Meshes.verts_packed(), dim=-1)).detach().item() * 1.10
-        norm_canonical *= 2.50
+        norm_canonical = torch.max(torch.norm(self.canonical_Meshes.verts_packed(), dim=-1)).detach().item()
         canonical_Meshes = self.canonical_Meshes.update_padded(self.canonical_Meshes.verts_padded() / norm_canonical)
         return norm_canonical, canonical_Meshes
 
