@@ -114,7 +114,7 @@ class RandomSO3Rotation(BaseTransform):
     the whole mini-batch), so a single training batch already samples diverse
     orientations rather than repeating one per step.
 
-    Applied at the DATA level (scripts/train/train_endcap_predictor.py's
+    Applied at the DATA level (scripts/train/train_morphoformer.py's
     prepare_batch), not inside the model: rotating only the mesh input would
     leave it inconsistent with the ground-truth endpoint/tangent targets,
     which are only ever known in the canonical (unrotated) frame — those need
@@ -203,13 +203,35 @@ class GCNGPSEncoder(nn.Module):
         return pos, h, batch
 
 
-class EndcapPredictor(nn.Module):
+class MorphoFormer(nn.Module):
     def __init__(self, multi_recon, max_branches=3, hidden=32, stem_layers=2, gps_layers=2,
-                gps_heads=4, use_normals=True):
+                gps_heads=4, use_normals=True, predict_dome=False, predict_phi=False,
+                phi_dim=432):
+        """predict_dome / predict_phi select which of the two models this is.
+
+        Two variants are trained from the same class:
+
+          uncapping   predict_dome=False  -- localises the caps so a mesh can
+                      be opened. Extra heads would only add gradient noise to
+                      the task that actually has to work at inference.
+
+          descriptor  predict_dome=True, predict_phi=True -- the feature
+                      extractor behind the FPD/KPD generation metrics. Dome
+                      supervision forces the features to encode SAC shape
+                      rather than just openings; the phi head forces them to
+                      retain global geometry, since region localisation alone
+                      can be satisfied without representing the whole shape
+                      (and, being a 432-d continuous target, it is much harder
+                      to satisfy by memorising individual meshes -- which
+                      matters because this extractor is trained on the same
+                      real corpus that serves as the metric's reference).
+        """
         super().__init__()
         self.multi_recon = multi_recon
         self.max_branches = max_branches
         self.use_normals = use_normals
+        self.predict_dome = predict_dome
+        self.predict_phi = predict_phi
 
         in_channels = 6 if use_normals else 3
         self.encoder = GCNGPSEncoder(in_channels=in_channels, hidden=hidden, stem_layers=stem_layers,
@@ -224,6 +246,15 @@ class EndcapPredictor(nn.Module):
         self.tangent_head = nn.Sequential(
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 3),
         )
+        # Per-vertex binary segmentation: dome vs. not. One logit per vertex,
+        # unlike loc/dir_head's per-branch channels -- there is exactly one dome.
+        self.dome_head = nn.Linear(hidden, 1) if predict_dome else None
+        # Auxiliary reconstruction from the POOLED embedding (not per-vertex),
+        # so the pressure to retain shape lands on the global feature that the
+        # FPD/KPD metrics actually consume.
+        self.phi_head = (nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(),
+                                       nn.Linear(hidden, phi_dim))
+                         if predict_phi else None)
 
     def forward(self, phi=None, aneurysm_type=None, pyg_batch=None):
         """Returns (endpoint [B,mb,3], tangent [B,mb,3] unit, loc_probs
@@ -259,7 +290,25 @@ class EndcapPredictor(nn.Module):
         dir_feat = torch.einsum('bmn,bnc->bmc', dir_probs, feat_dense)  # weighted pool over features
         tangent = F.normalize(self.tangent_head(dir_feat), dim=-1)
 
-        return endpoint, tangent, loc_probs, token_mask
+        out = {"endpoint": endpoint, "tangent": tangent, "loc_probs": loc_probs,
+               "token_mask": token_mask}
+        # Masked mean over real vertices -- the global descriptor. This is the
+        # vector FPD/KPD are computed on, so it is always produced, not only
+        # when the auxiliary heads exist.
+        m = token_mask.unsqueeze(-1).float()
+        out["embedding"] = (feat_dense * m).sum(1) / m.sum(1).clamp(min=1)
+        if self.dome_head is not None:
+            out["dome_logits"] = self.dome_head(feat_dense).squeeze(-1)   # [B, N]
+        if self.phi_head is not None:
+            out["phi_pred"] = self.phi_head(out["embedding"])             # [B, phi_dim]
+        # Tuple return kept for the existing call sites, which unpack 4 values.
+        return endpoint, tangent, loc_probs, token_mask, out
+
+
+    @torch.no_grad()
+    def embed(self, phi=None, aneurysm_type=None, pyg_batch=None):
+        """Pooled per-mesh descriptor [B, hidden] -- the FPD/KPD feature."""
+        return self.forward(phi, aneurysm_type, pyg_batch)[4]["embedding"]
 
     def get_loss(self, endpoint_pred, tangent_pred, loc_probs, token_mask,
                 endpoint_real, tangent_real, branch_mask, in_patch, node_batch):

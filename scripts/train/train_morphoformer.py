@@ -1,11 +1,11 @@
 """
-Train the endcap predictor (models/endcap_predictor.py) on
-dataset/processed_endcaps (see dataset/preprocess_endcaps.py).
+Train the endcap predictor (models/morphoformer.py) on
+runtime_dataset/AneuG_morpho (see dataset/preprocess_endcaps.py).
 
 Predicts, per branch slot, a point on the mesh surface where a parent vessel
 should be capped (soft-argmax over real mesh-vertex positions, weighted by a
 per-vertex classifier head) and the tangent direction there — see
-models/endcap_predictor.py's module docstring for the full design rationale
+models/morphoformer.py's module docstring for the full design rationale
 (GCN stem + GPSConv, no SAGPooling/FPS/attention modules, decoupled
 localization vs. tangent heads, soft-argmax grounding, graph-distance patch
 auxiliary loss).
@@ -22,7 +22,7 @@ mismatch, since the model only ever sees mesh geometry reconstructed from phi
                    learn from directly, not just indirectly through the
                    endpoint regression loss.
 
-Random SO(3) rotation augmentation (models.endcap_predictor.RandomSO3Rotation)
+Random SO(3) rotation augmentation (models.morphoformer.RandomSO3Rotation)
 is applied here, in prepare_batch, not inside the model — rotating only the
 mesh input would leave it inconsistent with the ground-truth endpoint/tangent
 targets (only ever known in the canonical frame), so the SAME per-sample
@@ -30,8 +30,8 @@ rotations are applied to both the mesh and those targets before either
 reaches the model, keeping model.forward() itself augmentation-agnostic.
 
 conda activate new
-python scripts/train/train_endcap_predictor.py
-python scripts/train/train_endcap_predictor.py --device cuda:0
+python scripts/train/train_morphoformer.py
+python scripts/train/train_morphoformer.py --device cuda:0
 """
 
 import argparse
@@ -47,8 +47,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path = [path for path in sys.path if Path(path or ".").resolve() != ROOT]
 sys.path.insert(0, str(ROOT))
 
-from dataset.endcap_dataset import EndcapDataset, collate_endcaps
-from models.endcap_predictor import EndcapPredictor, RandomSO3Rotation
+from dataset.morpho_dataset import MorphoDataset, collate_morpho
+from models.morphoformer import MorphoFormer, RandomSO3Rotation
 from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
 from utils.generate_synthetic import load_ghd_vae
 
@@ -61,7 +61,7 @@ def _parse_args():
 
 _args = _parse_args()
 
-PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_endcaps"
+PROCESSED_ROOT = ROOT / "runtime_dataset" / "AneuG_morpho"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 DEVICE     = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
@@ -74,7 +74,7 @@ LR_MIN     = 1e-5
 MAX_BRANCHES = 3
 NUM_TYPES    = 3
 HIDDEN       = 32
-STEM_LAYERS  = 2   # plain GCNConv layers before GPS attention (see models/endcap_predictor.py)
+STEM_LAYERS  = 2   # plain GCNConv layers before GPS attention (see models/morphoformer.py)
 GPS_LAYERS   = 2   # GPSConv layers (local MPNN + global self-attention), on top of the stem
 GPS_HEADS    = 4
 USE_NORMALS  = True   # default on for this model — see MultiCanonicalGHDReconstruct.to_pyg_batch
@@ -83,7 +83,7 @@ ROTATION_AUGMENT = True   # random SO(3) rotation of mesh + targets together, ap
 TANGENT_WEIGHT = 1.0
 PATCH_WEIGHT   = 0.1   # auxiliary — the main regression loss carries precision, this just helps it get there
 
-_VARIANT = "endcap_predictor"
+_VARIANT = "morphoformer"
 SAVE_DIR = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / _VARIANT / f"h{HIDDEN}_gps{GPS_LAYERS}_tw{TANGENT_WEIGHT:g}_pw{PATCH_WEIGHT:g}"
 
 # Frozen stage-1 GHD VAE — only used to sample synthetic phi for the fully-
@@ -227,7 +227,7 @@ def sanity_check(model, dataset, epoch, save_dir, n=8, ncols=4):
         item = dataset[i]
         phi = item["phi"].unsqueeze(0).to(DEVICE)
         atype_t = item["aneurysm_type"].unsqueeze(0).to(DEVICE)
-        endpoint_pred, tangent_pred, _, _ = model(phi, atype_t)
+        endpoint_pred, tangent_pred, _, _, _extra = model(phi, atype_t)
         endpoint_pred = endpoint_pred[0].cpu().numpy()
         tangent_pred = tangent_pred[0].cpu().numpy()
 
@@ -283,7 +283,7 @@ def sanity_synthetic(model, ghd_vae, ghd_mean, ghd_std, ghd_input_dim,
     model.eval()
     g = torch.Generator(device="cpu").manual_seed(seed)
     # Type 2 is merged into type 1 everywhere in this pipeline (see
-    # EndcapDataset.__getitem__) — never sample it here either, regardless of
+    # MorphoDataset.__getitem__) — never sample it here either, regardless of
     # whether the loaded GHD_VAE_CKPT happens to have its own type-2 row
     # trained (an old, pre-merge checkpoint would).
     types = torch.randint(0, NUM_TYPES - 1, (n,), generator=g).to(DEVICE)
@@ -291,7 +291,7 @@ def sanity_synthetic(model, ghd_vae, ghd_mean, ghd_std, ghd_input_dim,
     ghd_n, _ = ghd_vae.decode(z_ghd, types)
     phi = (ghd_n * ghd_std[:, :ghd_input_dim] + ghd_mean[:, :ghd_input_dim]).reshape(n, -1, 3)
 
-    endpoint_pred, tangent_pred, _, _ = model(phi, types)
+    endpoint_pred, tangent_pred, _, _, _extra = model(phi, types)
     endpoint_pred, tangent_pred = endpoint_pred.cpu().numpy(), tangent_pred.cpu().numpy()
 
     bright = ["#e6194B", "#3cb44b", "#4363d8"]
@@ -330,12 +330,12 @@ def main():
     # No held-out split — this model's actual target is unseen SYNTHETIC
     # shapes (sanity_synthetic), not held-out real cases, so a real-data val
     # split wouldn't measure the thing that matters; use all real data to train.
-    dataset = EndcapDataset(PROCESSED_ROOT, max_branches=MAX_BRANCHES)
+    dataset = MorphoDataset(PROCESSED_ROOT, max_branches=MAX_BRANCHES)
     loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                        num_workers=4, drop_last=True, collate_fn=collate_endcaps)
+                        num_workers=4, drop_last=True, collate_fn=collate_morpho)
 
     multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=DEVICE)
-    model = EndcapPredictor(multi_recon, **model_args()).to(DEVICE)
+    model = MorphoFormer(multi_recon, **model_args()).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=LR_MIN)
 
@@ -355,7 +355,7 @@ def main():
         metrics = {}
         for batch in loader:
             data = prepare_batch(batch, multi_recon, augment=ROTATION_AUGMENT)
-            endpoint_pred, tangent_pred, loc_weights, token_mask = model(pyg_batch=data["pyg_batch"])
+            endpoint_pred, tangent_pred, loc_weights, token_mask, extra = model(pyg_batch=data["pyg_batch"])
             endpoint_loss, tangent_loss, patch_loss = model.get_loss(
                 endpoint_pred, tangent_pred, loc_weights, token_mask,
                 data["endpoints"], data["tangents"], data["branch_mask"],
@@ -396,5 +396,5 @@ if __name__ == "__main__":
 
 """
 conda activate new
-python scripts/train/train_endcap_predictor.py
+python scripts/train/train_morphoformer.py
 """

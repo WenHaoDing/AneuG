@@ -1,5 +1,5 @@
 """
-Standalone evaluation for the endcap predictor (models.endcap_predictor).
+Standalone evaluation for the endcap predictor (models.morphoformer).
 Loads a trained checkpoint and renders, per branch slot: the predicted CAP
 region (loc_head's per-vertex probability distribution, top-K vertices —
 same visual convention as dataset/preprocess_endcaps.py's ground-truth
@@ -7,7 +7,7 @@ in_patch scatter), the predicted ENDPOINT (soft-argmax point), and the
 predicted TANGENT (arrow). Two panels:
   - real cases: ground truth (black patch/endpoint/tangent) vs. prediction
     (colored) — note there's no held-out split for this model (see
-    scripts/train/train_endcap_predictor.py's module docstring: the real
+    scripts/train/train_morphoformer.py's module docstring: the real
     target is unseen SYNTHETIC shapes, not held-out real ones), so these
     cases were seen during training — useful as a "did it learn anything at
     all" check, not a generalization check.
@@ -16,7 +16,7 @@ predicted TANGENT (arrow). Two panels:
     matters for this model's purpose.
 
 conda activate new
-python scripts/evaluate/eval_endcap_predictor.py
+python scripts/evaluate/eval_morphoformer.py
 """
 
 import sys
@@ -31,15 +31,15 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path = [path for path in sys.path if Path(path or ".").resolve() != ROOT]
 sys.path.insert(0, str(ROOT))
 
-from dataset.endcap_dataset import EndcapDataset
-from models.endcap_predictor import EndcapPredictor
+from dataset.morpho_dataset import MorphoDataset
+from models.morphoformer import MorphoFormer
 from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
 from utils.generate_synthetic import load_ghd_vae
 
 # ── eval config ───────────────────────────────────────────────────────────────
-CHECKPOINT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "endcap_predictor" / "h32_gps2_tw1_pw0.1" / "epoch_02000.pth"
+CHECKPOINT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "morphoformer" / "h32_gps2_tw1_pw0.1" / "epoch_02000.pth"
 GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_vae_h512_z16_kl0.5" / "epoch_05000.pth"
-PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed_endcaps"
+PROCESSED_ROOT = ROOT / "runtime_dataset" / "AneuG_morpho"
 CANONICAL_ROOT = ROOT / "dataset" / "canonical"
 
 N_REAL      = 8
@@ -66,7 +66,7 @@ BRIGHT = ["#e6194B", "#3cb44b", "#4363d8"]
 def load_model(device):
     ckpt = torch.load(CHECKPOINT, map_location=device)
     multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=device)
-    model = EndcapPredictor(multi_recon, **ckpt["args"]).to(device)
+    model = MorphoFormer(multi_recon, **ckpt["args"]).to(device)
     model.load_state_dict(ckpt["model"])
     model.eval()
     print(f"Loaded endcap predictor: {CHECKPOINT} (epoch {ckpt['epoch']})")
@@ -233,7 +233,7 @@ def eval_synthetic(model, ghd_vae, ghd_mean, ghd_std, ghd_input_dim, save_path):
 
 def main():
     model, multi_recon = load_model(DEVICE)
-    dataset = EndcapDataset(PROCESSED_ROOT, max_branches=model.max_branches)
+    dataset = MorphoDataset(PROCESSED_ROOT, max_branches=model.max_branches)
 
     eval_real(model, dataset, SAVE_DIR / "eval_real.png")
 
@@ -249,5 +249,5 @@ if __name__ == "__main__":
 
 """
 conda activate new
-python scripts/evaluate/eval_endcap_predictor.py
+python scripts/evaluate/eval_morphoformer.py
 """

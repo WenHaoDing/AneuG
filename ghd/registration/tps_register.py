@@ -178,8 +178,14 @@ def render_registration_sanity(save_path, canon_verts, warped_verts, target_vert
     landmark) so exact-interpolation can be visually confirmed."""
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
+    # DISPLAY merely being SET makes system_supports_plotting() true, so over
+    # an `ssh -X` forward with no GLX this guard never fired and VTK called
+    # abort() -- uncatchable. Always render offscreen on xvfb instead.
+    os.environ.pop("DISPLAY", None)
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     rng = np.random.default_rng(0)
     idx = rng.choice(len(canon_verts), size=min(n_arrows, len(canon_verts)), replace=False)
@@ -242,8 +248,14 @@ def render_warped_vs_target(save_path, warped_verts, faces, target_verts, n_angl
     it's directly comparable to the eventual GHD-fitted result."""
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
+    # DISPLAY merely being SET makes system_supports_plotting() true, so over
+    # an `ssh -X` forward with no GLX this guard never fired and VTK called
+    # abort() -- uncatchable. Always render offscreen on xvfb instead.
+    os.environ.pop("DISPLAY", None)
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     warped_pd = pv.PolyData(warped_verts, faces=np.concatenate(
         [np.full((faces.shape[0], 1), 3), faces], axis=1))

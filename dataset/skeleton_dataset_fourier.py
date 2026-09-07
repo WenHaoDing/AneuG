@@ -118,11 +118,16 @@ class VesselSkeletonDatasetFourier(VesselSkeletonDataset):
     """
 
     def __init__(self, root, cases=None, max_branches=3, k=8, fit_points=128,
-                 min_arc_length=1.0, normalize=True):
+                 min_arc_length=1.0, max_arc_length=15.0, normalize=True):
         # Load samples via the parent; pass normalize=False so the parent skips
         # its point-sequence normalization (we don't use point_mean/point_std).
+        # max_arc_length is enforced by the parent at load time, so the branches
+        # this class fits are already truncated -- which is what the fixed
+        # 128-point resample and k-harmonic budget need to mean the same thing
+        # from one branch to the next.
         super().__init__(root, cases=cases, max_branches=max_branches,
-                         min_arc_length=min_arc_length, normalize=False)
+                         min_arc_length=min_arc_length,
+                         max_arc_length=max_arc_length, normalize=False)
         self.k = k
         self.fit_points = fit_points
         self.normalize = normalize

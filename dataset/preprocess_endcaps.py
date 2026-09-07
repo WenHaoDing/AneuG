@@ -85,7 +85,7 @@ if str(ROOT) not in sys.path:
 from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy, _set_axes_equal
 
 DEFAULT_INPUT_DIR = ROOT / "runtime" / "dataset" / "processed"
-DEFAULT_OUTPUT_DIR = ROOT / "runtime" / "dataset" / "processed_endcaps"
+DEFAULT_OUTPUT_DIR = ROOT / "runtime_dataset" / "AneuG_morpho"
 MAX_BRANCHES = 3
 SEARCH_WINDOW_MM = 8.0        # how far forward along the branch's OWN points to look for a crossing
 TANGENT_TAIL_POINTS = 5       # points used to estimate direction when extrapolating past a short branch

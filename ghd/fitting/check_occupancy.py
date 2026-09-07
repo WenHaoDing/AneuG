@@ -29,8 +29,14 @@ from ghd.fitting.ghd_fit import load_target, prepare_dvs_samples
 def render_occupancy_sanity(save_path, target_verts_phys, target_faces, pos_phys, neg_phys, n_angles=6):
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
+    # DISPLAY merely being SET makes system_supports_plotting() true, so over
+    # an `ssh -X` forward with no GLX this guard never fired and VTK called
+    # abort() -- uncatchable. Always render offscreen on xvfb instead.
+    os.environ.pop("DISPLAY", None)
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     target_pd = pv.PolyData(target_verts_phys, faces=np.concatenate(
         [np.full((target_faces.shape[0], 1), 3), target_faces], axis=1))

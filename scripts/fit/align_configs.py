@@ -22,4 +22,36 @@ ALIGN_CONFIGS = {
     # dome position -- useful when the dome/opening data is noisy or
     # unreliable but the branch topology and curvature are trustworthy.
     "skeleton_focus": "--w-centerline 5.0 --w-surface 0.3 --w-dome 0.2",
+    # endpoint_focus, but with ONE branch singled out: its endpoint term counts
+    # 3x what every other branch's does. For a case whose alignment is dragged
+    # off by a single bad branch -- or one whose alignment hinges on a single
+    # branch being right -- weighting all endpoints equally lets the majority
+    # win. Unlike the other configs this one is not a fixed string: it carries
+    # a {branch} placeholder that must be filled per case, which is what
+    # ALIGN_NEEDS_BRANCH below marks. Use align_flags() rather than indexing
+    # ALIGN_CONFIGS directly so an unfilled placeholder can never reach a
+    # command line.
+    "endpoint_focus_branch": ("--w-endpoint 5.0 --w-centerline 0.5 --w-surface 0.5 "
+                              "--w-dome 0.5 --branch-focus-id {branch} "
+                              "--branch-focus-endpoint-weight 3.0"),
 }
+
+# Align configs needing a per-case branch index substituted into {branch}.
+ALIGN_NEEDS_BRANCH = {"endpoint_focus_branch"}
+
+
+def align_flags(name, focus_branch=None):
+    """Resolved --w-* flag string for one align config.
+
+    focus_branch is the rank-ordered branch index (0 = upstream/dome-first)
+    that gets the extra endpoint weight. Required for the configs in
+    ALIGN_NEEDS_BRANCH, ignored by the others.
+    """
+    if name not in ALIGN_CONFIGS:
+        raise ValueError(f"unknown align config {name!r}; known: {sorted(ALIGN_CONFIGS)}")
+    flags = ALIGN_CONFIGS[name]
+    if name in ALIGN_NEEDS_BRANCH:
+        if focus_branch in (None, ""):
+            raise ValueError(f"align config {name!r} needs a focus branch index")
+        return flags.format(branch=int(focus_branch))
+    return flags

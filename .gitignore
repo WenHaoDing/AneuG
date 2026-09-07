@@ -8,3 +8,12 @@ Aneu_GHD/fitting_results/
 runtime/
 v2/synthetic_v1/
 wandb/
+# Large generated artefacts -- never committed. Kept as separate roots so the
+# expensive ones (fits, corpora, checkpoints) are not mixed with scratch:
+#   runtime/          scratch and debug output
+#   runtime_fitting/  GHD fitting results, logs, manifest (~23 GB)
+#   runtime_dataset/  assembled corpus + processed training records
+#   runtime_train/    model checkpoints and eval renders
+runtime_dataset/
+runtime_fitting/
+runtime_train/

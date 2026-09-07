@@ -1,4 +1,4 @@
-# Manual endcap labeling — `label_endcaps.py`
+# Manual endcap labeling — `label_morpho.py`
 
 Interactive PyVista tool for hand-brushing the true vessel-opening ("cap")
 region on a mesh, per branch. Written on a headless workstation and never
@@ -35,7 +35,7 @@ pip install pyvista         # needs a real display / working GL context —
 ```
 
 Needs the repo's `runtime/dataset/processed/` (real cases),
-`runtime/dataset/processed_endcaps/` (automatic reference labels), and — for
+`runtime_dataset/AneuG_morpho/` (automatic reference labels), and — for
 synthetic mode only — `dataset/canonical/` (small, checked into git, comes
 with `git clone`/`git pull` as normal) plus a trained GHD-VAE checkpoint under
 `runtime/tr_checkpoints/`.
@@ -47,7 +47,7 @@ over from this machine; it won't come with `git clone`/`git pull`:
 rsync -avz --progress <this-machine>:"AneuG/runtime/" ./runtime/
 ```
 You don't need the entire folder — for this script you only need
-`runtime/dataset/processed/`, `runtime/dataset/processed_endcaps/`, and (synthetic
+`runtime/dataset/processed/`, `runtime_dataset/AneuG_morpho/`, and (synthetic
 mode only) the one GHD-VAE checkpoint below.
 
 Default synthetic-mode checkpoint path (edit `GHD_VAE_CKPT` near the top of
@@ -60,13 +60,13 @@ runtime/tr_checkpoints/v2_1/stage1/ghd_vae_h512_z16_kl0.5/epoch_05000.pth
 
 ```bash
 # Real cases — labels every case in runtime/dataset/processed/ not already manually labeled
-python dataset/label_endcaps.py --mode real
+python dataset/label_morpho.py --mode real
 
 # Just a few specific cases
-python dataset/label_endcaps.py --mode real --case CASE_ID_1 --case CASE_ID_2
+python dataset/label_morpho.py --mode real --case CASE_ID_1 --case CASE_ID_2
 
 # Synthetic cases — samples 20 fresh shapes from the GHD-VAE
-python dataset/label_endcaps.py --mode synthetic --n-synthetic 20 --seed 0
+python dataset/label_morpho.py --mode synthetic --n-synthetic 20 --seed 0
 ```
 
 All paths default to the repo layout but are overridable:
@@ -115,7 +115,7 @@ across sessions.
 ## What gets saved
 
 No separate output folder. For a **real** case, brushing writes back into the
-SAME `runtime/dataset/processed_endcaps/<case>.npy` record that
+SAME `runtime_dataset/AneuG_morpho/<case>.npy` record that
 `preprocess_endcaps.py` already produced, adding only `manual_in_patch` —
 the automatic `endpoints` / `tangents` / `branch_mask` are left exactly as
 they were:
@@ -136,11 +136,11 @@ from the brush instead, as the only available source.)
 A **synthetic** case has no automatic record and no real case in
 `runtime/dataset/processed/` to attach to — a genuinely different population,
 not a refinement of an existing one — so it's saved into its OWN folder,
-`runtime/dataset/processed_endcaps_synthetic/synthetic_seed{seed}_{i}.npy`,
+`runtime_dataset/AneuG_morpho_synthetic/synthetic_seed{seed}_{i}.npy`,
 using the plain (non-`manual_`-prefixed) field names directly. Here the brush
 IS the endpoint/tangent source (there's no ray-crossing centerline to defer
 to), so all four fields come from it. Keeping synthetic cases out of
-`processed_endcaps/` also means a real `preprocess_endcaps.py` rerun can't
+`AneuG_morpho/` also means a real `preprocess_endcaps.py` rerun can't
 accidentally interact with them.
 
 `endpoint` = centroid of the brushed patch's vertices. `tangent` = SVD-based
@@ -151,15 +151,15 @@ approximates the vessel's own axial direction. This derivation is used for
 synthetic cases' endpoint/tangent (their only source) and for every case's
 `in_patch` — never for a real case's endpoint/tangent.
 
-`dataset/endcap_dataset.py`'s `EndcapDataset` prefers `manual_in_patch` over
+`dataset/morpho_dataset.py`'s `MorphoDataset` prefers `manual_in_patch` over
 automatic `in_patch` when present, but always uses the automatic
 endpoints/tangents/branch_mask when they exist, and accepts a list of roots —
 so a labeled real case is picked up for training automatically, and combining
 real + synthetic is one line:
 ```python
-EndcapDataset([
-    ROOT / "runtime" / "dataset" / "processed_endcaps",
-    ROOT / "runtime" / "dataset" / "processed_endcaps_synthetic",
+MorphoDataset([
+    ROOT / "runtime_dataset" / "AneuG_morpho",
+    ROOT / "runtime_dataset" / "AneuG_morpho_synthetic",
 ])
 ```
 
@@ -171,4 +171,4 @@ key for `enable_cell_picking(..., through=False)`, but it's the one call in
 this script most likely to need a version-specific tweak. If nothing
 highlights when you drag-select, check the terminal — a warning prints
 `picked.array_names` (the actual keys available); swap the key in
-`_on_pick` (near the top of `label_endcaps.py`) accordingly.
+`_on_pick` (near the top of `label_morpho.py`) accordingly.

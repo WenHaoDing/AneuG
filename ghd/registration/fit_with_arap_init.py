@@ -84,7 +84,7 @@ def compute_branch_proximity_weights(V0_np, F_can_np, opening_idx_sets, decay_le
 
 
 def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
-                       n_iter=7500, lr=1e-3, eta_min=1e-4, device="cuda",
+                       n_iter=10000, lr=1e-3, eta_min=1e-4, device="cuda",
                        align_epochs=800, log_every=200,
                        n_iter_stage_a=3000, lr_stage_a=1e-2, eta_min_stage_a=1e-4,
                        lambda_rigid_stage_a=0.05, lambda_laplacian_stage_a=1e-3,
@@ -92,17 +92,19 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
                        branch_weight_decay_length=0.3, branch_weight_min=0.1,
                        lambda_chamfer_n1=0.8, lambda_laplacian=1e-2,
                        lambda_rigid_start=2.0, lambda_rigid_end=0.001, rigid_decay_frac=0.80,
+                       rigid_warmup_iters=0, rigid_warmup_start=5.0,
                        lambda_volume=1.0, volume_ceiling_ratio=1.2,
                        volume_target_frac_start=1.0, volume_target_frac_end=1.0, volume_target_decay_frac=0.5,
                        volume_ramp_frac=0.5, lambda_thickness=2.0, thickness_r=0.2,
                        lambda_consistency_start=0.3, lambda_consistency_end=0.3, consistency_decay_frac=0.80,
                        lambda_edge_start=0.1, lambda_edge_end=0.1, edge_decay_frac=0.80,
-                       lambda_occupancy=2.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
+                       lambda_occupancy=1.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
                        lambda_opening_chamfer=0.0, n_opening_chamfer_pts=3000,
                        use_ring_normal=False, ring_normal_blend=1.0,
                        stage_a_intersection_check_min_iter=500,
                        alignment_mode="chamfer",
-                       n_surface_samples=20000, skip_stage_a=False):
+                       n_surface_samples=20000, skip_stage_a=False, skip_stage_b=False,
+                       dome_source="nrrd"):
     """See module docstring. skip_stage_a: same checkpoint/resume mechanism
     as fit_with_tps_init.py -- reuses out_dir/stage_a_checkpoint.npz +
     final_aligned.obj + landmarks.npz from a prior run if present."""
@@ -136,7 +138,13 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
         # ring-handle construction (build_ring_handles needs the same
         # case/canonical/transform).
         print("=== Alignment + ARAP registration ===", flush=True)
-        case = load_case_data(case_dir, dome_points_loader=DOME_LOADERS["nrrd"])
+        # Was hardcoded to "nrrd". That silently cost every AneuX case its
+        # Stage-1 dome term: AneuX ships dome_sac.ply, not label.nrrd (0 of 323
+        # have one), and load_dome_points_from_nrrd returns None for a missing
+        # file so callers "skip the dome loss term gracefully" -- no error, just
+        # loss_dome=0.0 and a note. run_case.py and clone_fit.py already took
+        # this from --dome-source; this script did not.
+        case = load_case_data(case_dir, dome_points_loader=DOME_LOADERS[dome_source])
         atype = case["aneurysm_type"]
         canonical_dir = canonical_root / ("Bifurcated" if atype == 0 else "Sidewall")
         canonical = load_canonical_data(canonical_dir)
@@ -330,12 +338,48 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
                 final_vertex_mse=stage_a_final_vertex_mse)
         print(f"  Stage A checkpoint saved -> {stage_a_ckpt_path}", flush=True)
 
+    if skip_stage_b:
+        # Stage-A-only mode: export Stage A's mesh as the result and stop.
+        # For answering Stage-A questions (mesh-health ratio sweeps) without
+        # paying for Stage B.
+        with torch.no_grad():
+            mesh_a = render()
+            chamfer_vs_real, _ = chamfer_loss(
+                sample_points_from_meshes(mesh_a, n_surface_samples), tgt_pts)
+        faces_np_ = F_can.cpu().numpy()
+        trimesh.Trimesh(vertices=stage_a_verts_phys, faces=faces_np_,
+                        process=False).export(out_dir / "ghd_fitted.obj")
+        render_fit_sanity(sanity_dir / "sanity_final.png", stage_a_verts_phys,
+                          faces_np_, target_verts_phys)
+        np.savez(out_dir / "ghd_coefficients.npz",
+                 phi=phi.detach().cpu().numpy(), w_rot=w.detach().cpu().numpy(),
+                 log_scale=np.array(log_s.detach().cpu().item()), t_vec=t.detach().cpu().numpy())
+        metrics = {
+            "stage_a_only": True,
+            "chamfer_best": float(chamfer_vs_real.item()),
+            "chamfer_final": float(chamfer_vs_real.item()),
+            "best_iter": n_iter_stage_a,
+            "case_dir": str(case_dir),
+            "stage_a_vertex_mse": float(stage_a_final_vertex_mse),
+            "stage_a_rigid": history_a["rigid"][-1] if "rigid" in history_a else None,
+            "lambda_rigid_stage_a": float(lambda_rigid_stage_a),
+            "lambda_laplacian_stage_a": float(lambda_laplacian_stage_a),
+            "lambda_consistency_stage_a": float(lambda_consistency_stage_a),
+            "lambda_edge_stage_a": float(lambda_edge_stage_a),
+        }
+        with open(out_dir / "metrics.json", "w") as f:
+            json.dump(metrics, f, indent=2)
+        print(f"Stage-A only. vertex_mse={stage_a_final_vertex_mse:.6f} "
+              f"chamfer_vs_real={chamfer_vs_real.item():.5f} -> {out_dir}", flush=True)
+        return metrics
+
     # ══════════════════════════════════════════════════════════════════════
     # Stage B: continue optimizing the SAME phi/w/log_s/t toward the real
     # target -- mirrors ghd_fit.py's own default-config loop exactly
     # (DUPLICATED, not imported -- see module docstring for why).
     # ══════════════════════════════════════════════════════════════════════
-    print(f"=== Stage B (fit to real target, {n_iter} iters) ===", flush=True)
+    print(f"=== Stage B (fit to real target, {n_iter} iters"
+          + (f" + {rigid_warmup_iters} rigid warm-up" if rigid_warmup_iters > 0 else "") + ") ===", flush=True)
     dvs_samples = None
     if lambda_occupancy > 0:
         dvs_samples = prepare_dvs_samples(target, device, d_min=dvs_surf_d_min, d_max=dvs_surf_d_max)
@@ -355,7 +399,15 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
         lambda_opening_chamfer = 0.0
 
     optimizer = torch.optim.Adam([phi, w, log_s, t], lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_iter, eta_min=eta_min)
+    # Stage-B rigid warm-up, same contract as ghd_fit.py: a PRELUDE of
+    # rigid_warmup_iters iterations holding the mesh stiff (rigid_warmup_start
+    # -> lambda_rigid_start, linear), ON TOP OF n_iter rather than carved out of
+    # it -- so n_iter still buys a full-length Stage B. Every other schedule
+    # (lr, volume, consistency, edge) is timed over the n_iter part alone and
+    # sits at its starting value while the warm-up runs. Stage A is untouched.
+    total_iters = n_iter + max(rigid_warmup_iters, 0)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_iters,
+                                                           eta_min=eta_min)
     thickness_fn = MeshThickness(r=thickness_r)
     volume_loss_fn = VolumeLoss(target_volume=target_volume, ceiling_ratio=volume_ceiling_ratio)
     occupancy_fn = DVSOccupancyLoss(num_sample=4000) if lambda_occupancy > 0 else None
@@ -363,7 +415,13 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
     auto_thresholds = np.linspace(lambda_rigid_start, lambda_rigid_end, 10)
     extra_thresholds = [v for v in (0.1, 0.05, 0.01)
                        if min(lambda_rigid_start, lambda_rigid_end) <= v <= max(lambda_rigid_start, lambda_rigid_end)]
-    rigid_weight_thresholds = sorted(set(np.round(np.concatenate([auto_thresholds, extra_thresholds]), 6)), reverse=True)
+    # the warm-up band lies ABOVE lambda_rigid_start, so auto_thresholds never
+    # reaches it -- add 5/4/3 explicitly when a warm-up is running
+    warmup_thresholds = [v for v in (5.0, 4.0, 3.0)
+                         if rigid_warmup_iters > 0
+                         and lambda_rigid_start <= v <= rigid_warmup_start]
+    rigid_weight_thresholds = sorted(set(np.round(np.concatenate(
+        [auto_thresholds, extra_thresholds, warmup_thresholds]), 6)), reverse=True)
     next_ckpt_idx = 0
 
     def save_rigid_checkpoint(mesh_, iteration, rigid_weight, rigid_value):
@@ -389,9 +447,14 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
     best_chamfer = float("inf")
     best_state = None
 
-    for it in range(n_iter):
-        frac = it / max(n_iter - 1, 1)
-        lam_rigid = _cosine_decay(lambda_rigid_start, lambda_rigid_end, frac, rigid_decay_frac)
+    for it in range(total_iters):
+        # 0 throughout the warm-up, then 0->1 across the n_iter Stage-B phase
+        frac = max(0, it - rigid_warmup_iters) / max(n_iter - 1, 1)
+        if rigid_warmup_iters > 0 and it < rigid_warmup_iters:
+            wf = it / max(rigid_warmup_iters, 1)
+            lam_rigid = rigid_warmup_start + (lambda_rigid_start - rigid_warmup_start) * wf
+        else:
+            lam_rigid = _cosine_decay(lambda_rigid_start, lambda_rigid_end, frac, rigid_decay_frac)
         vol_frac = _linear_decay(volume_target_frac_start, volume_target_frac_end, frac, volume_target_decay_frac)
         lam_volume = _cosine_decay(0.0, lambda_volume, frac, volume_ramp_frac)
         lam_consistency = _cosine_decay(lambda_consistency_start, lambda_consistency_end, frac, consistency_decay_frac)
@@ -473,7 +536,7 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
         history["trans_norm"].append(torch.norm(t).item())
 
         if it % log_every == 0 or it == n_iter - 1:
-            print(f"  [B {it:6d}/{n_iter}] chamfer={cur_chamfer:.5f} rigid={loss_rigid.item():.4f} "
+            print(f"  [B {it:6d}/{total_iters}] chamfer={cur_chamfer:.5f} rigid={loss_rigid.item():.4f} "
                   f"volume={loss_volume.item():.4f} (w={lam_volume:.3f}) thickness={loss_thickness.item():.4f} "
                   f"edge={loss_edge.item():.4f} consistency={loss_consistency.item():.4f} "
                   f"occ={loss_occupancy.item():.4f} total={total.item():.4f}", flush=True)
@@ -499,6 +562,9 @@ def fit_with_arap_init(case_dir, canonical_root=None, out_dir=None,
         "best_iter": best_state["iter"], "aneurysm_type": atype, "s_can": float(norm_canonical),
         "n_arap_handles": n_arap_handles,
         "stage_a_final_vertex_mse": stage_a_final_vertex_mse,
+        # source geometry -- results are filed by config, geometry is on
+        # another disk, so record where this fit came from
+        "case_dir": str(case_dir),
     }
     with open(out_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
@@ -514,7 +580,14 @@ def main():
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--canonical-root", default=None)
     parser.add_argument("--out-dir", default=None)
-    parser.add_argument("--n-iter", type=int, default=7500, help="Stage B iterations.")
+    parser.add_argument("--n-iter", type=int, default=10000, help="Stage B iterations.")
+    parser.add_argument("--rigid-warmup-iters", type=int, default=0,
+                        help="Stage-B rigid warm-up: hold the mesh stiff for this many "
+                             "iterations (rigid --rigid-warmup-start -> --lambda-rigid-start, "
+                             "linear) BEFORE the n_iter fit, checkpointed at 5/4/3. Additive: "
+                             "total Stage B is n_iter + this. Stage A is unaffected.")
+    parser.add_argument("--rigid-warmup-start", type=float, default=5.0,
+                        help="Rigid weight at the start of the Stage-B warm-up.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Stage B base learning rate.")
     parser.add_argument("--n-iter-stage-a", type=int, default=3000)
     parser.add_argument("--lr-stage-a", type=float, default=1e-2)
@@ -522,7 +595,7 @@ def main():
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--eta-min", type=float, default=1e-4)
     parser.add_argument("--eta-min-stage-a", type=float, default=1e-4)
-    parser.add_argument("--lambda-occupancy", type=float, default=2.0)
+    parser.add_argument("--lambda-occupancy", type=float, default=1.0)
     parser.add_argument("--lambda-opening-chamfer", type=float, default=0.0,
                         help="Weak chamfer loss between the mesh's own opening/cap faces and "
                              "the target's sampled cap points -- see ghd_fit.py's "
@@ -555,8 +628,17 @@ def main():
     parser.add_argument("--branch-weight-decay-length", type=float, default=0.3)
     parser.add_argument("--branch-weight-min", type=float, default=0.1)
     parser.add_argument("--skip-stage-a", action="store_true")
+    parser.add_argument("--dome-source", choices=list(DOME_LOADERS), default="nrrd",
+                        help="Which per-case dome-region loader Stage 1 uses: nrrd "
+                             "(label.nrrd voxel label==2, ImperialNHS-style), mesh "
+                             "(dome_sac.ply, AneuX-style), or none. Getting this wrong is "
+                             "SILENT -- the dome term is simply skipped.")
+    parser.add_argument("--skip-stage-b", action="store_true",
+                        help="Stop after Stage A and export its mesh as the result.")
     args = parser.parse_args()
     fit_with_arap_init(args.case_dir, args.canonical_root, args.out_dir, n_iter=args.n_iter,
+                       rigid_warmup_iters=args.rigid_warmup_iters,
+                       rigid_warmup_start=args.rigid_warmup_start,
                        lr=args.lr, eta_min=args.eta_min, device=args.device,
                        align_epochs=args.align_epochs, lambda_occupancy=args.lambda_occupancy,
                        lambda_opening_chamfer=args.lambda_opening_chamfer,
@@ -570,7 +652,8 @@ def main():
                        lambda_consistency_stage_a=args.lambda_consistency_stage_a,
                        lambda_edge_stage_a=args.lambda_edge_stage_a,
                        branch_weight_decay_length=args.branch_weight_decay_length,
-                       branch_weight_min=args.branch_weight_min, skip_stage_a=args.skip_stage_a)
+                       branch_weight_min=args.branch_weight_min, skip_stage_a=args.skip_stage_a,
+                       skip_stage_b=args.skip_stage_b, dome_source=args.dome_source)
 
 
 if __name__ == "__main__":

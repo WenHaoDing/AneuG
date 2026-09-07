@@ -84,9 +84,11 @@ def run_one_case(case_dir, save_dir, args):
     extra_rigid_checkpoint_values = tuple(float(v) for v in args.extra_rigid_checkpoint_values.split(",") if v.strip())
     metrics = ghd_fit(
         stage1_dir=save_dir, canonical_root=args.canonical_root, out_dir=save_dir,
-        aneurysm_type=case["aneurysm_type"], n_iter=args.n_iter, lr=args.fit_lr, eta_min=args.eta_min,
+        aneurysm_type=case["aneurysm_type"], case_dir=str(case_dir), n_iter=args.n_iter, lr=args.fit_lr, eta_min=args.eta_min,
         device=args.device, lambda_chamfer_n1=args.lambda_chamfer_n1, lambda_laplacian=args.lambda_laplacian,
         lambda_rigid_start=args.lambda_rigid_start, lambda_rigid_end=args.lambda_rigid_end,
+        rigid_warmup_iters=args.rigid_warmup_iters,
+        rigid_warmup_start=args.rigid_warmup_start,
         rigid_decay_frac=args.rigid_decay_frac, lambda_volume=args.lambda_volume,
         volume_ceiling_ratio=args.volume_ceiling_ratio,
         volume_target_frac_start=args.volume_target_frac_start, volume_target_frac_end=args.volume_target_frac_end,
@@ -160,7 +162,13 @@ def build_parser():
                         help="Points per branch when --centerline-matching point2point.")
 
     # Stage 2 (GHD fitting)
-    parser.add_argument("--n-iter", type=int, default=15000)
+    parser.add_argument("--rigid-warmup-iters", type=int, default=0,
+                        help="Iterations of HIGH rigid weight before the normal schedule, "
+                             "falling linearly from --rigid-warmup-start to "
+                             "--lambda-rigid-start. Rigid checkpoints are saved at 5/4/3 on the "
+                             "way down. 0 = off (default).")
+    parser.add_argument("--rigid-warmup-start", type=float, default=5.0)
+    parser.add_argument("--n-iter", type=int, default=10000)
     parser.add_argument("--fit-lr", type=float, default=1e-3)
     parser.add_argument("--eta-min", type=float, default=1e-4)
     parser.add_argument("--lambda-chamfer-n1", type=float, default=0.8)
@@ -190,7 +198,7 @@ def build_parser():
     parser.add_argument("--lambda-edge-end", type=float, default=0.1,
                         help="Default equals start (no decay). Cosine-annealed like the rigid weight.")
     parser.add_argument("--edge-decay-frac", type=float, default=0.80)
-    parser.add_argument("--lambda-occupancy", type=float, default=2.0,
+    parser.add_argument("--lambda-occupancy", type=float, default=1.0,
                         help="On by default (matches the old reference pipeline's own default weight).")
     parser.add_argument("--dvs-surf-d-min", type=float, default=0.0001)
     parser.add_argument("--dvs-surf-d-max", type=float, default=0.05)

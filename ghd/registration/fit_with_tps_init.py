@@ -120,7 +120,7 @@ def fit_with_tps_init(case_dir, canonical_root=None, out_dir=None,
                       volume_ramp_frac=0.5, lambda_thickness=2.0, thickness_r=0.2,
                       lambda_consistency_start=0.3, lambda_consistency_end=0.3, consistency_decay_frac=0.80,
                       lambda_edge_start=0.1, lambda_edge_end=0.1, edge_decay_frac=0.80,
-                      lambda_occupancy=2.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
+                      lambda_occupancy=1.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
                       n_surface_samples=20000, skip_stage_a=False):
     """See module docstring for the two-stage design. Stage B's lambda_*
     defaults match ghd_fit.py's own "default" config exactly -- the only
@@ -515,7 +515,7 @@ def main():
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--eta-min", type=float, default=1e-4)
     parser.add_argument("--eta-min-stage-a", type=float, default=1e-4)
-    parser.add_argument("--lambda-occupancy", type=float, default=2.0)
+    parser.add_argument("--lambda-occupancy", type=float, default=1.0)
     parser.add_argument("--lambda-rigid-stage-a", type=float, default=0.05,
                         help="Relaxed to ~10%% of Stage B's rigid start (2.0) -- Stage A's "
                              "job is warping performance, not mesh quality, see module docstring.")

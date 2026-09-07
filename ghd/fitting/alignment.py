@@ -124,7 +124,9 @@ def ensure_fallback_centerline(case_dir):
 # ── case-side loading (fallback-aware, real-anatomy-only) ──────────────────
 
 def resolve_case_paths(case_dir):
-    """Fallback files (type-1/2 cases' short/sac-protected clip) are
+    """Prefers a hand-cut "_manual" mesh over the automatic clip, and fallback
+    files (type-1/2 cases' short/sac-protected clip) over the main/long CFD
+    clip.
     preferred over the main/long CFD clip whenever present -- same
     convention established for AneuSeg/reclip.py, now applied to which
     files alignment reads from. Gated on clipped_reconstruction_fallback.ply
@@ -136,15 +138,60 @@ def resolve_case_paths(case_dir):
     independently and falls back to the plain centerline file when no
     fallback-specific one exists."""
     case_dir = Path(case_dir)
-    use_fallback = (case_dir / "clipped_reconstruction_fallback.ply").exists()
+
+    # A "_manual" mesh is a hand-corrected clip -- someone looked at the
+    # automatic result, judged it wrong, and cut it themselves. When one
+    # exists it ALWAYS wins over the automatic clip of the same variant:
+    #     clipped_reconstruction.ply          <- clipped_reconstruction_manual.ply
+    #     clipped_reconstruction_fallback.ply <- clipped_reconstruction_fallback_manual.ply
+    # Only these two exact names count. Other suffixes seen in the wild
+    # (_manual_B, _manual_1, _manual_0) are working variants, deliberately
+    # IGNORED -- picking among them is a human judgement, not this function's.
+    #
+    # A manual FALLBACK mesh also switches the case onto the fallback variant
+    # even when the plain fallback is absent (2 AneuX cases are like that),
+    # since a hand-cut fallback is exactly a statement that this case needs one.
+    manual_fb = case_dir / "clipped_reconstruction_fallback_manual.ply"
+    plain_fb = case_dir / "clipped_reconstruction_fallback.ply"
+    use_fallback = manual_fb.exists() or plain_fb.exists()
     mesh_suffix = "_fallback" if use_fallback else ""
+
+    clipped_mesh = case_dir / f"clipped_reconstruction{mesh_suffix}.ply"
+    manual_mesh = case_dir / f"clipped_reconstruction{mesh_suffix}_manual.ply"
+    if manual_mesh.exists():
+        clipped_mesh = manual_mesh
+
     cl_suffix = "_fallback" if (use_fallback and
                                 (case_dir / "clipped_centerline_fallback.npy").exists()) else ""
+    # A hand-cut mesh's openings sit somewhere else than the automatic cut's
+    # (3.5-5.6 mm away on p171), so the stock clipped centerline -- clipped to
+    # the AUTOMATIC openings -- no longer matches it. scripts/fit/
+    # repair_manual_centerlines.py re-clips it onto the manual mesh and saves
+    # the result alongside as clipped_centerline{suffix}_manual.npy; prefer
+    # that whenever it exists, mirroring how the mesh itself is preferred.
+    # Name the manual centerline from MESH_SUFFIX, not cl_suffix. cl_suffix is
+    # gated on the PLAIN fallback centerline existing, which is a different
+    # condition -- p109 has a manual fallback mesh but no plain fallback
+    # centerline, so cl_suffix was "" while repair_manual_centerlines.py (which
+    # keys off use_fallback) wrote "_fallback_manual". The resolver then missed
+    # the repaired file and silently paired the MANUAL FALLBACK mesh with
+    # clipped_centerline.npy -- a centerline clipped to the PRIMARY cut. That
+    # is a skeleton/endpoints mismatch, not a subtle one.
+    # Accept either suffix so the two scripts can never disagree again.
+    manual_cl = case_dir / f"clipped_centerline{mesh_suffix}_manual.npy"
+    if not manual_cl.exists():
+        alt = case_dir / f"clipped_centerline{'' if mesh_suffix else '_fallback'}_manual.npy"
+        if alt.exists():
+            manual_cl = alt
+    use_manual_cl = manual_mesh.exists() and manual_cl.exists()
     return {
         "use_fallback": use_fallback,
+        "used_manual_mesh": manual_mesh.exists(),
         "merged_centerline": case_dir / f"merged_centerline{cl_suffix}.npy",
-        "clipped_centerline": case_dir / f"clipped_centerline{cl_suffix}.npy",
-        "clipped_mesh": case_dir / f"clipped_reconstruction{mesh_suffix}.ply",
+        "clipped_centerline": manual_cl if use_manual_cl
+                              else case_dir / f"clipped_centerline{cl_suffix}.npy",
+        "used_manual_centerline": use_manual_cl,
+        "clipped_mesh": clipped_mesh,
         "branch_ranking": case_dir / f"branch_ranking{mesh_suffix}.npy",
         "endpoints": case_dir / "endpoints_manual.npy",
     }
@@ -282,7 +329,59 @@ def _fan_cap_open_mesh(mesh_pv, return_opening_info=False):
     return result
 
 
-def _build_closed_case_mesh(paths, extrude_length=0.25):
+
+def _extrude_rings_along_own_normal(mesh_pv, length, n_layers=3):
+    """Extrude each boundary loop along ITS OWN normal, preserving the ring shape.
+
+    The fusion path (forward_mesh_fusion_v2) transports a RESAMPLED ring along
+    the centerline, so the extruded tube's cross-section is regularised into a
+    near-circle and no longer matches the opening it grew from. For a hand-cut
+    clip that is doubly wrong: the cut is oblique, and its rim is irregular by
+    nature -- both get erased.
+
+    This instead translates the loop's OWN vertices along the ring's own normal
+    (SVD plane, oriented outward from the mesh's own topology -- no centerline),
+    stitches a triangle band between successive layers, and returns the mesh
+    still open at the far end for the usual fan cap. Cross-section preserved
+    exactly; nothing resampled, nothing planarised.
+    """
+    import pyvista as pv
+    from cfd_mesher.vessel_reconstruct import ring_outward_normal_from_mesh
+
+    verts = np.asarray(mesh_pv.points, dtype=float)
+    faces = np.asarray(mesh_pv.faces).reshape(-1, 4)[:, 1:]
+    loops = _find_boundary_loops(faces)
+    if not loops:
+        return mesh_pv
+
+    all_v = [verts]
+    all_f = [faces]
+    offset = len(verts)
+    for loop in loops:
+        loop = np.asarray(loop)
+        n, _c = ring_outward_normal_from_mesh(verts, faces, loop)
+        if n is None:
+            continue
+        prev = loop                      # indices of the current rim
+        for layer in range(1, n_layers + 1):
+            new_pts = verts[loop] + n * (length * layer / n_layers)
+            new_idx = np.arange(offset, offset + len(loop))
+            all_v.append(new_pts)
+            offset += len(loop)
+            # stitch prev -> new as a triangle band, following the loop order
+            a, b = prev, np.roll(prev, -1)
+            c_, d = new_idx, np.roll(new_idx, -1)
+            all_f.append(np.stack([a, b, c_], axis=1))
+            all_f.append(np.stack([b, d, c_], axis=1))
+            prev = new_idx
+    V = np.vstack(all_v)
+    F = np.vstack(all_f)
+    return pv.PolyData(V, np.hstack([np.full((len(F), 1), 3), F]).ravel())
+
+
+def _build_closed_case_mesh(paths, extrude_length=0.25, ring_normal_extrusion=False,
+                            strip_unreferenced_input=False, no_extrusion=False,
+                            planarize_before_cap=True, ring_prism_extrusion=False):
     """Closes the case's open clipped mesh (extrude ~extrude_length mm along
     each branch's centerline tangent, planarize, fan-cap) and returns it as a
     trimesh.Trimesh. extrude_length is deliberately uniform across every case
@@ -314,10 +413,61 @@ def _build_closed_case_mesh(paths, extrude_length=0.25):
     order left open (see AneuX_stable support work). Only pays this extra
     cost when the direct order actually fails.
     """
+    import pyvista as pv
     from cfd_mesher.vessel_reconstruct import forward_mesh_fusion_v2
     from cfd_mesher.patching import planarize_openings
 
     def _extrude_planarize_cap(mesh_path):
+        # A hand-cut clip commonly keeps vertices whose faces were deleted
+        # (p171: 9538 of them, F/V=1.64 where a closed surface sits near 2.0).
+        # They survive the fusion/cap untouched and end up as loose points in
+        # the target mesh, so drop them from the INPUT when this opt-in path is
+        # active. Off by default -> the original file is used verbatim.
+        if strip_unreferenced_input:
+            _m = trimesh.load(mesh_path, process=False)
+            _V, _F = np.asarray(_m.vertices), np.asarray(_m.faces)
+            _used = np.unique(_F)
+            if len(_used) < len(_V):
+                _remap = np.full(len(_V), -1, dtype=np.int64)
+                _remap[_used] = np.arange(len(_used))
+                _clean = trimesh.Trimesh(vertices=_V[_used], faces=_remap[_F], process=False)
+                _tmp = Path(tempfile.gettempdir()) / f"stripped_{Path(mesh_path).name}"
+                _clean.export(_tmp)
+                print(f"  stripped {len(_V) - len(_used)} unreferenced vertices from "
+                      f"{Path(mesh_path).name}", flush=True)
+                mesh_path = _tmp
+        if ring_prism_extrusion:
+            # Ring-shape-preserving extrusion, then cap. No centerline, no
+            # resampling, no planarising -- see _extrude_rings_along_own_normal.
+            raw = pv.read(str(mesh_path))
+            grown = _extrude_rings_along_own_normal(raw, extrude_length)
+            capped, opening_loops, cap_face_loop_id = _fan_cap_open_mesh(
+                grown, return_opening_info=True)
+            tm = trimesh.Trimesh(vertices=np.asarray(capped.points),
+                                 faces=capped.faces.reshape(-1, 4)[:, 1:], process=False)
+            # a fan cap can come out wound inward; make the closure consistent
+            tm.fix_normals()
+            return tm, opening_loops, cap_face_loop_id
+
+        if no_extrusion:
+            # OPT-IN: close the clip WHERE IT IS -- no tubular extension at all.
+            # A hand-cut ("_manual") opening is oblique to the centerline, so
+            # every extruded ring is built on a plane tilted away from the
+            # opening it has to stitch to, which is what produced the kinked /
+            # degenerate joints. Skipping the extrusion removes that failure
+            # mode outright; the trade-off is a shorter branch stub, and the
+            # closure no longer contributes a uniform ~extrude_length to every
+            # case's volume (see this function's own docstring on why that
+            # uniformity was wanted).
+            raw = pv.read(str(mesh_path))
+            flat = (planarize_openings(raw, r_forward_fusion_info_filename=None, smooth=True)
+                    if planarize_before_cap else raw)
+            capped, opening_loops, cap_face_loop_id = _fan_cap_open_mesh(
+                flat, return_opening_info=True)
+            return trimesh.Trimesh(vertices=np.asarray(capped.points),
+                                   faces=capped.faces.reshape(-1, 4)[:, 1:],
+                                   process=False), opening_loops, cap_face_loop_id
+
         merged = forward_mesh_fusion_v2(
             save_dir=None,
             r_clipped_mesh_filename=str(mesh_path),
@@ -330,6 +480,12 @@ def _build_closed_case_mesh(paths, extrude_length=0.25):
             extrude_length=extrude_length,
             extrude_outlets=True,
             extrude_inlet=True,
+            # OPT-IN, default off: start each extrusion past the FURTHEST
+            # opening vertex rather than past the centerline endpoint. Only
+            # matters for hand-cut ("_manual") clips, whose oblique
+            # cross-section spreads its opening vertices along the tangent --
+            # see cfd_mesher.vessel_reconstruct.oblique_extrusion_start_offset.
+            ring_normal_extrusion=ring_normal_extrusion,
         )
         flat = planarize_openings(merged, r_forward_fusion_info_filename=None, smooth=True)
         capped, opening_loops, cap_face_loop_id = _fan_cap_open_mesh(flat, return_opening_info=True)
@@ -477,7 +633,24 @@ def load_case_data(case_dir, n_surface_samples=4000, extrude_length=0.25,
     mesh = trimesh.load(paths["clipped_mesh"], process=False)
     surface_points, _ = trimesh.sample.sample_surface(mesh, n_surface_samples)
 
-    closed_mesh = _build_closed_case_mesh(paths, extrude_length=extrude_length)
+    # A hand-cut clip is oblique to the centerline, so every extruded ring is
+    # built on a plane tilted away from the opening it must stitch to -- that
+    # produced kinked joints, 18 two-face islands and degenerate faces on p171.
+    # Closing such a clip WHERE IT IS avoids the failure mode entirely
+    # (verified: 1 component, Euler 2, watertight, 0 degenerate). It also drops
+    # the ~extrude_length the automatic path adds to every case, so a manual
+    # case's closure is not volume-comparable to an automatic one.
+    # Hand-cut clips: extrude each opening along the RING's own normal, keeping
+    # the rim's real shape (see _extrude_rings_along_own_normal). Chosen over
+    # no_extrusion because that path left C0077_cut2 with NEGATIVE volume --
+    # an inward-wound fan cap, which load_case_data's abs(volume) would have
+    # hidden -- and over the centerline-tangent path because a hand cut is
+    # oblique to the centerline. Measured no worse on triangle quality:
+    # fewer slivers than the tangent path on all three test cases.
+    _manual = paths.get("used_manual_mesh", False)
+    closed_mesh = _build_closed_case_mesh(
+        paths, extrude_length=extrude_length,
+        ring_prism_extrusion=_manual, strip_unreferenced_input=_manual)
     volume = abs(float(closed_mesh.volume))
 
     dome_points = None
@@ -491,6 +664,7 @@ def load_case_data(case_dir, n_surface_samples=4000, extrude_length=0.25,
         "case_dir": str(case_dir),
         "paths": paths,
         "use_fallback": paths["use_fallback"],
+        "used_manual_mesh": paths.get("used_manual_mesh", False),
         "aneurysm_type": aneurysm_type,
         "aneurysm_centroid": aneurysm_centroid.astype(np.float32),
         "dome_points": dome_points,
@@ -822,15 +996,22 @@ def render_sanity_images(save_dir, transform, case, canonical, n_angles=6,
     separate per-angle files) -- meant for a quick eyeball during testing."""
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
-        # Headless machine, no real X server: PyVista/VTK still needs SOME
-        # display target even for off_screen=True rendering (older PyVista/VTK
-        # builds error out instead of falling back automatically -- hit this
-        # exact crash testing on this workstation's 'new' env, pyvista 0.42,
-        # whereas 'vmtk_autogen's pyvista 0.47 apparently handles it fine).
-        # start_xvfb() launches a virtual framebuffer and points $DISPLAY at
-        # it, which is enough for off-screen rendering with no real display.
+    # PyVista/VTK still needs SOME display target even for off_screen=True
+    # rendering (older builds error out instead of falling back automatically --
+    # hit that on this workstation's 'new' env, pyvista 0.42, whereas
+    # 'vmtk_autogen's 0.47 handles it). start_xvfb() launches a virtual
+    # framebuffer and points $DISPLAY at it.
+    #
+    # This used to be guarded by `system_supports_plotting() is False or not
+    # DISPLAY`, which never fired over `ssh -X`: DISPLAY merely being SET makes
+    # system_supports_plotting() true, so VTK went looking for a GLX context,
+    # failed, and called abort() -- killing the process, uncatchable. Always
+    # render offscreen instead; that is what these sanity images want anyway.
+    os.environ.pop("DISPLAY", None)
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -1135,7 +1316,9 @@ def main():
     canonical_dir = (args.bifurcated_canonical_dir if case["aneurysm_type"] == 0
                      else args.sidewall_canonical_dir)
     print(f"Case: {case_dir.name}  aneurysm_type={case['aneurysm_type']}  "
-          f"use_fallback={case['use_fallback']}  canonical={canonical_dir}  device={args.device}")
+          f"use_fallback={case['use_fallback']}"
+          + ("  [MANUAL CLIP]" if case.get("used_manual_mesh") else "")
+          + f"  canonical={canonical_dir}  device={args.device}")
     canonical = load_canonical_data(canonical_dir, n_surface_samples=args.n_surface_samples)
     print(f"  case volume={case['volume']:.2f} mm^3  canonical volume={canonical['volume']:.2f} mm^3")
 

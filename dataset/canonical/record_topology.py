@@ -3,7 +3,7 @@ record_topology.py — interactive tool to record a canonical shape's full
 topology (openings + centerline branches + neck) into ONE consolidated file,
 replacing the openings-only dataset/record_openings.ipynb.
 
-Picking (steps 1-4) needs a real display (like dataset/label_endcaps.py, this
+Picking (steps 1-4) needs a real display (like dataset/label_morpho.py, this
 workstation is headless). VMTK extraction (steps 5-8) needs the vmtk env but
 NOT a display. These don't have to be the same machine -- --mode pick and
 --mode process split the script exactly at that boundary, handing off via
@@ -35,7 +35,7 @@ What it does, in order
 
 2. Interactive: for each loop, in turn, click near the one you want as the
    next opening in sequence (0, 1, 2, ...) — one fresh PyVista window per
-   slot, same pattern as label_endcaps.py's brush_one_branch. Order matters:
+   slot, same pattern as label_morpho.py's brush_one_branch. Order matters:
    this fixes which physical branch is "opening 0" vs "opening 1" etc.
    everywhere downstream.
 
@@ -50,7 +50,7 @@ What it does, in order
 
 4. Interactive: brush the aneurysm DOME -- the whole bulging sac, not the
    thin neck ring directly (much more forgiving to cover completely; one
-   shared brush, single confirm, same mechanic as label_endcaps.py's
+   shared brush, single confirm, same mechanic as label_morpho.py's
    brush_one_branch). The neck is then DERIVED, not picked: the dome patch
    is treated as its own trimmed mesh and its boundary loop is found with
    the same edge-walk technique used for mesh.obj's own openings
@@ -208,7 +208,7 @@ def pick_opening_sequence(mesh_pv, loops_full, full_verts):
     partial canonical_topology.npy).
 
     NOT independently tested (no display on this machine) -- same caveat as
-    dataset/label_endcaps.py: if _on_pick's warning about 'vtkOriginalCellIds'
+    dataset/label_morpho.py: if _on_pick's warning about 'vtkOriginalCellIds'
     fires, adjust it there for your PyVista version. Also flagging enable_point_picking
     itself as unverified here: it's documented as a plain left-click picker (unlike
     enable_cell_picking's rubber-band-drag style used elsewhere in this project, which
@@ -363,7 +363,7 @@ def detect_neck_from_dome(faces_all, dome_face_ids):
 def pick_dome_points(mesh_pv):
     """Brush the aneurysm DOME (the whole bulging sac, not the thin neck
     ring -- much easier to cover completely) -- same brush mechanic as
-    label_endcaps.py's brush_one_branch (drag boxes to accumulate faces, 'z'
+    label_morpho.py's brush_one_branch (drag boxes to accumulate faces, 'z'
     clears, 'c' confirms). The neck is derived afterward from this patch's
     own boundary (detect_neck_from_dome), not picked directly. Returns the
     confirmed dome face ids (into mesh.obj's face array, post
@@ -371,7 +371,7 @@ def pick_dome_points(mesh_pv):
 
     IMPORTANT: through=False picks only the VISIBLE (camera-facing) surface,
     so one drag can only ever cover the side of the dome currently facing
-    you. A dome is a real 3D bulge (unlike label_endcaps.py's flatter cap
+    you. A dome is a real 3D bulge (unlike label_morpho.py's flatter cap
     patches, where this rarely matters) -- getting the WHOLE dome needs
     multiple drags from multiple angles, rotating between them via 'r'
     (toggles the rubber-band interactor between ROTATE and SELECT mode --
@@ -395,7 +395,7 @@ def pick_dome_points(mesh_pv):
             # pickable a later drag could hit it too and enable_cell_picking would then
             # hand _on_pick a MultiBlock (one block per hit actor) instead of the single
             # mesh it expects -- see _on_pick's MultiBlock handling below for the same
-            # reason applied to the static reference geometry (matches label_endcaps.py's
+            # reason applied to the static reference geometry (matches label_morpho.py's
             # brush_one_branch, which hit this exact crash first).
             state["highlight"] = plotter.add_mesh(sub, color="orange", opacity=0.9,
                                                     show_edges=True, pickable=False)
@@ -448,7 +448,7 @@ def pick_dome_points(mesh_pv):
     # through=False (visible-surface-only picking) means a single drag can only ever
     # select the side of the dome currently facing the camera -- picking a full 3D bulge
     # needs the 'r'-toggle-then-rotate-then-'r'-back workflow explained above. This is the
-    # same underlying rubber-band interactor style flagged in label_endcaps.py's brush
+    # same underlying rubber-band interactor style flagged in label_morpho.py's brush
     # (where 'r' had to be freed up from "clear" for exactly this reason) -- it was fine
     # to leave unexplained there since a flat cap patch rarely needs a second angle, but a
     # dome is a genuine 3D blob and got missed here originally, which is the bug being fixed.

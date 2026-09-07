@@ -31,7 +31,15 @@ class ProcessedGHDDataset(torch.utils.data.Dataset):
             chk = np.load(path, allow_pickle=True).item()
             cases.append(chk["case"])
             ghd.append(torch.as_tensor(chk["ghd"]["phi"], dtype=torch.float32).reshape(-1))
-            scale.append(torch.as_tensor([float(chk["affine"]["scale"])], dtype=torch.float32))
+            # The assembled-corpus records (dataset/preprocess_assembled.py) carry
+            # no derived "affine" block -- scale lives as ghd["log_scale"], which
+            # is what affine["scale"] was exp()'d from. Prefer affine when present
+            # so old-pipeline checkpoints keep loading unchanged.
+            if "affine" in chk and "scale" in chk["affine"]:
+                _s = float(chk["affine"]["scale"])
+            else:
+                _s = float(np.exp(np.asarray(chk["ghd"]["log_scale"], dtype=np.float64)))
+            scale.append(torch.as_tensor([_s], dtype=torch.float32))
             aneurysm_type.append(torch.as_tensor(int(chk["aneurysm_type"]), dtype=torch.long))
         if not ghd:
             raise RuntimeError(f"No processed GHD checkpoints found in {self.root}")

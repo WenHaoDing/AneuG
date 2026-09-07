@@ -50,6 +50,7 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         max_points_per_branch=128,
         point_interval=0.1,
         min_arc_length=1.0,
+        max_arc_length=15.0,
         normalize=True,
         curvature_weight=1.0,
     ):
@@ -58,6 +59,15 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
         self.max_points_per_branch = max_points_per_branch
         self.max_local_points = max_points_per_branch - 1
         self.point_interval = point_interval
+        # Longest branch kept, in the checkpoint's own (GHD/aligned) units.
+        # Branches past this are TRUNCATED at max_arc_length measured from
+        # points[0] -- the aneurysm end -- not rejected: the corpus spans
+        # 1776x in branch length (p25 6.6, p50 16.4, p100 160.2), and every
+        # branch is forced through the same fixed-size representation, so
+        # without a cap one point means 0.05 units on a short branch and 1.3
+        # on the longest. Rejecting instead would mask out over half the data.
+        # None disables the cap.
+        self.max_arc_length = max_arc_length
         self.min_arc_length = min_arc_length
         self.normalize = normalize
         # strength of the curvature boost in point_weights (0 = uniform weights)
@@ -87,8 +97,12 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
                 "case": chk["case"],
                 "aneurysm_type": int(chk["aneurysm_type"]),
                 "canonical_type": chk["canonical_type"],
+                # Truncate ONCE, here, so every derived quantity -- arc_length,
+                # curvature weights, resampling, and the Fourier subclass's fits
+                # -- is computed on the branch that is actually used.
                 "branch_points": [
-                    np.asarray(points, dtype=np.float32)
+                    self._truncate_by_arc_length(
+                        np.asarray(points, dtype=np.float32), self.max_arc_length)
                     for points in centerline["branch_points"]
                 ],
                 "phi": np.asarray(chk["ghd"]["phi"], dtype=np.float32),
@@ -116,6 +130,31 @@ class VesselSkeletonDataset(torch.utils.data.Dataset):
             torch.as_tensor(points.mean(0, keepdims=True), dtype=torch.float32),
             torch.as_tensor(points.std(0, keepdims=True) + 0.01, dtype=torch.float32),
         )
+
+    @staticmethod
+    def _truncate_by_arc_length(points, max_arc_length):
+        """First `max_arc_length` of a branch, measured from points[0].
+
+        The cut point is INTERPOLATED onto the final segment, so the returned
+        branch is exactly max_arc_length long rather than however far the last
+        vertex before the limit happened to fall. Branches at or under the
+        limit are returned unchanged.
+        """
+        if max_arc_length is None or len(points) < 2:
+            return points
+        points = np.asarray(points, dtype=np.float32)
+        seg = np.linalg.norm(np.diff(points, axis=0), axis=1)
+        cum = np.concatenate([[0.0], np.cumsum(seg)])
+        if cum[-1] <= max_arc_length:
+            return points
+        # last vertex still inside the limit, then the exact crossing point
+        k = int(np.searchsorted(cum, max_arc_length, side="right") - 1)
+        head = points[: k + 1]
+        remain = max_arc_length - cum[k]
+        if seg[k] > 1e-12 and remain > 1e-12:
+            direction = (points[k + 1] - points[k]) / seg[k]
+            head = np.concatenate([head, (points[k] + direction * remain)[None]], axis=0)
+        return head.astype(np.float32)
 
     @staticmethod
     def _arc_length(points):

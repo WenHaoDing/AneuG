@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Parallel companion to run_ablation.sh: SAME 10-case no-opening-loss
 # baseline, dome-alignment Stage 1, but with DVS occupancy loss ON
-# (lambda=2.0, matching the old reference pipeline's own default weight --
-# now also ghd_fit.py's own default, but passed explicitly here for
-# clarity/reproducibility). Meant to run CONCURRENTLY with
+# (lambda=1.0, ghd_fit.py's own default -- passed explicitly here for
+# clarity/reproducibility. Was 2.0, the old reference pipeline's weight,
+# until 1.0 was adopted as the standard everywhere). Meant to run CONCURRENTLY with
 # run_ablation.sh's own tmux sessions (distinct session/log names, separate
 # save root) so both can be compared once done -- occupancy vs. no
 # occupancy, everything else identical.
@@ -56,7 +56,7 @@ for g in "${!GPUS[@]}"; do
   CMDS="$CONDA_INIT"
   IFS=';' read -ra QUEUE <<< "${BUCKET[$g]}"
   for CASE in "${QUEUE[@]}"; do
-    CMDS="$CMDS && echo '=== [$GPU] $CASE ===' && $PYTHON ghd/fitting/run_case.py --case-dir \"$GEOMETRY_DIR/$CASE\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 2.0"
+    CMDS="$CMDS && echo '=== [$GPU] $CASE ===' && $PYTHON ghd/fitting/run_case.py --case-dir \"$GEOMETRY_DIR/$CASE\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 1.0"
   done
   CMDS="$CMDS && echo ALL_DONE_$SESSION"
   echo "Session $SESSION on $GPU: ${#QUEUE[@]} job(s) queued"

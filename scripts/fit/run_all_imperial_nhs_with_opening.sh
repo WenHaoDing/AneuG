@@ -68,7 +68,7 @@ for w in "${!WORKER_GPUS[@]}"; do
       echo "  echo '[$GPU w$w] SKIP (already done): $CASE'"
       echo "else"
       echo "  echo '[$GPU w$w] === $CASE ==='"
-      echo "  $PYTHON ghd/fitting/run_case.py --case-dir \"$CASE_DIR\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 2.0 $WITH_OPENING_FLAGS"
+      echo "  $PYTHON ghd/fitting/run_case.py --case-dir \"$CASE_DIR\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 1.0 $WITH_OPENING_FLAGS"
       echo "  if [ \$? -eq 0 ]; then echo 'with_opening' > \"$OUT_DIR/config_used.txt\"; else echo \"$CASE\" >> \"$FAILED_LOG\"; echo '[$GPU w$w] FAILED: $CASE'; fi"
       echo "fi"
     done

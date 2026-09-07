@@ -75,7 +75,7 @@ for w in "${!WORKER_GPUS[@]}"; do
       echo "  echo '[$GPU w$w] SKIP (already done): $CASE'"
       echo "else"
       echo "  echo '[$GPU w$w] === $CASE ==='"
-      echo "  $PYTHON ghd/fitting/run_case.py --case-dir \"$CASE_DIR\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 2.0"
+      echo "  $PYTHON ghd/fitting/run_case.py --case-dir \"$CASE_DIR\" --save-root \"$SAVE_ROOT\" --device $GPU --n-iter $N_ITER --eta-min 1e-4 --lambda-occupancy 1.0"
       echo "  if [ \$? -ne 0 ]; then echo \"$CASE\" >> \"$FAILED_LOG\"; echo '[$GPU w$w] FAILED: $CASE'; fi"
       echo "fi"
     done

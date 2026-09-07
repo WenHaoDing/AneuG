@@ -30,6 +30,10 @@ def _parse_args():
                    help="Root under which SAVE_DIR = <save-root>/stage1/ghd_vae_h..._z..._kl... is built "
                         "(default: runtime/tr_checkpoints/v2).")
     p.add_argument("--device", default=None, help="e.g. cuda:0, cuda:1, cpu (default: cuda:1).")
+    p.add_argument("--processed-root", default=None,
+                   help="Processed GHD corpus to train on (default: runtime_dataset/AneuG_processed, "
+                        "the assembled-corpus build from dataset/preprocess_assembled.py).")
+    p.add_argument("--epochs", type=int, default=None, help="Override EPOCHS (default 5000).")
     # Only parse real argv when run as a script — importing this module for
     # smoke tests/reuse shouldn't choke on pytest/ipython's own argv.
     return p.parse_args() if __name__ == "__main__" else p.parse_args([])
@@ -37,10 +41,11 @@ def _parse_args():
 
 _args = _parse_args()
 
-PROCESSED_ROOT = ROOT / "runtime" / "dataset" / "processed"
+PROCESSED_ROOT = (Path(_args.processed_root) if _args.processed_root
+                  else ROOT / "runtime_dataset" / "AneuG_processed")
 
 DEVICE = torch.device(_args.device or ("cuda:1" if torch.cuda.is_available() else "cpu"))
-EPOCHS = 5000
+EPOCHS = _args.epochs if _args.epochs else 5000
 BATCH_SIZE = 64
 LR = 1e-3
 HIDDEN_DIM = _args.hidden_dim

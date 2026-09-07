@@ -228,10 +228,16 @@ def render_fit_sanity(save_path, fitted_verts_phys, faces, target_verts_phys, n_
     mesh (grey wireframe-ish points) -- same visual pattern as
     alignment.py::render_sanity_images, but for a single posed mesh pair
     instead of point-cloud branch segments."""
+    # DISPLAY merely being SET makes pv.system_supports_plotting() true, so over
+    # an `ssh -X` forward with no GLX the old guard never fired and VTK called
+    # abort() -- uncatchable. Always render offscreen on xvfb instead.
+    os.environ.pop("DISPLAY", None)
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     fitted_pd = pv.PolyData(fitted_verts_phys, faces=np.concatenate(
         [np.full((faces.shape[0], 1), 3), faces], axis=1))
@@ -394,17 +400,18 @@ def setup_experimental_losses(mc, atype, canonical_root, target, device,
 
 # ── fitting driver ───────────────────────────────────────────────────────────
 
-def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
-           n_iter=15000, lr=1e-3, eta_min=1e-4, device="cuda",
+def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None, case_dir=None,
+           n_iter=10000, lr=1e-3, eta_min=1e-4, device="cuda",
            lambda_chamfer_n1=0.8, lambda_laplacian=1e-2,
            lambda_rigid_start=2.0, lambda_rigid_end=0.001, rigid_decay_frac=0.80,
+           rigid_warmup_iters=0, rigid_warmup_start=5.0,
            lambda_volume=1.0, volume_ceiling_ratio=1.2,
            volume_target_frac_start=1.0, volume_target_frac_end=1.0,
            volume_target_decay_frac=0.5, volume_ramp_frac=0.5,
            lambda_thickness=2.0, thickness_r=0.2,
            lambda_consistency_start=0.3, lambda_consistency_end=0.3, consistency_decay_frac=0.80,
            lambda_edge_start=0.1, lambda_edge_end=0.1, edge_decay_frac=0.80,
-           lambda_occupancy=2.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
+           lambda_occupancy=1.0, dvs_surf_d_min=0.0001, dvs_surf_d_max=0.05,
            lambda_opening_chamfer=0.0, n_opening_chamfer_pts=3000,
            lambda_roundness=0.0, lambda_normal_alignment=0.0,
            lambda_geodesic=0.0, geodesic_weight=1.0, geodesic_mask_eps=0.05,
@@ -554,7 +561,14 @@ def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
     t = nn.Parameter(torch.zeros(3, device=device))
 
     optimizer = torch.optim.Adam([phi, w, log_s, t], lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_iter, eta_min=eta_min)
+    # The warm-up is a PRELUDE, not a slice taken out of n_iter: n_iter always
+    # means the length of the normal fitting process, so a 1000-iteration
+    # warm-up plus n_iter=10000 runs 11000 in total. Every other schedule
+    # (lr, volume, consistency, edge) is timed over the n_iter part alone and
+    # simply sits at its starting value while the warm-up runs.
+    total_iters = n_iter + max(rigid_warmup_iters, 0)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_iters,
+                                                           eta_min=eta_min)
 
     edge_loss_fn = EdgeLengthLoss(recon.canonical_Meshes)
     rigid_loss_fn = GHDRigidLoss(V0, F_can)
@@ -597,7 +611,13 @@ def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
     auto_thresholds = np.linspace(lambda_rigid_start, lambda_rigid_end, n_rigid_checkpoints)
     extra_thresholds = [v for v in extra_rigid_checkpoint_values
                         if min(lambda_rigid_start, lambda_rigid_end) <= v <= max(lambda_rigid_start, lambda_rigid_end)]
-    rigid_weight_thresholds = sorted(set(np.round(np.concatenate([auto_thresholds, extra_thresholds]), 6)), reverse=True)
+    # warm-up levels get their own checkpoints: the whole point of passing
+    # through 5/4/3 is being able to look at the mesh at each.
+    warmup_thresholds = ([v for v in (5.0, 4.0, 3.0)
+                          if rigid_warmup_iters > 0
+                          and lambda_rigid_start <= v <= rigid_warmup_start])
+    rigid_weight_thresholds = sorted(set(np.round(np.concatenate(
+        [auto_thresholds, extra_thresholds, warmup_thresholds]), 6)), reverse=True)
     next_ckpt_idx = 0
 
     history = {k: [] for k in [
@@ -610,11 +630,25 @@ def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
     best_chamfer = float("inf")
     best_state = None
 
-    for it in range(n_iter):
-        frac = it / max(n_iter - 1, 1)
+    for it in range(total_iters):
+        # 0 throughout the warm-up, then 0->1 across the n_iter normal phase
+        frac = max(0, it - rigid_warmup_iters) / max(n_iter - 1, 1)
         if rigid_pose_freeze_frac > 0:
             w.requires_grad_(frac >= rigid_pose_freeze_frac)
-        lam_rigid = _cosine_decay(lambda_rigid_start, lambda_rigid_end, frac, rigid_decay_frac)
+        if rigid_warmup_iters > 0 and it < rigid_warmup_iters:
+            # High-rigid warm-up: hold the mesh close to the canonical while the
+            # pose and the low-order shape settle, then hand over to the normal
+            # schedule at exactly lambda_rigid_start so the two join without a
+            # step. Linear (not cosine) so the weight spends even time at each
+            # level -- the point is to pass through 5/4/3 and checkpoint there.
+            wf = it / max(rigid_warmup_iters, 1)
+            lam_rigid = rigid_warmup_start + (lambda_rigid_start - rigid_warmup_start) * wf
+        else:
+            # own timebase -- `frac` still drives the volume/consistency/edge
+            # schedules and must keep counting from iteration 0, or adding a
+            # warm-up would silently retime every other decay too.
+            lam_rigid = _cosine_decay(lambda_rigid_start, lambda_rigid_end,
+                                      frac, rigid_decay_frac)
         vol_frac = _linear_decay(volume_target_frac_start, volume_target_frac_end, frac, volume_target_decay_frac)
         lam_volume = _cosine_decay(0.0, lambda_volume, frac, volume_ramp_frac)
         lam_consistency = _cosine_decay(lambda_consistency_start, lambda_consistency_end, frac, consistency_decay_frac)
@@ -725,7 +759,7 @@ def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
         history["trans_norm"].append(torch.norm(t).item())
 
         if it % log_every == 0 or it == n_iter - 1:
-            print(f"  [{it:6d}/{n_iter}] chamfer={cur_chamfer:.5f} rigid={loss_rigid.item():.4f} "
+            print(f"  [{it:6d}/{total_iters}] chamfer={cur_chamfer:.5f} rigid={loss_rigid.item():.4f} "
                   f"volume={loss_volume.item():.4f} (w={lam_volume:.3f}) thickness={loss_thickness.item():.4f} "
                   f"edge={loss_edge.item():.4f} (w={lam_edge:.3f}) consistency={loss_consistency.item():.4f} (w={lam_consistency:.3f}) "
                   f"occ={loss_occupancy.item():.4f} opench={loss_opening_chamfer.item():.4f} "
@@ -762,6 +796,10 @@ def ghd_fit(stage1_dir, canonical_root, out_dir, aneurysm_type=None,
         # own split) so phi/w_rot/log_scale/t_vec can be converted back to
         # physical units without re-deriving it from the canonical mesh.
         "s_can": float(norm_canonical),
+        # source geometry that produced this fit -- results are filed by config
+        # (runtime/<config>/<dataset>/<case>/) and the geometry lives on a
+        # different disk, so without this the output can't say what it came from.
+        "case_dir": str(case_dir) if case_dir else None,
     }
     with open(out_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
@@ -782,7 +820,13 @@ def main():
     parser.add_argument("--out", default=None, help="Default: same as --stage1-dir")
     parser.add_argument("--aneurysm-type", type=int, default=None, help="Override auto-detected type (0=bifurcated,1/2=sidewall)")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--n-iter", type=int, default=15000)
+    parser.add_argument("--rigid-warmup-iters", type=int, default=0,
+                        help="Run this many iterations of HIGH rigid weight first, decreasing "
+                             "linearly from --rigid-warmup-start down to --lambda-rigid-start, "
+                             "before the normal schedule begins. 0 = off (default).")
+    parser.add_argument("--rigid-warmup-start", type=float, default=5.0,
+                        help="Rigid weight at the very first iteration of the warm-up.")
+    parser.add_argument("--n-iter", type=int, default=10000)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--eta-min", type=float, default=1e-4)
     parser.add_argument("--lambda-chamfer-n1", type=float, default=0.8)
@@ -814,7 +858,7 @@ def main():
     parser.add_argument("--lambda-edge-end", type=float, default=0.1,
                          help="Default equals start (no decay). Cosine-annealed like the rigid weight.")
     parser.add_argument("--edge-decay-frac", type=float, default=0.80)
-    parser.add_argument("--lambda-occupancy", type=float, default=2.0, help="On by default (matches the old reference pipeline's own default weight) -- auto-disabled with a warning if the target mesh can't be closed for sampling; see prepare_dvs_samples.")
+    parser.add_argument("--lambda-occupancy", type=float, default=1.0, help="On by default -- auto-disabled with a warning if the target mesh can't be closed for sampling; see prepare_dvs_samples. Was 2.0 (the old reference pipeline's weight) until it was lowered to 1.0 as the better default.")
     parser.add_argument("--dvs-surf-d-min", type=float, default=0.0001)
     parser.add_argument("--dvs-surf-d-max", type=float, default=0.05)
     parser.add_argument("--lambda-opening-chamfer", type=float, default=0.0,
@@ -857,6 +901,8 @@ def main():
         aneurysm_type=args.aneurysm_type, n_iter=args.n_iter, lr=args.lr, eta_min=args.eta_min,
         device=args.device, lambda_chamfer_n1=args.lambda_chamfer_n1, lambda_laplacian=args.lambda_laplacian,
         lambda_rigid_start=args.lambda_rigid_start, lambda_rigid_end=args.lambda_rigid_end,
+        rigid_warmup_iters=args.rigid_warmup_iters,
+        rigid_warmup_start=args.rigid_warmup_start,
         rigid_decay_frac=args.rigid_decay_frac, lambda_volume=args.lambda_volume,
         volume_ceiling_ratio=args.volume_ceiling_ratio,
         volume_target_frac_start=args.volume_target_frac_start, volume_target_frac_end=args.volume_target_frac_end,

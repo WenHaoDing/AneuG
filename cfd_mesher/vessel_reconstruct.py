@@ -472,6 +472,86 @@ def forward_mesh_fusion(post_dir,
     return merged
 
 
+
+
+def ring_outward_normal_from_mesh(mesh_points, mesh_faces, ring_vertex_ids):
+    """Ring plane normal by SVD, oriented outward using ONLY the mesh itself.
+
+    ring_normal_and_centroid() needs a reference tangent to disambiguate SVD's
+    arbitrary sign. That makes the extrusion direction depend on the centerline
+    even though the ring alone already determines the plane. The mesh knows
+    which side it is on: take the ring's one-ring neighbours that are NOT on the
+    ring -- those lie in the body -- and orient the normal away from them.
+
+    Returns (normal, centroid), or (None, None) if the ring is unusable or has
+    no interior neighbours to orient against.
+    """
+    ring_vertex_ids = np.asarray(ring_vertex_ids).ravel()
+    if ring_vertex_ids.size < 3:
+        return None, None
+    P = np.asarray(mesh_points, dtype=float)[ring_vertex_ids]
+    centroid = P.mean(axis=0)
+    normal = np.linalg.svd(P - centroid, full_matrices=False)[2][-1]
+
+    ring = set(int(i) for i in ring_vertex_ids)
+    F = np.asarray(mesh_faces).reshape(-1, 3) if np.asarray(mesh_faces).ndim == 2 \
+        else np.asarray(mesh_faces).reshape(-1, 4)[:, 1:]
+    touching = F[np.isin(F, list(ring)).any(axis=1)]
+    interior = [int(v) for v in np.unique(touching) if int(v) not in ring]
+    if interior:
+        body = np.asarray(mesh_points, dtype=float)[interior].mean(axis=0)
+        # outward = away from the body vertices adjacent to the ring
+        if np.dot(normal, centroid - body) < 0:
+            normal = -normal
+    else:
+        return None, None
+    n = np.linalg.norm(normal)
+    return (normal / n, centroid) if n > 1e-12 else (None, None)
+
+
+def ring_normal_and_centroid(opening_verts, reference_tangent):
+    """A boundary ring's own plane normal (via SVD) and centroid.
+
+    OPT-IN helper for forward_mesh_fusion_v2(ring_normal_extrusion=True); the
+    default extrusion path does not call it and is unchanged.
+
+    Only the extrusion DIRECTION is taken from the ring; the start point stays
+    cpcd[-1] as before. After truncation cpcd[-1] already sits on the opening
+    (~0.1 mm from the ring centroid on p171), so moving the start would only
+    risk a discontinuity in the path the tube is swept along.
+
+    An AUTOMATIC clip cuts perpendicular to the centerline, so the ring's plane
+    normal and the branch's end tangent agree and extruding along the tangent
+    is fine. A HAND-CUT ("_manual") clip is oblique: the ring plane is tilted
+    relative to the tangent, so tangent-directed rings intersect the opening
+    instead of clearing it, and the stitching quads fold into inverted /
+    zero-area triangles.
+
+    Extruding along the RING's own normal, starting from the RING's own
+    centroid, makes the first ring parallel to the opening by construction --
+    no fold-back regardless of how oblique the cut is.
+
+    SVD's normal has arbitrary sign, so it is flipped to agree with
+    `reference_tangent` (the centerline end tangent, which always points out of
+    the vessel); otherwise the tube would extrude backwards into the mesh.
+
+    Returns (normal, centroid), or (None, None) if the ring is unusable.
+    """
+    if opening_verts is None or len(opening_verts) < 3:
+        return None, None
+    P = np.asarray(opening_verts, dtype=float)
+    centroid = P.mean(axis=0)
+    # smallest right-singular vector of the centred ring = plane normal
+    normal = np.linalg.svd(P - centroid, full_matrices=False)[2][-1]
+    ref = np.asarray(reference_tangent, dtype=float)
+    if np.dot(normal, ref) < 0:
+        normal = -normal
+    n = np.linalg.norm(normal)
+    if n < 1e-12:
+        return None, None
+    return normal / n, centroid
+
+
 def forward_mesh_fusion_v2(save_dir,
                             flaw_opening_min_size=10,
                             init_step=3,
@@ -487,7 +567,8 @@ def forward_mesh_fusion_v2(save_dir,
                             extrude_outlets=False,
                             extrude_inlet=False,
                             extrude_length=2.5,
-                            min_torsion=False):
+                            min_torsion=False,
+                            ring_normal_extrusion=False):
     """
     Extend the openings of a clipped dome mesh with tubular vessel segments guided
     by the clipped centerlines. The openings are automatically deteceted and matched
@@ -517,6 +598,10 @@ def forward_mesh_fusion_v2(save_dir,
     # load mesh & centerlines
     mesh_path = os.path.join(r_clipped_mesh_filename)
     mesh = pv.read(mesh_path)
+    # kept for ring_outward_normal_from_mesh: it orients each ring from the
+    # mesh's own topology instead of a centerline tangent
+    verts = np.asarray(mesh.points)
+    faces = np.asarray(mesh.faces).reshape(-1, 4)[:, 1:]
     opening_verts_list, vertex_ids_list = detect_openings(mesh, flaw_opening_min_size=flaw_opening_min_size)
     cl_path = os.path.join(r_clipped_cl_filename)
     cl = np.load(cl_path, allow_pickle=True).item()
@@ -604,8 +689,21 @@ def forward_mesh_fusion_v2(save_dir,
         for i in range(1, len(cpcd_glo)):
             cpcd, tangent = cpcd_glo[i], cpcd_glo_tangent[i]
             last_tan = tangent[-1]
-            extra_pts = cpcd[-1] + last_tan * (avg_pt_step * np.arange(1, n_extra + 1))[:, None]
-            extra_tan = np.tile(last_tan, (n_extra, 1))
+            # OPT-IN: march along the RING's own normal from the RING's own
+            # centroid, so the first extruded ring is parallel to an oblique
+            # (hand-cut) opening instead of slicing through it.
+            ring_n = ring_c = None
+            if ring_normal_extrusion and i < len(matched_opening_verts):
+                # centerline-free first: the mesh itself says which side is out
+                if i < len(matched_vertex_ids):
+                    ring_n, ring_c = ring_outward_normal_from_mesh(
+                        verts, faces, matched_vertex_ids[i])
+                if ring_n is None:
+                    ring_n, ring_c = ring_normal_and_centroid(matched_opening_verts[i], last_tan)
+            if ring_n is None:
+                ring_n = last_tan
+            extra_pts = cpcd[-1] + ring_n * (avg_pt_step * np.arange(1, n_extra + 1))[:, None]
+            extra_tan = np.tile(ring_n, (n_extra, 1))
             cpcd_glo[i] = np.vstack([cpcd, extra_pts])
             cpcd_glo_tangent[i] = np.vstack([tangent, extra_tan])
 
@@ -614,8 +712,16 @@ def forward_mesh_fusion_v2(save_dir,
         n_extra = max(1, int(np.ceil(2 * extrude_length / avg_pt_step)))
         cpcd, tangent = cpcd_glo[0], cpcd_glo_tangent[0]
         last_tan = tangent[-1]
-        extra_pts = cpcd[-1] + last_tan * (avg_pt_step * np.arange(1, n_extra + 1))[:, None]
-        extra_tan = np.tile(last_tan, (n_extra, 1))
+        ring_n = ring_c = None
+        if ring_normal_extrusion and matched_opening_verts:
+            if matched_vertex_ids:
+                ring_n, ring_c = ring_outward_normal_from_mesh(verts, faces, matched_vertex_ids[0])
+            if ring_n is None:
+                ring_n, ring_c = ring_normal_and_centroid(matched_opening_verts[0], last_tan)
+        if ring_n is None:
+            ring_n = last_tan
+        extra_pts = cpcd[-1] + ring_n * (avg_pt_step * np.arange(1, n_extra + 1))[:, None]
+        extra_tan = np.tile(ring_n, (n_extra, 1))
         cpcd_glo[0] = np.vstack([cpcd, extra_pts])
         cpcd_glo_tangent[0] = np.vstack([tangent, extra_tan])
 

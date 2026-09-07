@@ -29,8 +29,14 @@ def render_opening_chamfer_sanity(save_path, can_verts_phys, can_faces, can_cap_
                                   tgt_verts_phys, tgt_faces, tgt_cap_pts_phys, n_angles=6):
     import pyvista as pv
 
-    if pv.system_supports_plotting() is False or not os.environ.get("DISPLAY"):
+    # DISPLAY merely being SET makes system_supports_plotting() true, so over
+    # an `ssh -X` forward with no GLX this guard never fired and VTK called
+    # abort() -- uncatchable. Always render offscreen on xvfb instead.
+    os.environ.pop("DISPLAY", None)
+    try:
         pv.start_xvfb()
+    except Exception:
+        pass
 
     can_pd = pv.PolyData(can_verts_phys, faces=np.concatenate(
         [np.full((can_faces.shape[0], 1), 3), can_faces], axis=1))
