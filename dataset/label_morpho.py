@@ -482,10 +482,18 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
         # for a GENERATED shape, so it falls through to brushing rather than
         # failing; only real cases have dome_sac.ply / label.nrrd to derive from.
         dome_auto = None
-        try:
-            dome_auto = dome_proposal(rec.get("dataset", ""), case, verts, assembled_root)
-        except Exception as exc:
-            print(f"[label_morpho] {case}: automatic dome unavailable ({exc})")
+        # An existing label WINS over recomputing. Recomputation needs the raw
+        # geometry (dome_sac.ply / label.nrrd), which is deliberately not part
+        # of what gets downloaded for labelling -- so on the labelling machine
+        # the already-computed mask is the only source, and re-deriving it
+        # would force every dome to be brushed from scratch.
+        if endcaps_rec is not None and endcaps_rec.get("manual_dome") is not None:
+            dome_auto = np.asarray(endcaps_rec["manual_dome"], dtype=bool)
+        else:
+            try:
+                dome_auto = dome_proposal(rec.get("dataset", ""), case, verts, assembled_root)
+            except Exception as exc:
+                print(f"[label_morpho] {case}: automatic dome unavailable ({exc})")
 
         if caps is not None:
             if auto_accept:
@@ -688,8 +696,13 @@ def main():
             case = path.stem
             endcaps_path = endcaps_dir / f"{case}.npy"
             endcaps_rec = np.load(endcaps_path, allow_pickle=True).item() if endcaps_path.exists() else None
-            if endcaps_rec is not None and "manual_in_patch" in endcaps_rec:
-                continue   # already manually labeled — resumable
+            # Resume skips a case only when a HUMAN has already judged it.
+            # An auto-accepted record is exactly what the interactive pass
+            # exists to review, so it must not be skipped here.
+            if (endcaps_rec is not None and "manual_in_patch" in endcaps_rec
+                    and endcaps_rec.get("in_patch_source") != "auto"
+                    and endcaps_rec.get("dome_source") != "auto"):
+                continue   # already reviewed by hand -- resumable
             rec = np.load(path, allow_pickle=True).item()
             if label_real_case(rec, endcaps_path, endcaps_rec,
                                use_auto=args.auto, plane_frac=args.plane_frac,
