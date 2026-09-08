@@ -60,7 +60,13 @@ field ONLY — endpoints/tangents/branch_mask stay the automatic, ray-crossing-
 derived values (see above), never overwritten. dataset/morpho_dataset.py's
 MorphoDataset prefers manual_in_patch over automatic in_patch when present,
 while always using the automatic endpoints/tangents/branch_mask. Resumable: a
-case whose record already has manual_in_patch is skipped. (There's only ONE
+case is skipped once its record's "reviewed" flag is set -- written whenever
+a human made the call interactively, be it a full hand-brush or pressing 'a'
+in review_auto_labels to accept the automatic proposal as-is (see main()'s
+skip condition for the exact rule, including the pre-"reviewed" fallback for
+older records). A --auto-accept record, with no human involved, is NOT
+skipped: that's the population the interactive pass exists to review. (There's
+only ONE
 kind of label source worth a folder split here — automatic vs. manual in_patch
 is the same case, just refined — so it doesn't get one. The rare case where a
 real case has NO automatic record at all falls back to a full manual_endpoints/
@@ -89,6 +95,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -126,6 +133,28 @@ def _outward_normal(points, mesh_centroid):
 def _faces_to_pv(faces):
     """[F, 3] int array -> PyVista's flat padded face format."""
     return np.hstack([np.full((len(faces), 1), 3), faces]).ravel()
+
+
+def _safe_show(plotter):
+    """plotter.show(), swallowing a known PyVista/VTK teardown crash.
+
+    Every key callback in this file that ends a window (_set in
+    review_auto_labels, _confirm in brush_one_branch) calls plotter.close()
+    from INSIDE the VTK interactor loop that show() starts. On PyVista 0.46 /
+    VTK 9.2, show() resumes right after that loop and unconditionally does
+    `self.render_window.IsCurrent()` with no None-guard -- but our own
+    plotter.close() already destroyed render_window, so that line raises
+    `AttributeError: 'NoneType' object has no attribute 'IsCurrent'`. By the
+    time it fires, our callback has already written whatever state (choice /
+    confirmed / picked_cells) the caller needs, so this is safe to ignore --
+    re-raised if the message doesn't match, so a genuinely different
+    AttributeError still surfaces.
+    """
+    try:
+        plotter.show()
+    except AttributeError as exc:
+        if "IsCurrent" not in str(exc):
+            raise
 
 
 def brush_region(verts, faces, label, add_reference):
@@ -207,7 +236,7 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
         if ids is None:
             ids = picked.cell_data.get("vtkOriginalCellIds")
         if ids is None:
-            print(f"[label_morpho] no original-cell-id array in picked.cell_data; "
+            tqdm.write(f"[label_morpho] no original-cell-id array in picked.cell_data; "
                   f"available arrays: {picked.array_names}. Edit _on_pick in "
                   f"dataset/label_morpho.py to use the right key for your PyVista version.")
             return
@@ -222,9 +251,19 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
         state["confirmed"] = True
         plotter.close()
 
+    # "branch {branch_idx}" (0-indexed) matches the array index this patch lands in
+    # (in_patch[branch_idx], endpoints[branch_idx], ...) and the label/color shown for
+    # this same branch in review_auto_labels' overview window and the reference geometry
+    # below -- "(k/n)" alongside it is just the human-friendly "Nth of N windows" count.
+    header = label if label else f"Branch {branch_idx} ({branch_idx + 1}/{n_branches})"
+    tqdm.write(f"\n[label_morpho] {header}: brush window opened")
+    tqdm.write("    LEFT-CLICK-DRAG  = select a box of faces (repeat to add more)")
+    tqdm.write("    'r'              = toggle ROTATE vs. SELECT mode")
+    tqdm.write("    'z'              = clear the current selection")
+    tqdm.write("    'c'              = confirm selection and close this window")
+    tqdm.write("    close window     = skip (case not saved; rerun later to retry)")
     plotter.add_text(
-        (label + ": " if label else
-         f"Branch {branch_idx + 1}/{n_branches}: ") + "LEFT-CLICK-DRAG a box over the "
+        header + ": LEFT-CLICK-DRAG a box over the "
         f"region (repeat to add more; if it wraps out of view, 'r' toggles ROTATE vs. "
         f"SELECT mode -- through=False only picks the visible surface), 'z' clears, 'c' confirms",
         font_size=11, position="upper_left",
@@ -240,14 +279,15 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
     plotter.enable_cell_picking(callback=_on_pick, through=False, show=False, show_message=True)
     plotter.add_key_event("z", _reset)
     plotter.add_key_event("c", _confirm)
-    plotter.show()
+    _safe_show(plotter)
 
     if not state["confirmed"] or not picked_cells:
         return None
     return sorted(picked_cells)
 
 
-def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, case, info):
+def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, case, info,
+                       endpoints=None, tangents=None, branch_mask=None):
     """Show the automatic CAP and DOME regions and ask what to keep.
 
     Returns a set of regions to brush by hand -- {} to accept everything,
@@ -256,6 +296,13 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
     Caps and dome are answered separately because they fail independently: the
     plane cut can be wrong while the dome is fine, and vice versa, and
     re-brushing a region that was already correct is wasted effort.
+
+    endpoints/tangents/branch_mask: the ground-truth per-branch values already
+    stored in the checkpoint (preprocess_endcaps.py's ray-crossing derivation
+    -- see module docstring), when this case has one. Drawn as the same
+    yellow-arrow-at-a-sphere convention as _add_arrow_and_point/_real_reference
+    use during per-branch brushing, so the tangent is visible at the overview
+    stage too, not only once you're already inside a branch's brush window.
     """
     import pyvista as pv
 
@@ -267,15 +314,40 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
         plotter.add_points(verts[dome], color="crimson", point_size=7,
                            render_points_as_spheres=True, pickable=False)
     cap_colors = ["red", "green", "blue"]
+    label_pts, label_txt = [], []
     for b in range(n_open):
         m = caps & (cap_id == b)
+        anchor = None
         if m.any():
             plotter.add_points(verts[m], color=cap_colors[b % 3], point_size=9,
                                render_points_as_spheres=True, pickable=False)
+            anchor = verts[m].mean(axis=0)
         if b < len(branch_points) and branch_points[b] is not None and len(branch_points[b]) > 1:
             cl = np.asarray(branch_points[b], dtype=float)[:60]
             plotter.add_lines(np.repeat(cl, 2, axis=0)[1:-1],
                               color=BRANCH_COLORS[b % len(BRANCH_COLORS)], width=3)
+            anchor = cl[0]   # branch's own centerline start -- most reliable anchor when present
+        if (endpoints is not None and tangents is not None
+                and b < len(endpoints) and (branch_mask is None or bool(branch_mask[b]))):
+            _add_arrow_and_point(plotter, endpoints[b], tangents[b], color_point=cap_colors[b % 3])
+            anchor = np.asarray(endpoints[b], dtype=float)   # ground-truth endpoint wins if present
+        else:
+            # No stored ground truth for this branch (the common case for this corpus --
+            # see _has_auto_ground_truth) -- fall back to compute_caps' own plane normal.
+            fb_origin, fb_tangent = _fallback_auto_tangent(b, caps, cap_id, info, verts)
+            if fb_origin is not None:
+                _add_arrow_and_point(plotter, fb_origin, fb_tangent, color_point=cap_colors[b % 3])
+                anchor = fb_origin
+        if anchor is not None:
+            label_pts.append(anchor)
+            label_txt.append(f"branch {b}")
+    # Numeric labels so branch identity doesn't rely on distinguishing similar colors --
+    # this is the SAME "branch {b}" index each per-branch brush window will show in its
+    # own title (see brush_one_branch's header), so it carries over across windows.
+    if label_pts:
+        plotter.add_point_labels(np.asarray(label_pts), label_txt, font_size=16,
+                                 text_color="black", shape_color="white", shape_opacity=0.7,
+                                 always_visible=True, pickable=False)
 
     state = {"choice": None}
 
@@ -290,6 +362,19 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
         for o in info)
     dome_txt = (f"dome {dome.mean():.0%} of verts" if dome is not None and dome.any()
                 else "dome: NO automatic proposal")
+    has_ground_truth_tangents = endpoints is not None and tangents is not None
+    tqdm.write(f"\n[label_morpho] {case}: reviewing AUTOMATIC labels")
+    tangent_note = ("   (yellow arrows = ground-truth tangent per branch)" if has_ground_truth_tangents
+                    else "   (yellow arrows = compute_caps' plane-normal tangent -- "
+                         "no ground truth for this case)" if info else "")
+    tqdm.write(f"    caps: {summary}" + ("" if summary else "  (none)") + tangent_note)
+    tqdm.write(f"    {dome_txt}")
+    tqdm.write("    'a' = ACCEPT both caps and dome (keep automatic, no brushing)")
+    tqdm.write("    'c' = rebrush CAPS only (keep the automatic dome; you'll then be asked which "
+          "branch(es) -- blank/'all' for every branch, or e.g. '1' or '0,2' for just those)")
+    tqdm.write("    'd' = rebrush DOME only (keep the automatic caps)")
+    tqdm.write("    'b' = rebrush BOTH caps and dome (same per-branch prompt for caps)")
+    tqdm.write("    'q' or close window = SKIP this case (not saved; retry later)")
     plotter.add_text(
         f"{case}: AUTOMATIC  caps ({summary})   {dome_txt}\n"
         f"'a' ACCEPT both  |  'c' rebrush CAPS  |  'd' rebrush DOME  |  "
@@ -300,7 +385,7 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
     plotter.add_key_event("c", _set(frozenset({"caps"})))
     plotter.add_key_event("d", _set(frozenset({"dome"})))
     plotter.add_key_event("b", _set(frozenset({"caps", "dome"})))
-    plotter.show()
+    _safe_show(plotter)
     return state["choice"]
 
 
@@ -313,19 +398,48 @@ def _add_arrow_and_point(plotter, origin, direction, color_point, color_arrow="y
     plotter.add_mesh(pv.Arrow(start=origin, direction=direction, scale=scale), color=color_arrow, pickable=False)
 
 
+def _fallback_auto_tangent(b, caps, cap_id, info, verts):
+    """Tangent to show when this case has no preprocess_endcaps.py ground truth
+    (see _has_auto_ground_truth) -- which is the common case for most of this
+    corpus, not the rare one the module docstring assumed. Falls back to the
+    SAME per-opening normal compute_caps itself used to orient this opening's
+    cutting plane (branch_tangent(br), stashed in info[b]["normal"]) -- less
+    reliable than real ray-crossing ground truth, but still an automatic value,
+    worth showing rather than no arrow at all. Origin is this opening's own
+    cap-vertex centroid when compute_caps found any, else the plane point it
+    cut against. Returns (origin, tangent), or (None, None) if info doesn't
+    cover this branch (e.g. compute_caps failed entirely -- caps is None)."""
+    if caps is None or info is None or b >= len(info):
+        return None, None
+    o = info[b]
+    tangent = np.asarray(o["normal"], dtype=float)
+    m = caps & (cap_id == b)
+    origin = verts[m].mean(axis=0) if m.any() else np.asarray(o["plane_point"], dtype=float)
+    return origin, tangent
+
+
 def _real_reference(plotter, branch_idx, centerline_pts, auto_endpoint, auto_tangent, auto_patch_pts):
     """Real-case reference: dashed-style real centerline (per-branch color),
     automatic endpoint (same color, sphere) + tangent (yellow arrow, matching
     every sanity panel's convention in this project), automatic patch (faint dots)."""
     import pyvista as pv
     c = BRANCH_COLORS[branch_idx % len(BRANCH_COLORS)]
+    anchor = None
     if centerline_pts is not None and len(centerline_pts) > 1:
         line = pv.lines_from_points(centerline_pts[:60])   # cap length shown, matches preprocess_endcaps.py
         plotter.add_mesh(line, color=c, line_width=3, pickable=False)
+        anchor = np.asarray(centerline_pts[0], dtype=float)
     if auto_endpoint is not None and auto_tangent is not None:
         _add_arrow_and_point(plotter, auto_endpoint, auto_tangent, color_point=c)
+        anchor = np.asarray(auto_endpoint, dtype=float)   # ground-truth endpoint wins if present
     if auto_patch_pts is not None and len(auto_patch_pts) > 0:
         plotter.add_points(auto_patch_pts, color=c, point_size=6, opacity=0.35, pickable=False)
+    if anchor is not None:
+        # Same "branch {branch_idx}" index/anchor as review_auto_labels' overview window,
+        # so identity carries over even though only THIS branch's geometry is shown here.
+        plotter.add_point_labels([anchor], [f"branch {branch_idx}"], font_size=16,
+                                 text_color="black", shape_color="white", shape_opacity=0.7,
+                                 always_visible=True, pickable=False)
 
 
 def _synthetic_reference(plotter, branch_idx, opening_pts):
@@ -334,6 +448,10 @@ def _synthetic_reference(plotter, branch_idx, opening_pts):
     c = BRANCH_COLORS[branch_idx % len(BRANCH_COLORS)]
     if opening_pts is not None and len(opening_pts) > 0:
         plotter.add_points(opening_pts, color=c, point_size=10, opacity=0.5, pickable=False)
+        plotter.add_point_labels([np.asarray(opening_pts, dtype=float).mean(axis=0)],
+                                 [f"branch {branch_idx}"], font_size=16, text_color="black",
+                                 shape_color="white", shape_opacity=0.7,
+                                 always_visible=True, pickable=False)
         plotter.add_text(
             f"faint {c} dots (branch {branch_idx}) = approximate canonical opening, NOT precise",
             position="lower_left", font_size=9,
@@ -407,27 +525,46 @@ def save_label_sanity(verts, faces, in_patch, dome, case, save_path, n_open=3,
     return save_path
 
 
+def _has_auto_ground_truth(endcaps_rec):
+    """True iff endcaps_rec holds preprocess_endcaps.py's automatic endpoints/
+    tangents/branch_mask/in_patch -- NOT just "a record file exists for this
+    case". A case that hit the no-ground-truth fallback (see label_real_case's
+    docstring) gets a record saved too, but one holding only manual_endpoints/
+    manual_tangents/manual_branch_mask/manual_in_patch -- endcaps_rec is not
+    None there either, so callers must check for the actual keys, not None-ness,
+    or a rerun crashes indexing endcaps_rec["endpoints"] that was never written."""
+    return endcaps_rec is not None and "endpoints" in endcaps_rec and "tangents" in endcaps_rec
+
+
 def _save_real_record(rec, endcaps_path, endcaps_rec, manual_in_patch,
                       manual_endpoints, manual_tangents, manual_branch_mask,
-                      source, manual_dome=None, dome_source="none"):
+                      source, manual_dome=None, dome_source="none", reviewed=False):
     """Write manual_in_patch (and, only when there is no automatic record to
-    defer to, the brush/auto-derived endpoint geometry) back into the case."""
-    has_ground_truth = endcaps_rec is not None
-    out = dict(endcaps_rec) if has_ground_truth else {
+    defer to, the brush/auto-derived endpoint geometry) back into the case.
+
+    reviewed: True whenever a HUMAN made this call interactively -- pressing
+    'a'/'c'/'d'/'b' in review_auto_labels, or brushing by hand -- as opposed to
+    a headless --auto-accept pass nobody looked at. source=="auto" alone can't
+    tell those apart (both leave the automatic value unchanged), so main()'s
+    resume check needs this separate flag to skip a case a human already
+    judged "good as automatic" without re-showing it every run.
+    """
+    out = dict(endcaps_rec) if endcaps_rec is not None else {
         "case": rec["case"], "aneurysm_type": int(rec["aneurysm_type"]),
         "phi": np.asarray(rec["ghd"]["phi"], dtype=np.float32),
     }
     out["manual_in_patch"] = manual_in_patch
     out["in_patch_source"] = source          # "auto" or "manual" -- provenance
+    out["reviewed"] = bool(reviewed)
     if manual_dome is not None:
         out["manual_dome"] = np.asarray(manual_dome, dtype=bool)
         out["dome_source"] = dome_source
-    if not has_ground_truth:
+    if not _has_auto_ground_truth(endcaps_rec):
         out["manual_endpoints"] = manual_endpoints
         out["manual_tangents"] = manual_tangents
         out["manual_branch_mask"] = manual_branch_mask
     np.save(endcaps_path, out, allow_pickle=True)
-    print(f"[label_morpho] updated {endcaps_path} ({source} labels)")
+    tqdm.write(f"[label_morpho] updated {endcaps_path} ({source} labels)")
     return True
 
 
@@ -452,7 +589,7 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
     case = rec["case"]
     atype = int(rec["aneurysm_type"])
     n_open = TYPE_N_OPEN.get(atype, MAX_BRANCHES)
-    has_ground_truth = endcaps_rec is not None
+    has_ground_truth = _has_auto_ground_truth(endcaps_rec)
 
     verts, faces = reconstruct(rec)
     mesh_centroid = verts.mean(axis=0)
@@ -471,12 +608,14 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
     manual_dome = np.zeros(len(verts), dtype=bool)
     dome_source = "none"
     rebrush = {"caps", "dome"}          # what still needs a human; auto may clear it
+    caps = cap_id = info = None         # stay None if use_auto is False or compute_caps fails
+    caps_to_brush = set(range(n_open))  # branch indices actually needing a brush window; auto may narrow it
 
     if use_auto:
         try:
             caps, cap_id, info, _, _ = compute_caps(rec, verts, faces, plane_frac=plane_frac)
         except Exception as exc:
-            print(f"[label_morpho] {case}: automatic caps unavailable ({exc}) -- brushing")
+            tqdm.write(f"[label_morpho] {case}: automatic caps unavailable ({exc}) -- brushing")
             caps = cap_id = info = None
         # No geometry directory -> no dome proposal. That is the normal answer
         # for a GENERATED shape, so it falls through to brushing rather than
@@ -493,7 +632,7 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
             try:
                 dome_auto = dome_proposal(rec.get("dataset", ""), case, verts, assembled_root)
             except Exception as exc:
-                print(f"[label_morpho] {case}: automatic dome unavailable ({exc})")
+                tqdm.write(f"[label_morpho] {case}: automatic dome unavailable ({exc})")
 
         if caps is not None:
             if auto_accept:
@@ -502,26 +641,55 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
                 # checked; a case missing either proposal is SKIPPED rather than
                 # saved half-labelled, since there is no human here to brush it.
                 if dome_auto is None:
-                    print(f"[label_morpho] {case}: no dome proposal -- skipped "
+                    tqdm.write(f"[label_morpho] {case}: no dome proposal -- skipped "
                           f"(--auto-accept cannot brush)")
                     return False
                 choice = frozenset()
             else:
-                choice = review_auto_labels(verts, faces, caps, cap_id, dome_auto,
-                                            branch_points, n_open, case, info)
+                choice = review_auto_labels(
+                    verts, faces, caps, cap_id, dome_auto, branch_points, n_open, case, info,
+                    endpoints=endcaps_rec["endpoints"] if has_ground_truth else None,
+                    tangents=endcaps_rec["tangents"] if has_ground_truth else None,
+                    branch_mask=endcaps_rec["branch_mask"] if has_ground_truth else None,
+                )
             if choice is None:
-                print(f"[label_morpho] {case}: skipped at review -- not saved.")
+                tqdm.write(f"[label_morpho] {case}: skipped at review -- not saved.")
                 return False
             rebrush = set(choice)
-            if "caps" not in rebrush:
-                for b in range(n_open):
-                    m = caps & (cap_id == b)
-                    manual_in_patch[b, np.flatnonzero(m)] = True
-                    if m.any():
-                        pts = verts[m]
-                        manual_endpoints[b] = pts.mean(axis=0)
-                        manual_tangents[b] = _outward_normal(pts, mesh_centroid)
-                        manual_branch_mask[b] = True
+            caps_to_brush = set(range(n_open)) if "caps" in rebrush else set()
+            if caps_to_brush and n_open > 1:
+                # Ask which branch(es) actually need a hand -- often only one cap
+                # was wrong, and re-brushing an already-correct one is wasted effort.
+                resp = input(
+                    f"[label_morpho] {case}: rebrush which branch(es)? comma-separated "
+                    f"indices 0-{n_open - 1} (e.g. '1' or '0,2'), or blank/'all' for all "
+                    f"{n_open}: ").strip().lower()
+                if resp and resp not in ("all", "a"):
+                    try:
+                        sel = {int(tok) for tok in resp.replace(" ", "").split(",") if tok}
+                    except ValueError:
+                        sel = set()
+                    sel = {b for b in sel if 0 <= b < n_open}
+                    if sel:
+                        caps_to_brush = sel
+                        tqdm.write(f"[label_morpho] {case}: rebrushing branch(es) "
+                              f"{sorted(caps_to_brush)}; keeping automatic for the rest.")
+                    else:
+                        tqdm.write(f"[label_morpho] {case}: couldn't parse {resp!r} as branch "
+                              f"indices -- rebrushing all {n_open} branches.")
+            # Accept the automatic in_patch/endpoint/tangent for every branch NOT
+            # selected for rebrushing (covers both "caps" never in rebrush at all,
+            # and "caps" in rebrush but the human narrowed it to a subset above).
+            for b in range(n_open):
+                if b in caps_to_brush:
+                    continue
+                m = caps & (cap_id == b)
+                manual_in_patch[b, np.flatnonzero(m)] = True
+                if m.any():
+                    pts = verts[m]
+                    manual_endpoints[b] = pts.mean(axis=0)
+                    manual_tangents[b] = _outward_normal(pts, mesh_centroid)
+                    manual_branch_mask[b] = True
             if "dome" not in rebrush and dome_auto is not None:
                 manual_dome = np.asarray(dome_auto, dtype=bool)
                 dome_source = "auto"
@@ -533,9 +701,21 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
     # happened at 124/525). Anything that would need a human is skipped and
     # named, never brushed.
     if auto_accept and rebrush:
-        print(f"[label_morpho] {case}: needs manual work for {sorted(rebrush)} "
+        tqdm.write(f"[label_morpho] {case}: needs manual work for {sorted(rebrush)} "
               f"-- skipped (--auto-accept cannot brush)")
         return False
+
+    # Announce the brushing order up front -- DOME always opens first, THEN caps branches
+    # 0, 1, (2) in that order (see the "dome" block immediately below, then the "for b in
+    # sorted(caps_to_brush)" loop after it). Worth saying explicitly since each window's own
+    # header only names ITSELF ("<case> DOME" / "Branch b (k/n)"), not where it sits in the
+    # sequence -- most visible for a case with no automatic record at all (caps is None),
+    # where EVERYTHING needs brushing and there's no review_auto_labels summary beforehand.
+    if "dome" in rebrush or caps_to_brush:
+        order = (["DOME"] if "dome" in rebrush else []) + (
+            [f"caps branch(es) {sorted(caps_to_brush)}"] if caps_to_brush else [])
+        tqdm.write(f"[label_morpho] {case}: brushing needed, in this order -- "
+                   f"{' then '.join(order)}")
 
     if "dome" in rebrush:
         picked = brush_region(
@@ -546,15 +726,16 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
                  if d is not None and d.any() else None),
         )
         if picked is None:
-            print(f"[label_morpho] {case}: dome skipped (no confirmed selection) -- not saved.")
+            tqdm.write(f"[label_morpho] {case}: dome skipped (no confirmed selection) -- not saved.")
             return False
         manual_dome[np.unique(faces[picked].ravel())] = True
         dome_source = "manual"
 
-    if "caps" not in rebrush:
+    if not caps_to_brush:
         ok = _save_real_record(rec, endcaps_path, endcaps_rec, manual_in_patch,
                                manual_endpoints, manual_tangents,
-                               manual_branch_mask, "auto", manual_dome, dome_source)
+                               manual_branch_mask, "auto", manual_dome, dome_source,
+                               reviewed=not auto_accept)
         if ok and sanity_dir is not None:
             save_label_sanity(verts, faces, manual_in_patch, manual_dome, case,
                               Path(sanity_dir) / f"{case}.png", n_open,
@@ -562,12 +743,16 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
                               branch_mask=manual_branch_mask)
         return ok
 
-    for b in range(n_open):
+    for b in sorted(caps_to_brush):
         cl_pts = branch_points[b] if b < len(branch_points) else None
         auto_ep = endcaps_rec["endpoints"][b] if has_ground_truth else None
         auto_tg = endcaps_rec["tangents"][b] if has_ground_truth else None
         auto_patch_pts = (verts[endcaps_rec["in_patch"][b]]
                           if has_ground_truth and endcaps_rec["in_patch"][b].any() else None)
+        if auto_ep is None:
+            # No stored ground truth (the common case for this corpus) -- same
+            # compute_caps plane-normal fallback used in review_auto_labels.
+            auto_ep, auto_tg = _fallback_auto_tangent(b, caps, cap_id, info, verts)
 
         picked = brush_one_branch(
             verts, faces, b, n_open,
@@ -575,7 +760,7 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
                 _real_reference(p, b, cl, ae, at, ap),
         )
         if picked is None:
-            print(f"[label_morpho] {case} branch {b}: skipped (no confirmed selection) — case not saved.")
+            tqdm.write(f"[label_morpho] {case} branch {b}: skipped (no confirmed selection) — case not saved.")
             return False
 
         patch_idx, endpoint, tangent = _derive_label(verts, faces, picked, mesh_centroid)
@@ -584,9 +769,12 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
         manual_tangents[b] = tangent
         manual_branch_mask[b] = True
 
+    # "manual" when every branch got brushed, "mixed" when caps_to_brush was narrowed to a
+    # subset (see the branch-selection prompt above) and the rest kept the automatic value.
+    in_patch_source = "manual" if caps_to_brush == set(range(n_open)) else "mixed"
     ok = _save_real_record(rec, endcaps_path, endcaps_rec, manual_in_patch,
                            manual_endpoints, manual_tangents, manual_branch_mask,
-                           "manual", manual_dome, dome_source)
+                           in_patch_source, manual_dome, dome_source, reviewed=not auto_accept)
     if ok and sanity_dir is not None:
         save_label_sanity(verts, faces, manual_in_patch, manual_dome, case,
                           Path(sanity_dir) / f"{case}.png", n_open,
@@ -626,7 +814,7 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
             add_reference=lambda p, b=b, op=opening_pts: _synthetic_reference(p, b, op),
         )
         if picked is None:
-            print(f"[label_morpho] {case_id} branch {b}: skipped (no confirmed selection) — case not saved.")
+            tqdm.write(f"[label_morpho] {case_id} branch {b}: skipped (no confirmed selection) — case not saved.")
             return False
 
         patch_idx, endpoint, tangent = _derive_label(verts, faces, picked, mesh_centroid)
@@ -642,7 +830,7 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
         "branch_mask": branch_mask, "in_patch": in_patch,
         "is_synthetic": True,
     }, allow_pickle=True)
-    print(f"[label_morpho] saved {case_id}")
+    tqdm.write(f"[label_morpho] saved {case_id}")
     return True
 
 
@@ -687,22 +875,35 @@ def main():
         real_dir = Path(args.real_dir)
         paths = ([real_dir / f"{c}.npy" for c in args.cases] if args.cases
                  else sorted(real_dir.glob("*.npy")))
-        n_done = 0
-        for path in paths:
+        n_done = n_skip = n_missing = 0
+        # dynamic_ncols: keep the bar itself on one line. Every diagnostic in this file goes
+        # through tqdm.write() rather than print() -- tqdm.write() clears the bar, writes the
+        # line, then redraws the bar, so the two never leave stale/duplicate-looking bar lines
+        # behind each other the way interleaved plain print()s + a live '\r'-redrawn bar do.
+        pbar = tqdm(paths, desc="Labeling", unit="case", dynamic_ncols=True)
+        for path in pbar:
             if args.limit is not None and n_done >= args.limit:
                 break
+            pbar.set_postfix(done=n_done, skipped=n_skip, missing=n_missing, case=path.stem)
             if not path.exists():
-                print(f"[SKIP] {path} not found"); continue
+                tqdm.write(f"[SKIP] {path} not found"); n_missing += 1; continue
             case = path.stem
             endcaps_path = endcaps_dir / f"{case}.npy"
             endcaps_rec = np.load(endcaps_path, allow_pickle=True).item() if endcaps_path.exists() else None
-            # Resume skips a case only when a HUMAN has already judged it.
-            # An auto-accepted record is exactly what the interactive pass
-            # exists to review, so it must not be skipped here.
-            if (endcaps_rec is not None and "manual_in_patch" in endcaps_rec
-                    and endcaps_rec.get("in_patch_source") != "auto"
-                    and endcaps_rec.get("dome_source") != "auto"):
-                continue   # already reviewed by hand -- resumable
+            # Resume skips a case only when a HUMAN has already judged it -- either the
+            # explicit "reviewed" flag (set whenever label_real_case ran interactively,
+            # even if the human's verdict was 'a' ACCEPT and the value stayed "auto"),
+            # or, for records saved before that flag existed, the old signal: both
+            # fields hold a "manual" (non-"auto") source, which only a full hand-brush
+            # could have produced. A headless --auto-accept record (reviewed=False,
+            # source="auto") is exactly what the interactive pass exists to review, so
+            # it must not be skipped here.
+            if endcaps_rec is not None and "manual_in_patch" in endcaps_rec and (
+                    endcaps_rec.get("reviewed")
+                    or (endcaps_rec.get("in_patch_source") != "auto"
+                        and endcaps_rec.get("dome_source") != "auto")):
+                n_skip += 1
+                continue   # already reviewed -- resumable
             rec = np.load(path, allow_pickle=True).item()
             if label_real_case(rec, endcaps_path, endcaps_rec,
                                use_auto=args.auto, plane_frac=args.plane_frac,
@@ -711,7 +912,10 @@ def main():
                                sanity_dir=(None if args.no_sanity
                                            else Path(args.endcaps_dir) / "sanity")):
                 n_done += 1
-        print(f"Done. Manual labels written into {endcaps_dir}")
+        pbar.set_postfix(done=n_done, skipped=n_skip, missing=n_missing)
+        pbar.close()
+        tqdm.write(f"Done. {n_done} labeled, {n_skip} already reviewed, {n_missing} missing. "
+              f"Manual labels written into {endcaps_dir}")
 
     else:
         import torch
@@ -734,12 +938,19 @@ def main():
             ghd_n, _ = ghd_vae.decode(z_ghd.to(device), types.to(device))
             phi_all = (ghd_n * ghd_std[:, :ghd_input_dim] + ghd_mean[:, :ghd_input_dim]).reshape(args.n_synthetic, -1, 3)
 
-        for i in range(args.n_synthetic):
+        n_done = n_skip = 0
+        pbar = tqdm(range(args.n_synthetic), desc="Labeling", unit="case", dynamic_ncols=True)
+        for i in pbar:
             case_id = f"synthetic_seed{args.seed}_{i:04d}"
+            pbar.set_postfix(done=n_done, skipped=n_skip, case=case_id)
             if (synthetic_dir / f"{case_id}.npy").exists():
+                n_skip += 1
                 continue   # resumable
-            label_synthetic_case(case_id, int(types[i]), phi_all[i].cpu().numpy(), multi_recon, synthetic_dir)
-        print(f"Done. Manual labels written into {synthetic_dir}")
+            if label_synthetic_case(case_id, int(types[i]), phi_all[i].cpu().numpy(), multi_recon, synthetic_dir):
+                n_done += 1
+        pbar.set_postfix(done=n_done, skipped=n_skip)
+        pbar.close()
+        tqdm.write(f"Done. {n_done} labeled, {n_skip} already existed. Manual labels written into {synthetic_dir}")
 
 
 if __name__ == "__main__":
