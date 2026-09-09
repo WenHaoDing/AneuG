@@ -63,7 +63,8 @@ if str(ROOT) not in sys.path:
 
 class MorphoDataset(torch.utils.data.Dataset):
     def __init__(self, root, cases=None, max_branches=3, with_dome=False,
-                 assembled_root=None, require_dome=True):
+                 assembled_root=None, require_dome=True, with_affine=False,
+                 processed_root=None):
         """with_dome: also return a per-vertex aneurysm-dome mask.
 
         TWO MODELS ARE TRAINED FROM THIS CLASS and they want different targets:
@@ -85,6 +86,11 @@ class MorphoDataset(torch.utils.data.Dataset):
         self.with_dome = with_dome
         self.assembled_root = Path(assembled_root) if assembled_root else None
         self.require_dome = require_dome
+        # The Stage-2 pose (w_rot, log_scale, t_vec) is NOT in the label record
+        # -- label_morpho only stores phi -- so it is read from the processed
+        # corpus alongside. Kept optional so the uncapper never pays for it.
+        self.with_affine = with_affine
+        self.processed_root = Path(processed_root) if processed_root else None
         self.paths = ([r / f"{c}.npy" for r in self.roots for c in cases] if cases is not None
                       else [p for r in self.roots for p in sorted(r.glob("*.npy"))])
         self.samples = self._load()
@@ -104,6 +110,39 @@ class MorphoDataset(torch.utils.data.Dataset):
                     return np.asarray(d["mask"] if isinstance(d, dict) else d, dtype=bool)
         return None
 
+    def _affine_for(self, rec):
+        """(w_rot 3, log_scale 1, t_vec 3) as a 7-vector. None when not found.
+
+        A record carrying its own "ghd" block wins: that is how synthetic cases
+        arrive (label_morpho writes identity rotation/translation plus the
+        stage-1 VAE's GENERATED scale), and they have no entry under
+        processed_root at all, so without this they would be silently dropped
+        from every morphology_sensor run."""
+        g = rec.get("ghd")
+        if isinstance(g, dict) and {"w_rot", "log_scale", "t_vec"} <= set(g):
+            try:
+                return np.concatenate([
+                    np.asarray(g["w_rot"], dtype=np.float32).reshape(-1),
+                    np.asarray(g["log_scale"], dtype=np.float32).reshape(-1),
+                    np.asarray(g["t_vec"], dtype=np.float32).reshape(-1),
+                ]).astype(np.float32)
+            except Exception:
+                return None
+        if self.processed_root is None:
+            return None
+        p = self.processed_root / f"{rec['case']}.npy"
+        if not p.exists():
+            return None
+        g = np.load(p, allow_pickle=True).item().get("ghd", {})
+        try:
+            return np.concatenate([
+                np.asarray(g["w_rot"], dtype=np.float32).reshape(-1),
+                np.asarray(g["log_scale"], dtype=np.float32).reshape(-1),
+                np.asarray(g["t_vec"], dtype=np.float32).reshape(-1),
+            ]).astype(np.float32)
+        except Exception:
+            return None
+
     def _load(self):
         samples = []
         dropped = []
@@ -111,6 +150,17 @@ class MorphoDataset(torch.utils.data.Dataset):
             if not path.exists():
                 continue
             rec = np.load(path, allow_pickle=True).item()
+            if rec.get("rejected"):
+                # A synthetic shape the human judged unrealistic. The record exists
+                # only so label_morpho never offers it again, and so the rejection
+                # rate stays measurable per generator. It carries no labels.
+                continue
+            if self.with_affine:
+                a = self._affine_for(rec)
+                if a is None:
+                    dropped.append(rec.get("case", str(path)) + " (no affine)")
+                    continue
+                rec["_affine"] = a
             if self.with_dome:
                 dome = self._dome_for(rec)
                 if dome is None:
@@ -124,7 +174,7 @@ class MorphoDataset(torch.utils.data.Dataset):
                     rec["_dome"] = dome
             samples.append(rec)
         if dropped:
-            print(f"[MorphoDataset] dropped {len(dropped)} case(s) with no dome label"
+            print(f"[MorphoDataset] dropped {len(dropped)} case(s) with no usable label"
                   f" (e.g. {', '.join(dropped[:3])})")
         if not samples:
             raise RuntimeError(f"No processed endcap checkpoints found in {self.roots}")
@@ -159,6 +209,8 @@ class MorphoDataset(torch.utils.data.Dataset):
             "branch_mask": torch.as_tensor(rec[branch_mask_key][:self.max_branches], dtype=torch.bool),
             "in_patch": torch.as_tensor(rec[in_patch_key][:self.max_branches], dtype=torch.bool),  # [mb, N_type]
         }
+        if self.with_affine:
+            out["affine"] = torch.as_tensor(rec["_affine"], dtype=torch.float32)
         if self.with_dome:
             d = rec.get("_dome")
             out["dome"] = (torch.as_tensor(d, dtype=torch.bool) if d is not None
@@ -179,6 +231,8 @@ def collate_morpho(batch):
         "tangents": torch.stack([item["tangents"] for item in batch]),
         "branch_mask": torch.stack([item["branch_mask"] for item in batch]),
     }
+    if "affine" in batch[0]:
+        out["affine"] = torch.stack([item["affine"] for item in batch])
     if "dome" in batch[0]:
         # per-vertex like in_patch -> concatenate along the node dimension so it
         # lines up with the same node_batch index

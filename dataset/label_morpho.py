@@ -119,12 +119,33 @@ GHD_VAE_CKPT = ROOT / "runtime" / "tr_checkpoints" / "v2_1" / "stage1" / "ghd_va
 BRANCH_COLORS = ["black", "blue", "red"]
 
 
-def _outward_normal(points, mesh_centroid):
-    """SVD-based outward surface normal of a point patch — same technique as
-    MultiCanonicalGHDReconstruct.reconstruct_fused_mesh's _outward_normal."""
+def _outward_normal(points, mesh_centroid, reference=None):
+    """SVD-based outward surface normal of a point patch.
+
+    SVD fixes the normal only UP TO SIGN (the last right-singular vector is
+    equally valid negated), so the sign must come from somewhere else.
+
+    reference: a direction already known to point outward for this opening --
+    in practice compute_caps' per-opening centerline tangent, oriented along
+    the branch running AWAY from the aneurysm. When given it decides the sign.
+
+    Without one the fallback is the old heuristic: assume the vector from the
+    whole mesh's centroid to the patch centroid points outward. That fails
+    exactly where it matters -- a short stub cap near the mesh centre gives a
+    tiny, noise-dominated reference vector; a curved vessel bending back inward,
+    or a bifurcation whose mesh centroid sits between the branches, can put the
+    patch on the "wrong" side. Those are the ones that come out pointing INTO
+    the shape, so prefer a reference whenever one exists.
+    """
     centroid = points.mean(axis=0)
     _, _, Vt = np.linalg.svd(points - centroid, full_matrices=False)
     normal = Vt[-1]
+    if reference is not None:
+        ref = np.asarray(reference, dtype=float)
+        if np.isfinite(ref).all() and np.linalg.norm(ref) > 1e-8:
+            if np.dot(normal, ref) < 0:
+                normal = -normal
+            return normal / np.linalg.norm(normal)
     if np.dot(normal, centroid - mesh_centroid) < 0:
         normal = -normal
     return normal / np.linalg.norm(normal)
@@ -157,14 +178,26 @@ def _safe_show(plotter):
             raise
 
 
-def brush_region(verts, faces, label, add_reference):
+class _Reject:
+    """Returned by brush_one_branch when the human judged the SHAPE itself unfit
+    to label, as opposed to closing the window (which means 'not now')."""
+    def __repr__(self):
+        return "REJECT"
+
+
+REJECT = _Reject()
+
+
+def brush_region(verts, faces, label, add_reference, allow_reject=False):
     """Brush ONE arbitrary region (used for the dome). Thin wrapper over
     brush_one_branch so the picking/highlight/confirm machinery has a single
     implementation -- the branch version is left untouched."""
-    return brush_one_branch(verts, faces, 0, 1, add_reference, label=label)
+    return brush_one_branch(verts, faces, 0, 1, add_reference, label=label,
+                            allow_reject=allow_reject)
 
 
-def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=None):
+def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=None,
+                     allow_reject=False):
     """Opens ONE fresh interactive window for a single branch's cap brushing
     (a fresh plotter per branch, not one shared/reused window across
     branches — simpler and more robust to reason about without a display to
@@ -203,7 +236,7 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
     add_reference(plotter)
 
     picked_cells = set()
-    state = {"highlight": None, "confirmed": False}
+    state = {"highlight": None, "confirmed": False, "rejected": False}
 
     def _refresh_highlight():
         if state["highlight"] is not None:
@@ -251,6 +284,13 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
         state["confirmed"] = True
         plotter.close()
 
+    def _reject():
+        # Distinct from closing the window. Closing means "not now" and leaves the
+        # case to be offered again; this means "this shape is not worth labelling"
+        # and is recorded so it is never offered again.
+        state["rejected"] = True
+        plotter.close()
+
     # "branch {branch_idx}" (0-indexed) matches the array index this patch lands in
     # (in_patch[branch_idx], endpoints[branch_idx], ...) and the label/color shown for
     # this same branch in review_auto_labels' overview window and the reference geometry
@@ -261,7 +301,10 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
     tqdm.write("    'r'              = toggle ROTATE vs. SELECT mode")
     tqdm.write("    'z'              = clear the current selection")
     tqdm.write("    'c'              = confirm selection and close this window")
-    tqdm.write("    close window     = skip (case not saved; rerun later to retry)")
+    if allow_reject:
+        tqdm.write("    'x'              = REJECT this shape as unrealistic (recorded; "
+                   "never offered again)")
+    tqdm.write("    close window     = skip for now (case not saved; rerun later to retry)")
     plotter.add_text(
         header + ": LEFT-CLICK-DRAG a box over the "
         f"region (repeat to add more; if it wraps out of view, 'r' toggles ROTATE vs. "
@@ -279,8 +322,12 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
     plotter.enable_cell_picking(callback=_on_pick, through=False, show=False, show_message=True)
     plotter.add_key_event("z", _reset)
     plotter.add_key_event("c", _confirm)
+    if allow_reject:
+        plotter.add_key_event("x", _reject)
     _safe_show(plotter)
 
+    if state["rejected"]:
+        return REJECT
     if not state["confirmed"] or not picked_cells:
         return None
     return sorted(picked_cells)
@@ -458,12 +505,19 @@ def _synthetic_reference(plotter, branch_idx, opening_pts):
         )
 
 
-def _derive_label(verts, faces, picked_face_ids, mesh_centroid):
+def _derive_label(verts, faces, picked_face_ids, mesh_centroid, reference=None):
+    """reference: this opening's outward centerline tangent (compute_caps'
+    info[b]["normal"]) when the case has one. A hand-brushed patch is where the
+    mesh-centroid sign heuristic is least reliable -- the brush covers a
+    slightly different region than the automatic cut -- so orient against the
+    reference at derivation rather than leaving it to _repair_tangents to
+    notice afterwards."""
     patch_faces = faces[picked_face_ids]
     patch_vertex_idx = np.unique(patch_faces.ravel())
     patch_pts = verts[patch_vertex_idx]
     endpoint = patch_pts.mean(axis=0).astype(np.float32)
-    tangent = _outward_normal(patch_pts, mesh_centroid).astype(np.float32)
+    tangent = _outward_normal(patch_pts, mesh_centroid,
+                              reference=reference).astype(np.float32)
     return patch_vertex_idx, endpoint, tangent
 
 
@@ -523,6 +577,206 @@ def save_label_sanity(verts, faces, in_patch, dome, case, save_path, n_open=3,
     fig.savefig(save_path, dpi=140)
     plt.close(fig)
     return save_path
+
+
+TANGENT_WARN_DEG = 60.0
+
+
+def rerender_sanity(rec, endcaps_rec, sanity_dir, plane_frac=0.5,
+                    warn_deg=TANGENT_WARN_DEG, warn_only=False):
+    """Redraw one case's sanity image from its EXISTING label, touching nothing.
+
+    Read-only on purpose: the point is to re-inspect labels (in particular the
+    SVD patch normal stored as manual_tangents) without risking a rewrite of
+    work that was done by hand.
+
+    Also cross-checks that stored tangent against the automatic one. The
+    automatic value is NOT kept in the record -- only manual_tangents is -- but
+    it is recomputable from the case's branch_points via compute_caps, whose
+    per-opening "normal" is the centerline tangent that oriented the cut plane.
+    Two independent estimates of the same direction: a large angle between them
+    means at least one is wrong, and the render is the only way to tell which.
+
+    Returns (path, warnings) where warnings is a list of human-readable strings.
+    """
+    case = rec["case"]
+    atype = int(rec["aneurysm_type"])
+    n_open = TYPE_N_OPEN.get(atype, MAX_BRANCHES)
+    verts, faces = reconstruct(rec)
+
+    in_patch = np.asarray(endcaps_rec["manual_in_patch"], dtype=bool)
+    dome = np.asarray(endcaps_rec.get("manual_dome",
+                                      np.zeros(len(verts), dtype=bool)), dtype=bool)
+    tang = np.asarray(endcaps_rec.get("manual_tangents"), dtype=float)
+    eps = np.asarray(endcaps_rec.get("manual_endpoints"), dtype=float)
+    bmask = np.asarray(endcaps_rec.get("manual_branch_mask",
+                                       np.ones(MAX_BRANCHES, bool)), dtype=bool)
+
+    def _render():
+        return save_label_sanity(verts, faces, in_patch, dome, case,
+                                 Path(sanity_dir) / f"{case}.png", n_open,
+                                 endpoints=eps, tangents=tang, branch_mask=bmask)
+
+    auto_normal = {}
+    try:
+        _c, _cid, info, _l, _d = compute_caps(rec, verts, faces, plane_frac=plane_frac)
+        for o in info:
+            auto_normal[int(o["opening"])] = np.asarray(o["normal"], dtype=float)
+    except Exception as exc:
+        # No centerline for this case, so there is no branch direction to check
+        # against -- fall back to asking the MESH which side is out.
+        ws = []
+        for b in range(min(n_open, len(tang))):
+            if not bool(bmask[b]) or np.linalg.norm(tang[b]) < 1e-8:
+                continue
+            sign, used = _outward_by_ray(verts, faces, eps[b], tang[b])
+            if sign < 0:
+                ws.append(f"{case}: branch {b} POINTS INWARD by mesh ray test "
+                          f"at {used}mm (no centerline) -- rebrush or re-save to correct")
+            elif sign == 0:
+                ws.append(f"{case}: branch {b} direction UNDECIDED -- no probe distance "
+                          f"in {list(RAY_STEPS)} could separate inside from outside "
+                          f"(no centerline) -- INSPECT")
+        if not ws:
+            ws = [f"{case}: no centerline; mesh ray test says all tangents point outward "
+                  f"({type(exc).__name__})"]
+        return _render(), ws
+
+    warns = []
+    for b in range(min(n_open, len(tang))):
+        if not bool(bmask[b]):
+            continue
+        t = tang[b]
+        if not np.isfinite(t).all() or np.linalg.norm(t) < 1e-8:
+            warns.append(f"{case}: branch {b} has no usable stored tangent")
+            continue
+        a = auto_normal.get(b)
+        if a is None or np.linalg.norm(a) < 1e-8:
+            warns.append(f"{case}: branch {b} has no automatic tangent to check against")
+            continue
+        # SIGNED, deliberately. Both estimates are independently oriented
+        # OUTWARD, so a ~180 deg disagreement means one points INTO the mesh --
+        # precisely the failure worth catching. abs() would hide a flip as 0 deg.
+        cos = float(np.dot(t / np.linalg.norm(t), a / np.linalg.norm(a)))
+        ang = float(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0))))
+        if ang > warn_deg:
+            kind = "POINTS INWARD (flipped)" if ang > 120 else "disagrees"
+            warns.append(f"{case}: branch {b} stored tangent {kind}: {ang:.0f} deg from the "
+                         f"automatic one (> {warn_deg:.0f}) -- INSPECT the sanity image")
+    # warn_only: a clean case needs no picture -- rendering all 523 to look at
+    # a handful buries the ones that matter (and costs ~20 min of matplotlib).
+    if warn_only and not warns:
+        return None, warns
+    return _render(), warns
+
+
+# Probe distances, tried largest first. A step wider than the local wall
+# overshoots: the inward probe passes clean through and lands OUTSIDE too, so
+# both sides read "outside" and the test cannot decide. Backing off to a
+# shorter step keeps the inward probe within the lumen. Starting small instead
+# would be worse -- a probe shorter than the mesh's own surface roughness sits
+# ambiguously on the boundary.
+RAY_STEPS = (0.5, 0.25, 0.05)
+
+
+def _outward_by_ray(verts, faces, origin, direction, steps=RAY_STEPS, mesh=None):
+    """Which way is out, decided by the MESH rather than by any heuristic.
+
+    Steps off the cap centroid along the candidate normal, both ways, and asks
+    the closed mesh which probe is inside. The side that lands OUTSIDE is out.
+
+    Tries each distance in `steps` in order and takes the first that gives a
+    clear answer, because a single fixed distance fails at both ends: too wide
+    and the inward probe punches through a thin wall (both probes outside),
+    too narrow and both sit ambiguously on the surface.
+
+    Returns (verdict, step_used): verdict is +1 already outward, -1 flip it, or
+    0 when no step could decide -- which callers must treat as "unknown",
+    never as "fine".
+    """
+    import trimesh
+
+    d = np.asarray(direction, dtype=float)
+    n = np.linalg.norm(d)
+    if n < 1e-8:
+        return 0, None
+    d = d / n
+    o = np.asarray(origin, dtype=float)
+    if mesh is None:
+        mesh = trimesh.Trimesh(vertices=np.asarray(verts, dtype=float),
+                               faces=np.asarray(faces), process=False)
+    for step in steps:
+        inside = mesh.contains(np.vstack([o + step * d, o - step * d]))
+        if bool(inside[0]) != bool(inside[1]):
+            return (-1 if inside[0] else 1), step
+    return 0, None
+
+
+def _canonical_tangents(tangents, branch_mask, info, case, verts=None, faces=None,
+                        endpoints=None, warn_deg=TANGENT_WARN_DEG):
+    """Put the GROUND-TRUTH tangent in place, per branch, before saving.
+
+    Priority, deliberately:
+
+      1. the CENTERLINE tangent (compute_caps' info[b]["normal"]) whenever the
+         branch has one. This is ground truth -- it comes from the vessel's own
+         skeleton -- whereas the SVD normal of a hand-brushed cap only
+         approximates it and inherits whatever the brush happened to cover. So
+         the centerline REPLACES the SVD value rather than merely correcting
+         its sign.
+
+      2. the patch SVD normal, kept only where no centerline exists, with its
+         direction settled by the mesh ray test.
+
+    A large disagreement between the two is still reported, but it is no longer
+    a correctness problem: the stored value is the centerline's either way.
+    """
+    """Flip any tangent pointing INTO the mesh, in place, before saving.
+
+    Belt and braces: the accept and brush paths already orient against
+    compute_caps' normal, but a record can also reach save carrying a tangent
+    loaded from an OLDER file written before that fix. Running the check here
+    means every case that passes through the interactive flow comes out with
+    outward tangents, whichever path produced them.
+    """
+    replaced, flipped, by_ray, diverged = [], [], [], []
+    have = {int(o["opening"]): np.asarray(o["normal"], dtype=float)
+            for o in (info or [])}
+    for b in range(len(tangents)):
+        if not bool(branch_mask[b]):
+            continue
+        t = np.asarray(tangents[b], dtype=float)
+        a = have.get(b)
+        if a is not None and np.linalg.norm(a) > 1e-8:
+            a = a / np.linalg.norm(a)
+            if np.linalg.norm(t) > 1e-8:
+                cos = float(np.dot(t / np.linalg.norm(t), a))
+                ang = float(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0))))
+                if ang > warn_deg:
+                    diverged.append(f"{b}:{ang:.0f}deg")
+                if ang > 1e-3:
+                    replaced.append(b)
+            else:
+                replaced.append(b)
+            tangents[b] = a                      # centerline wins outright
+        elif (verts is not None and endpoints is not None and b < len(endpoints)
+              and np.linalg.norm(t) > 1e-8):
+            # no centerline for this opening -- keep the SVD normal, but let
+            # the mesh settle which way it points
+            sign, used = _outward_by_ray(verts, faces, endpoints[b], t)
+            if sign < 0:
+                tangents[b] = -t
+                flipped.append(b); by_ray.append(f"{b}@{used}mm")
+            elif sign > 0:
+                by_ray.append(f"{b}@{used}mm")
+    if replaced:
+        note = f"  (differed by {', '.join(diverged)})" if diverged else ""
+        tqdm.write(f"[label_morpho] {case}: tangent(s) set from centerline "
+                   f"on branch {replaced}{note}")
+    if flipped:
+        tqdm.write(f"[label_morpho] {case}: no centerline -- SVD tangent flipped outward "
+                   f"on branch {flipped} (ray test {by_ray})")
+    return replaced + flipped
 
 
 def _has_auto_ground_truth(endcaps_rec):
@@ -688,7 +942,12 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
                 if m.any():
                     pts = verts[m]
                     manual_endpoints[b] = pts.mean(axis=0)
-                    manual_tangents[b] = _outward_normal(pts, mesh_centroid)
+                    # info[b]["normal"] is compute_caps' centerline tangent for
+                    # this opening -- already outward, so it fixes the SVD sign.
+                    _ref = (np.asarray(info[b]["normal"], dtype=float)
+                            if info is not None and b < len(info) else None)
+                    manual_tangents[b] = _outward_normal(pts, mesh_centroid,
+                                                         reference=_ref)
                     manual_branch_mask[b] = True
             if "dome" not in rebrush and dome_auto is not None:
                 manual_dome = np.asarray(dome_auto, dtype=bool)
@@ -732,6 +991,8 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
         dome_source = "manual"
 
     if not caps_to_brush:
+        _canonical_tangents(manual_tangents, manual_branch_mask, info, case,
+                         verts=verts, faces=faces, endpoints=manual_endpoints)
         ok = _save_real_record(rec, endcaps_path, endcaps_rec, manual_in_patch,
                                manual_endpoints, manual_tangents,
                                manual_branch_mask, "auto", manual_dome, dome_source,
@@ -763,7 +1024,10 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
             tqdm.write(f"[label_morpho] {case} branch {b}: skipped (no confirmed selection) — case not saved.")
             return False
 
-        patch_idx, endpoint, tangent = _derive_label(verts, faces, picked, mesh_centroid)
+        _ref = (np.asarray(info[b]["normal"], dtype=float)
+                if info is not None and b < len(info) else None)
+        patch_idx, endpoint, tangent = _derive_label(verts, faces, picked, mesh_centroid,
+                                                     reference=_ref)
         manual_in_patch[b, patch_idx] = True
         manual_endpoints[b] = endpoint
         manual_tangents[b] = tangent
@@ -772,6 +1036,8 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
     # "manual" when every branch got brushed, "mixed" when caps_to_brush was narrowed to a
     # subset (see the branch-selection prompt above) and the rest kept the automatic value.
     in_patch_source = "manual" if caps_to_brush == set(range(n_open)) else "mixed"
+    _canonical_tangents(manual_tangents, manual_branch_mask, info, case,
+                     verts=verts, faces=faces, endpoints=manual_endpoints)
     ok = _save_real_record(rec, endcaps_path, endcaps_rec, manual_in_patch,
                            manual_endpoints, manual_tangents, manual_branch_mask,
                            in_patch_source, manual_dome, dome_source, reviewed=not auto_accept)
@@ -783,19 +1049,27 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
     return ok
 
 
-def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
+def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
+                         scale=1.0, provenance=None):
     """No automatic record exists for a fresh synthetic sample, so this writes
     a brand-new record directly into synthetic_dir (runtime_dataset/AneuG_morpho_synthetic/,
     kept separate from the real cases' AneuG_morpho/ — see module docstring),
     using the plain (non-"manual_"-prefixed) schema — there's nothing automatic
     to preserve alongside it."""
     # Synthetic samples come from the GHD VAE decoder: phi only, with no s_can
-    # and no Stage-2 pose, so they are NOT rebuilt the way a fitted case is.
-    # Imported locally -- the real path deliberately no longer depends on the
-    # old preprocess_ImperialNHS reconstruction.
-    from dataset.preprocess_ImperialNHS import _reconstruct_ghd_numpy
-    verts, faces = _reconstruct_ghd_numpy(
-        {"aneurysm_type": atype, "ghd": {"phi": phi}}, denormalize_shape=True)
+    # and no fitted Stage-2 pose, so they are NOT rebuilt the way a fitted case is.
+    #
+    # This MUST use multi_recon, i.e. exactly what MorphoFormer sees via
+    # to_pyg_batch: (canonical + eigvec @ phi) * norm_canonical, verified
+    # identical to 0.000e+00. It used to call preprocess_ImperialNHS.
+    # _reconstruct_ghd_numpy, whose norm_canonical carries a legacy
+    # * 1.10 * 2.50. Both add the same canonical template, so the discrepancy
+    # is not a global scale that a brush would be blind to -- it multiplies the
+    # DEFORMATION by exactly 2.75, i.e. the human would have been brushing a
+    # caricature of the shape and every saved endpoint would have landed in a
+    # frame the model never sees.
+    verts = multi_recon._reconstruct_verts_np(phi, atype)
+    faces = multi_recon.get(atype).canonical_Meshes.faces_packed().detach().cpu().numpy()
     mesh_centroid = verts.mean(axis=0)
     n_open = TYPE_N_OPEN.get(atype, MAX_BRANCHES)
     opening_indices = multi_recon._load_openings(atype)   # list of index tensors, len == n_open for this type
@@ -804,6 +1078,33 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
     tangents = np.zeros((MAX_BRANCHES, 3), dtype=np.float32)
     branch_mask = np.zeros(MAX_BRANCHES, dtype=bool)
     in_patch = np.zeros((MAX_BRANCHES, len(verts)), dtype=bool)
+
+    # Dome first, then caps -- same order the real path announces, so the
+    # human's muscle memory carries over between the two modes. There is no
+    # automatic proposal to accept here: a synthetic shape has no dome_sac.ply
+    # and no label.nrrd, so the dome is always brushed from scratch.
+    tqdm.write(f"[label_morpho] {case_id}: brushing needed, in this order -- "
+               f"DOME then caps branch(es) {list(range(n_open))}")
+    picked = brush_region(verts, faces, f"{case_id} DOME", add_reference=lambda p: None,
+                          allow_reject=True)
+    if picked is REJECT:
+        # Tombstone, not silence. Writing the rejection keeps the case out of every
+        # later run, and the rejection RATE per generator is itself the validity
+        # statistic for that generator -- discarding these would throw that away.
+        np.save(synthetic_dir / f"{case_id}.npy", {
+            "case": case_id, "aneurysm_type": atype,
+            "phi": np.asarray(phi, dtype=np.float32),
+            "is_synthetic": True, "rejected": True,
+            "provenance": provenance or {},
+        }, allow_pickle=True)
+        tqdm.write(f"[label_morpho] {case_id}: REJECTED as unrealistic -- recorded, "
+                   f"will not be offered again.")
+        return False
+    if picked is None:
+        tqdm.write(f"[label_morpho] {case_id}: dome skipped (no confirmed selection) -- case not saved.")
+        return False
+    dome = np.zeros(len(verts), dtype=bool)
+    dome[np.unique(faces[picked].ravel())] = True
 
     for b in range(n_open):
         idx = opening_indices[b].detach().cpu().numpy() if b < len(opening_indices) else None
@@ -828,7 +1129,23 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
         "phi": np.asarray(phi, dtype=np.float32),
         "endpoints": endpoints, "tangents": tangents,
         "branch_mask": branch_mask, "in_patch": in_patch,
+        # "manual_dome" is the key MorphoDataset._dome_for looks for first, so a
+        # synthetic record is picked up by exactly the same path as a real one.
+        "manual_dome": dome, "dome_source": "manual",
+        "tangent_source": "manual", "in_patch_source": "manual",
+        "reviewed": True,
+        # Stage-2 pose. A synthetic shape is decoded straight into the canonical
+        # frame, so its rotation and translation are identity by construction.
+        # log_scale is NOT identity: the stage-1 VAE has withscale=True and
+        # generates exp(log_scale) alongside phi, so the real fitted quantity has
+        # a generated counterpart and is recorded rather than invented.
+        "ghd": {"w_rot": np.zeros(3, dtype=np.float32),
+                "log_scale": np.array([np.log(max(float(scale), 1e-6))], dtype=np.float32),
+                "t_vec": np.zeros(3, dtype=np.float32)},
         "is_synthetic": True,
+        # Enough to regenerate this exact shape, and to filter the corpus later
+        # by generator config or by how extreme the sample was.
+        "provenance": provenance or {},
     }, allow_pickle=True)
     tqdm.write(f"[label_morpho] saved {case_id}")
     return True
@@ -836,7 +1153,7 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=["real", "synthetic"], required=True)
+    parser.add_argument("--mode", choices=["real", "synthetic"], default="real")
     parser.add_argument("--real-dir", default=str(DEFAULT_REAL_DIR))
     parser.add_argument("--endcaps-dir", default=str(DEFAULT_ENDCAPS_DIR),
                          help="Real mode only: read automatic labels from here and write manual labels back "
@@ -846,6 +1163,14 @@ def main():
                               "from --endcaps-dir since synthetic cases have no automatic counterpart there.")
     parser.add_argument("--case", action="append", dest="cases", help="Real mode: label only these cases.")
     parser.add_argument("--n-synthetic", type=int, default=20)
+    parser.add_argument("--ghd-vae", nargs="+", default=[str(GHD_VAE_CKPT)],
+                        help="One or more stage-1 GHD VAE checkpoints. Several generators are "
+                             "pooled so the fine-tuned sensor learns synthetic shapes in general "
+                             "rather than one generator's artefacts.")
+    parser.add_argument("--z-amp", nargs="+", type=float, default=[1.0],
+                        help="Scale(s) on z ~ N(0,1). 1.0 is the prior the KL term trains against; "
+                             "larger values sample the tails on purpose to get extreme shapes. "
+                             "Every checkpoint is crossed with every amplitude.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu", help="Only used in synthetic mode, to run the frozen GHD VAE.")
     parser.add_argument("--no-auto", dest="auto", action="store_false",
@@ -861,6 +1186,19 @@ def main():
                              "missing either proposal is skipped, not half-saved.")
     parser.add_argument("--assembled-root", default=str(ROOT / "runtime_dataset" / "assembled"),
                         help="Assembled corpus, where the precomputed dome_mask.npy lives.")
+    parser.add_argument("--fix-tangents", action="store_true",
+                        help="Flip stored tangents that point INTO the mesh, judged against "
+                             "compute_caps' centerline tangent. Rewrites .npy files -- run "
+                             "--rerender afterwards to see the result.")
+    parser.add_argument("--rerender", action="store_true",
+                        help="Regenerate sanity images from the EXISTING labels and report "
+                             "tangents that disagree with the automatic estimate. Writes only "
+                             "PNGs -- never touches a .npy, so hand-labelled work is safe.")
+    parser.add_argument("--warn-only", action="store_true",
+                        help="With --rerender, draw ONLY the cases that trigger a warning. "
+                             "Every case is still checked; the clean ones just get no PNG.")
+    parser.add_argument("--sanity-dir", default=None,
+                        help="Where --rerender writes (default: <endcaps-dir>/sanity).")
     parser.add_argument("--no-sanity", action="store_true",
                         help="Skip the per-case label render. They are the only way to "
                              "inspect a bulk --auto-accept pass after the fact.")
@@ -868,6 +1206,90 @@ def main():
                         help="Stop after this many cases (smoke tests).")
     parser.set_defaults(auto=True)
     args = parser.parse_args()
+
+    if args.fix_tangents:
+        # Repair pass for records written before _outward_normal took an
+        # outward reference: flip any stored tangent that points INTO the mesh,
+        # judged against compute_caps' centerline tangent for that opening.
+        # Writes .npy, so it is a separate opt-in mode -- never folded into
+        # --rerender, which must stay read-only over hand-labelled work.
+        endcaps_dir, real_dir = Path(args.endcaps_dir), Path(args.real_dir)
+        names = args.cases or [q.stem for q in sorted(endcaps_dir.glob("*.npy"))]
+        if args.limit:
+            names = names[:args.limit]
+        n_fix = n_case = n_skip = 0
+        for case in tqdm(names, desc="fix-tangents"):
+            rp, ep = real_dir / f"{case}.npy", endcaps_dir / f"{case}.npy"
+            if not (rp.exists() and ep.exists()):
+                continue
+            rec = np.load(rp, allow_pickle=True).item()
+            erec = np.load(ep, allow_pickle=True).item()
+            verts, faces = reconstruct(rec)
+            try:
+                _c, _cid, info, _l, _d = compute_caps(rec, verts, faces,
+                                                      plane_frac=args.plane_frac)
+            except Exception:
+                # No centerline: the SVD normal stays, but the mesh ray test can
+                # still settle its direction, so this is NOT a skip any more.
+                info = None
+            tang = np.asarray(erec["manual_tangents"], dtype=float)
+            bmask = np.asarray(erec.get("manual_branch_mask",
+                                        np.ones(MAX_BRANCHES, bool)), dtype=bool)
+            eps = np.asarray(erec.get("manual_endpoints"), dtype=float)
+            before = tang.copy()
+            _canonical_tangents(tang, bmask, info, case, verts=verts, faces=faces,
+                                endpoints=eps)
+            flipped = [b for b in range(len(tang))
+                       if not np.allclose(before[b], tang[b], atol=1e-6)]
+            if flipped:
+                erec["manual_tangents"] = tang.astype(np.float32)
+                erec["tangent_source"] = "centerline" if info else "svd+ray"
+                erec["tangent_fixed"] = sorted(int(b) for b in flipped)
+                np.save(ep, erec, allow_pickle=True)
+                n_fix += len(flipped); n_case += 1
+                tqdm.write(f"[FIXED] {case}: flipped branch(es) {flipped}")
+        print(f"\nUpdated {n_fix} tangent(s) across {n_case} case(s) "
+              f"(centerline where available, mesh ray test otherwise).")
+        return
+
+    if args.rerender:
+        # Read-only pass: redraw every existing label's sanity image and report
+        # tangents that disagree with the automatic estimate. No .npy is opened
+        # for writing anywhere in this branch.
+        endcaps_dir = Path(args.endcaps_dir)
+        real_dir = Path(args.real_dir)
+        sanity_dir = Path(args.sanity_dir) if args.sanity_dir else endcaps_dir / "sanity"
+        names = (args.cases if args.cases else
+                 [p.stem for p in sorted(endcaps_dir.glob("*.npy"))])
+        if args.limit:
+            names = names[:args.limit]
+        all_warns, n_ok, n_fail, n_drawn = [], 0, 0, 0
+        for case in tqdm(names, desc="rerender"):
+            rp, ep = real_dir / f"{case}.npy", endcaps_dir / f"{case}.npy"
+            if not (rp.exists() and ep.exists()):
+                tqdm.write(f"[label_morpho] {case}: missing record -- skipped")
+                continue
+            try:
+                _path, warns = rerender_sanity(
+                    np.load(rp, allow_pickle=True).item(),
+                    np.load(ep, allow_pickle=True).item(),
+                    sanity_dir, plane_frac=args.plane_frac,
+                    warn_only=args.warn_only)
+                n_ok += 1
+                if _path is not None:
+                    n_drawn += 1
+                for w in warns:
+                    tqdm.write(f"[WARN] {w}")
+                all_warns += warns
+            except Exception as exc:
+                n_fail += 1
+                tqdm.write(f"[FAIL] {case}: {type(exc).__name__}: {exc}")
+        print(f"\nChecked {n_ok} case(s); rendered {n_drawn} into {sanity_dir}; "
+              f"{n_fail} failed.")
+        print(f"{len(all_warns)} warning(s) -- these are the cases to eyeball:")
+        for w in all_warns:
+            print(f"  {w}")
+        return
 
     if args.mode == "real":
         endcaps_dir = Path(args.endcaps_dir)
@@ -927,30 +1349,91 @@ def main():
 
         device = torch.device(args.device)
         multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=device)
-        ghd_vae, ghd_mean, ghd_std, ghd_input_dim = load_ghd_vae(GHD_VAE_CKPT, device)
-        for p in ghd_vae.parameters():
-            p.requires_grad_(False)
 
-        g = torch.Generator(device="cpu").manual_seed(args.seed)
-        types = torch.randint(0, 2, (args.n_synthetic,), generator=g)   # type 2 merged into 1 -- never sampled
-        z_ghd = torch.randn(args.n_synthetic, ghd_vae.latent_dim, generator=g)
-        with torch.no_grad():
-            ghd_n, _ = ghd_vae.decode(z_ghd.to(device), types.to(device))
-            phi_all = (ghd_n * ghd_std[:, :ghd_input_dim] + ghd_mean[:, :ghd_input_dim]).reshape(args.n_synthetic, -1, 3)
+        # Cross every checkpoint with every amplitude and split n_synthetic evenly
+        # across the resulting groups.
+        groups = [(Path(c), float(a)) for c in args.ghd_vae for a in args.z_amp]
+        for c, _ in groups:
+            if not c.exists():
+                parser.error(f"--ghd-vae not found: {c}")
+        base, extra = divmod(args.n_synthetic, len(groups))
+        plan = []
+        for gi, (ckpt_path, z_amp) in enumerate(groups):
+            n_g = base + (1 if gi < extra else 0)
+            if n_g == 0:
+                continue
+            ghd_vae, ghd_mean, ghd_std, ghd_input_dim = load_ghd_vae(ckpt_path, device)
+            for prm in ghd_vae.parameters():
+                prm.requires_grad_(False)
+            tag = f"{ckpt_path.parent.name}_a{z_amp:g}"
+
+            g = torch.Generator(device="cpu").manual_seed(args.seed + 1000 * gi)
+            types = torch.randint(0, 2, (n_g,), generator=g)   # type 2 merged into 1 -- never sampled
+            z_ghd = torch.randn(n_g, ghd_vae.latent_dim, generator=g) * z_amp
+            with_scale = ghd_mean.numel() > ghd_input_dim
+            with torch.no_grad():
+                out = ghd_vae.decode(z_ghd.to(device), types.to(device))
+                # The stage-1 VAE is trained withscale=True, so decode returns the
+                # generated exp(log_scale) alongside phi. It used to be discarded
+                # here; it is the synthetic counterpart of the real fitted Stage-2
+                # scale, so it is kept and written into the record.
+                ghd_n, scale_n = out if isinstance(out, tuple) else (out, None)
+                phi_all = (ghd_n * ghd_std[:, :ghd_input_dim]
+                           + ghd_mean[:, :ghd_input_dim]).reshape(n_g, -1, 3).cpu().numpy()
+                scale_all = ((scale_n * ghd_std[:, ghd_input_dim:]
+                              + ghd_mean[:, ghd_input_dim:]).squeeze(1).cpu().numpy()
+                             if with_scale and scale_n is not None
+                             else np.ones(n_g, dtype=np.float32))
+            tqdm.write(f"[label_morpho] {tag}: {n_g} shape(s), generated scale mean "
+                       f"{float(np.mean(scale_all)):.4f}")
+            for i in range(n_g):
+                plan.append({
+                    "case_id": f"synthetic_{tag}_seed{args.seed}_{i:04d}",
+                    "atype": int(types[i]), "phi": phi_all[i], "scale": float(scale_all[i]),
+                    "provenance": {"ghd_vae": str(ckpt_path), "z_amp": z_amp,
+                                   "seed": int(args.seed), "index": int(i),
+                                   "z": z_ghd[i].cpu().numpy().astype(np.float32)},
+                })
+
+        # Interleave the groups. Labelling is slow and gets abandoned partway, so
+        # the order has to make any PREFIX of the session a balanced sample across
+        # generators and amplitudes -- brushing group by group would mean stopping
+        # early leaves the corpus skewed to whichever config happened to be first.
+        np.random.default_rng(args.seed).shuffle(plan)
 
         n_done = n_skip = 0
-        pbar = tqdm(range(args.n_synthetic), desc="Labeling", unit="case", dynamic_ncols=True)
-        for i in pbar:
-            case_id = f"synthetic_seed{args.seed}_{i:04d}"
+        pbar = tqdm(plan, desc="Labeling", unit="case", dynamic_ncols=True)
+        for item in pbar:
+            case_id = item["case_id"]
             pbar.set_postfix(done=n_done, skipped=n_skip, case=case_id)
             if (synthetic_dir / f"{case_id}.npy").exists():
                 n_skip += 1
                 continue   # resumable
-            if label_synthetic_case(case_id, int(types[i]), phi_all[i].cpu().numpy(), multi_recon, synthetic_dir):
+            if label_synthetic_case(case_id, item["atype"], item["phi"], multi_recon,
+                                    synthetic_dir, scale=item["scale"],
+                                    provenance=item["provenance"]):
                 n_done += 1
         pbar.set_postfix(done=n_done, skipped=n_skip)
         pbar.close()
         tqdm.write(f"Done. {n_done} labeled, {n_skip} already existed. Manual labels written into {synthetic_dir}")
+
+        # How often a generator's shapes get rejected IS that generator's validity
+        # rate, so report it rather than leaving it buried in the tombstones.
+        tally = {}
+        for q in sorted(synthetic_dir.glob("*.npy")):
+            r = np.load(q, allow_pickle=True).item()
+            if not r.get("is_synthetic"):
+                continue
+            prov = r.get("provenance") or {}
+            key = (Path(prov.get("ghd_vae", "?")).parent.name, prov.get("z_amp", "?"))
+            kept, rej = tally.get(key, (0, 0))
+            tally[key] = (kept + (0 if r.get("rejected") else 1), rej + (1 if r.get("rejected") else 0))
+        if tally:
+            tqdm.write(f"\n{'generator':<34}{'z_amp':>7}{'kept':>7}{'rejected':>10}{'reject rate':>13}")
+            for (cfg, amp), (kept, rej) in sorted(tally.items()):
+                tot = kept + rej
+                tqdm.write(f"{cfg:<34}{str(amp):>7}{kept:>7}{rej:>10}"
+                           f"{(rej / tot if tot else 0):>12.1%}")
 
 
 if __name__ == "__main__":

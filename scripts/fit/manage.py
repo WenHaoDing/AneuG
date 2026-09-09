@@ -101,6 +101,8 @@ Usage:
   python scripts/fit/manage.py update --dataset ImperialNHS --case <name> --status redo --config arap_init
 
   python scripts/fit/manage.py requeue --gpus cuda:0 cuda:1 cuda:2
+
+
 """
 
 import argparse
