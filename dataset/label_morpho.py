@@ -87,7 +87,10 @@ conda activate new   (needs pyvista with a real display / working GL context —
 will not work over a plain SSH session without X forwarding or a virtual
 framebuffer)
 python dataset/label_morpho.py --mode real
-python dataset/label_morpho.py --mode synthetic --n-synthetic 20 --seed 0
+python dataset/label_morpho.py --mode synthetic \
+  --ghd-vae runtime_train/ghd_vae/stage1/*/epoch_05000.pth
+
+  
 """
 
 import argparse
@@ -1083,6 +1086,11 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
     # human's muscle memory carries over between the two modes. There is no
     # automatic proposal to accept here: a synthetic shape has no dome_sac.ply
     # and no label.nrrd, so the dome is always brushed from scratch.
+    if provenance:
+        ckpt = Path(provenance["ghd_vae"]).parent.name if provenance.get("ghd_vae") else "?"
+        amp = provenance.get("z_amp", "?")
+        amp_txt = f"{amp:.2f}" if isinstance(amp, (int, float)) else str(amp)
+        tqdm.write(f"[label_morpho] {case_id}: checkpoint {ckpt}, z_amp {amp_txt}")
     tqdm.write(f"[label_morpho] {case_id}: brushing needed, in this order -- "
                f"DOME then caps branch(es) {list(range(n_open))}")
     picked = brush_region(verts, faces, f"{case_id} DOME", add_reference=lambda p: None,
@@ -1167,10 +1175,17 @@ def main():
                         help="One or more stage-1 GHD VAE checkpoints. Several generators are "
                              "pooled so the fine-tuned sensor learns synthetic shapes in general "
                              "rather than one generator's artefacts.")
-    parser.add_argument("--z-amp", nargs="+", type=float, default=[1.0],
-                        help="Scale(s) on z ~ N(0,1). 1.0 is the prior the KL term trains against; "
-                             "larger values sample the tails on purpose to get extreme shapes. "
-                             "Every checkpoint is crossed with every amplitude.")
+    parser.add_argument("--z-amp", nargs="+", type=float, default=None,
+                        help="Scale(s) on z ~ N(0,1), one fixed value per group (every checkpoint "
+                             "crossed with every amplitude) instead of the default random range. "
+                             "Passing this explicitly disables --z-amp-range, even the default.")
+    parser.add_argument("--z-amp-range", nargs=2, type=float, default=[1.0, 5.0], metavar=("LOW", "HIGH"),
+                        help="Draw a fresh amplitude per generated shape, uniformly from [LOW, HIGH] "
+                             "-- so within one run some draws land near the prior (typical shapes, "
+                             "amp near 1.0) and some land out near HIGH (extreme ones), rather than "
+                             "every shape in a group sharing one fixed amplitude. Default 1.0-5.0 "
+                             "-- this is the default mode; pass --z-amp instead for the old fixed-"
+                             "list behaviour.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu", help="Only used in synthetic mode, to run the frozen GHD VAE.")
     parser.add_argument("--no-auto", dest="auto", action="store_false",
@@ -1350,9 +1365,14 @@ def main():
         device = torch.device(args.device)
         multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=device)
 
-        # Cross every checkpoint with every amplitude and split n_synthetic evenly
-        # across the resulting groups.
-        groups = [(Path(c), float(a)) for c in args.ghd_vae for a in args.z_amp]
+        # Default mode: one group per checkpoint, each shape within it draws its own random
+        # amplitude below (so a single run mixes typical and extreme shapes). Passing --z-amp
+        # explicitly opts back into the old fixed-list behaviour (every checkpoint crossed
+        # with every amplitude, every shape in a group sharing that one value) and disables
+        # --z-amp-range entirely, even its default.
+        random_amp = args.z_amp is None
+        groups = ([(Path(c), None) for c in args.ghd_vae] if random_amp else
+                  [(Path(c), float(a)) for c in args.ghd_vae for a in args.z_amp])
         for c, _ in groups:
             if not c.exists():
                 parser.error(f"--ghd-vae not found: {c}")
@@ -1365,11 +1385,15 @@ def main():
             ghd_vae, ghd_mean, ghd_std, ghd_input_dim = load_ghd_vae(ckpt_path, device)
             for prm in ghd_vae.parameters():
                 prm.requires_grad_(False)
-            tag = f"{ckpt_path.parent.name}_a{z_amp:g}"
+            tag = f"{ckpt_path.parent.name}_arand" if random_amp else f"{ckpt_path.parent.name}_a{z_amp:g}"
 
             g = torch.Generator(device="cpu").manual_seed(args.seed + 1000 * gi)
             types = torch.randint(0, 2, (n_g,), generator=g)   # type 2 merged into 1 -- never sampled
-            z_ghd = torch.randn(n_g, ghd_vae.latent_dim, generator=g) * z_amp
+            # One amplitude per shape when random (uniform over [LOW, HIGH]), else every
+            # shape in this group shares the fixed --z-amp value -- same as before.
+            z_amp_g = (torch.empty(n_g).uniform_(*args.z_amp_range, generator=g) if random_amp
+                       else torch.full((n_g,), z_amp))
+            z_ghd = torch.randn(n_g, ghd_vae.latent_dim, generator=g) * z_amp_g.unsqueeze(-1)
             with_scale = ghd_mean.numel() > ghd_input_dim
             with torch.no_grad():
                 out = ghd_vae.decode(z_ghd.to(device), types.to(device))
@@ -1384,13 +1408,18 @@ def main():
                               + ghd_mean[:, ghd_input_dim:]).squeeze(1).cpu().numpy()
                              if with_scale and scale_n is not None
                              else np.ones(n_g, dtype=np.float32))
-            tqdm.write(f"[label_morpho] {tag}: {n_g} shape(s), generated scale mean "
+            amp_txt = (f"z_amp in [{z_amp_g.min():.2f}, {z_amp_g.max():.2f}]" if random_amp
+                      else f"z_amp {z_amp:g}")
+            tqdm.write(f"[label_morpho] {tag}: {n_g} shape(s), {amp_txt}, generated scale mean "
                        f"{float(np.mean(scale_all)):.4f}")
             for i in range(n_g):
+                amp_i = float(z_amp_g[i])
+                case_id = (f"synthetic_{tag}_a{amp_i:.2f}_seed{args.seed}_{i:04d}" if random_amp
+                          else f"synthetic_{tag}_seed{args.seed}_{i:04d}")
                 plan.append({
-                    "case_id": f"synthetic_{tag}_seed{args.seed}_{i:04d}",
+                    "case_id": case_id,
                     "atype": int(types[i]), "phi": phi_all[i], "scale": float(scale_all[i]),
-                    "provenance": {"ghd_vae": str(ckpt_path), "z_amp": z_amp,
+                    "provenance": {"ghd_vae": str(ckpt_path), "z_amp": amp_i,
                                    "seed": int(args.seed), "index": int(i),
                                    "z": z_ghd[i].cpu().numpy().astype(np.float32)},
                 })
@@ -1425,7 +1454,13 @@ def main():
             if not r.get("is_synthetic"):
                 continue
             prov = r.get("provenance") or {}
-            key = (Path(prov.get("ghd_vae", "?")).parent.name, prov.get("z_amp", "?"))
+            amp_val = prov.get("z_amp", "?")
+            # Bucket to the nearest 0.5 so a continuous --z-amp-range draw still groups with
+            # its neighbours here -- otherwise every sample gets its own row (kept+rej == 1
+            # each), and the whole point of this table (reject rate BY amplitude) is lost.
+            # A --z-amp value already a multiple of 0.5 (the common case) is unaffected.
+            amp_key = round(amp_val * 2) / 2 if isinstance(amp_val, (int, float)) else amp_val
+            key = (Path(prov.get("ghd_vae", "?")).parent.name, amp_key)
             kept, rej = tally.get(key, (0, 0))
             tally[key] = (kept + (0 if r.get("rejected") else 1), rej + (1 if r.get("rejected") else 0))
         if tally:
