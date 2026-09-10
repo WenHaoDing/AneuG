@@ -29,7 +29,10 @@ needs k-fold retraining. Agreement is the evidence that the ranking is real.
 """
 
 import argparse
+import csv
+import datetime as _dt
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -69,21 +72,33 @@ def kpd(x, y, degree=3, coef0=1.0, n_subsets=100, seed=0):
     return float(np.mean(vals))
 
 
-def fpd(x, y, pca_dim=16, eps=1e-6):
-    """Frechet distance, after PCA. A covariance from tens of samples in 128
-    dimensions is near-singular and the distance would be dominated by noise in
-    its smallest eigenvalues."""
+def fpd(x, y, eps=1e-6):
+    """Frechet distance between Gaussians fitted to the two feature sets:
+
+        ||mu_x - mu_y||^2 + Tr(Cx + Cy - 2 (Cx Cy)^{1/2})
+
+    NO PCA. An earlier version projected to 16 dimensions with a basis fitted
+    jointly on x and y, which was wrong twice over. The basis then depended on
+    WHICH generated set was being scored, so every run's FPD lived in a
+    different subspace and the values were not comparable across runs -- the one
+    thing a leaderboard column has to be. And projecting away 112 of 128
+    dimensions demonstrably reordered the ranking relative to the full-space
+    distance. Standard FID applies no such projection.
+
+    Returns NaN when the sample is too small to estimate a covariance in the
+    feature dimension (n <= d). That is the honest answer for the 16-case
+    reference, where the covariance is rank-deficient and any Frechet number
+    would be an artefact of whatever regularisation was chosen. KPD has no such
+    requirement and remains valid there.
+    """
     from scipy import linalg
-    k = min(pca_dim, min(len(x), len(y)) - 2, x.shape[1])
-    if k > 0 and k < x.shape[1]:
-        both = np.vstack([x, y]); mu = both.mean(0)
-        _, _, vt = np.linalg.svd(both - mu, full_matrices=False)
-        w = vt[:k].T
-        x, y = (x - mu) @ w, (y - mu) @ w
+    d = x.shape[1]
+    if min(len(x), len(y)) <= d + 1:
+        return float("nan")
     mx, my = x.mean(0), y.mean(0)
-    cx = np.cov(x, rowvar=False) + eps * np.eye(x.shape[1])
-    cy = np.cov(y, rowvar=False) + eps * np.eye(y.shape[1])
-    cm, _ = linalg.sqrtm(cx @ cy, disp=False)
+    cx = np.cov(x, rowvar=False) + eps * np.eye(d)
+    cy = np.cov(y, rowvar=False) + eps * np.eye(d)
+    cm = linalg.sqrtm(cx @ cy)
     if np.iscomplexobj(cm):
         cm = cm.real
     return float(((mx - my) ** 2).sum() + np.trace(cx + cy - 2 * cm))
@@ -164,6 +179,47 @@ def generate(ckpt, n, types, device, z_amp=1.0, seed=0):
     return (phi_n * s + m).reshape(n, -1, 3).cpu().numpy()
 
 
+def _hparams_from_name(name):
+    """Pull the sweep axes back out of the run directory name, so the CSV can be
+    sorted and filtered by them instead of by string matching."""
+    g = lambda pat: (re.search(pat, name).group(1) if re.search(pat, name) else "")
+    return {"family": "gan" if "_gan_" in name else "plain",
+            "hidden": g(r"_h(\d+)"), "latent": g(r"_z(\d+)"),
+            "kl": g(r"_kl([0-9.]+)"), "adv": g(r"_adv([0-9.]+)"),
+            "anneal": g(r"_anneal(\d+)")}
+
+
+REF_KEYS = ("all-523", "unseen-16")
+METRICS = ("kpd", "fpd", "nna", "prec", "rec")
+
+
+def write_csv(rows, real_tmd, floors, sensor, out_dir):
+    """One row per run, wide across the two reference sets. Overwritten each run:
+    the file is a snapshot of the current sweep, and every row carries the
+    timestamp, sensor and floors, so a copied-off file stays self-describing."""
+    out = Path(out_dir) / "fidelity.csv"
+    stamp = _dt.datetime.now().isoformat(timespec="seconds")
+    cols = (["run", "family", "hidden", "latent", "kl", "adv", "anneal", "tmd"]
+            + [f"{m}_{r}" for r in REF_KEYS for m in METRICS]
+            + ["real_tmd"] + [f"kpd_floor_{r}" for r in REF_KEYS]
+            + ["sensor", "evaluated_at"])
+    with open(out, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=cols)
+        w.writeheader()
+        for r in sorted(rows, key=lambda r: r["all-523"][0]):
+            row = {"run": r["run"], "tmd": f"{r['tmd']:.4f}", "real_tmd": f"{real_tmd:.4f}",
+                   "sensor": sensor, "evaluated_at": stamp,
+                   **_hparams_from_name(r["run"])}
+            for ref in REF_KEYS:
+                for m, v in zip(METRICS, r[ref]):
+                    row[f"{m}_{ref}"] = "" if v != v else f"{v:.5f}"   # NaN -> blank
+            for ref in REF_KEYS:
+                row[f"kpd_floor_{ref}"] = f"{floors[ref]:.5f}"
+            w.writerow(row)
+    print(f"\nCSV -> {out}  ({len(rows)} runs, sorted by KPD on all-523)")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sensor", required=True)
@@ -235,6 +291,8 @@ def main():
             print(f"{name:<34}{k_:>10.5f}{f_:>9.3f}{r['tmd']:>9.4f}"
                   f"{n_:>8.3f}{p_:>7.3f}{c_:>7.3f}")
         print(f"{'REAL CORPUS':<34}{'':>10}{'':>9}{real_tmd:>9.4f}{0.5:>8.3f}")
+
+    write_csv(rows, real_tmd, floors, str(args.sensor), args.stage1_dir)
 
     a = [r["run"] for r in sorted(rows, key=lambda r: r["unseen-16"][0])]
     b = [r["run"] for r in sorted(rows, key=lambda r: r["all-523"][0])]

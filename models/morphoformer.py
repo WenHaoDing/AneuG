@@ -360,3 +360,32 @@ class MorphoFormer(nn.Module):
         patch_loss = (per_branch * branch_mask.float()).sum() / denom
 
         return endpoint_loss, tangent_loss, patch_loss
+
+
+def region_from_probs(probs_b, frac=0.2, min_ratio=3.0, max_k=400):
+    """Vertices the model actually calls this cap, from one row of loc_probs.
+
+    Canonical copy. loc_probs is a softmax over ALL vertices, so absolute values
+    are tiny and a fixed threshold is meaningless -- hence `frac` of the
+    branch's own peak. That alone misbehaves when the head is untrained: the
+    distribution is then near-uniform, peak ~= 1/N, and 0.2*peak selects almost
+    every vertex, blanketing the mesh with something that looks like a
+    prediction but carries no information.
+
+    Two guards. `min_ratio` demands a vertex be at least that many times uniform
+    probability, so an untrained head draws nothing rather than everything.
+    `max_k` caps the count near a real cap's size so the region stays readable
+    once the head sharpens.
+    """
+    import numpy as np
+    if probs_b is None or probs_b.size == 0:
+        return np.zeros(0, dtype=int)
+    n = probs_b.size
+    peak = float(probs_b.max())
+    if peak <= 0:
+        return np.zeros(0, dtype=int)
+    thr = max(frac * peak, min_ratio / n)
+    idx = np.flatnonzero(probs_b >= thr)
+    if idx.size > max_k:
+        idx = idx[np.argsort(probs_b[idx])[-max_k:]]
+    return idx

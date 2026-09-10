@@ -337,7 +337,7 @@ def brush_one_branch(verts, faces, branch_idx, n_branches, add_reference, label=
 
 
 def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, case, info,
-                       endpoints=None, tangents=None, branch_mask=None):
+                       endpoints=None, tangents=None, branch_mask=None, allow_reject=False):
     """Show the automatic CAP and DOME regions and ask what to keep.
 
     Returns a set of regions to brush by hand -- {} to accept everything,
@@ -425,6 +425,8 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
     tqdm.write("    'd' = rebrush DOME only (keep the automatic caps)")
     tqdm.write("    'b' = rebrush BOTH caps and dome (same per-branch prompt for caps)")
     tqdm.write("    'q' or close window = SKIP this case (not saved; retry later)")
+    if allow_reject:
+        tqdm.write("    'x' = REJECT this shape as unrealistic (recorded; never offered again)")
     plotter.add_text(
         f"{case}: AUTOMATIC  caps ({summary})   {dome_txt}\n"
         f"'a' ACCEPT both  |  'c' rebrush CAPS  |  'd' rebrush DOME  |  "
@@ -435,8 +437,67 @@ def review_auto_labels(verts, faces, caps, cap_id, dome, branch_points, n_open, 
     plotter.add_key_event("c", _set(frozenset({"caps"})))
     plotter.add_key_event("d", _set(frozenset({"dome"})))
     plotter.add_key_event("b", _set(frozenset({"caps", "dome"})))
+    if allow_reject:
+        # Distinct from 'q'. 'q' means "not now" and re-offers the case later;
+        # this means "this SHAPE is not worth labelling" and is recorded so it
+        # never comes back, and so the rejection rate per generator stays
+        # measurable.
+        plotter.add_key_event("x", _set(REJECT))
     _safe_show(plotter)
     return state["choice"]
+
+
+def _ask_branches(case, n_open):
+    """Which cap(s) actually need a hand. Often only one is wrong, and
+    re-brushing a correct one is wasted effort."""
+    if n_open <= 1:
+        return set(range(n_open))
+    resp = input(f"[label_morpho] {case}: rebrush which branch(es)? comma-separated "
+                 f"indices 0-{n_open - 1} (e.g. '1' or '0,2'), or blank/'all' for all "
+                 f"{n_open}: ").strip().lower()
+    if not resp or resp in ("all", "a"):
+        return set(range(n_open))
+    try:
+        sel = {int(t) for t in resp.replace(" ", "").split(",") if t}
+    except ValueError:
+        sel = set()
+    sel = {b for b in sel if 0 <= b < n_open}
+    if not sel:
+        tqdm.write(f"[label_morpho] {case}: couldn't parse {resp!r} -- rebrushing all.")
+        return set(range(n_open))
+    tqdm.write(f"[label_morpho] {case}: rebrushing branch(es) {sorted(sel)}; "
+               f"keeping the sensor's prediction for the rest.")
+    return sel
+
+
+def _sensor_proposal(sensor, phi, atype, n_verts, n_open, device):
+    """Run the morphology sensor and shape its output like an automatic label.
+
+    Returns (caps, cap_id, dome, endpoints, tangents, info) in exactly the form
+    review_auto_labels already consumes for real cases, so the triage window is
+    the same one, with the sensor standing in for the geometric pipeline.
+    """
+    import torch
+    from models.morphoformer import region_from_probs
+    with torch.no_grad():
+        ep, tg, loc, tok, extra = sensor(
+            torch.as_tensor(phi, dtype=torch.float32, device=device)[None],
+            torch.as_tensor([atype], dtype=torch.long, device=device))
+    nv = min(n_verts, int(tok[0].sum()))
+    caps = np.zeros(n_verts, dtype=bool)
+    cap_id = np.full(n_verts, -1, dtype=int)
+    info = []
+    for b in range(n_open):
+        idx = region_from_probs(loc[0, b, :nv].detach().cpu().numpy())
+        caps[idx] = True
+        cap_id[idx] = b
+        info.append({"opening": b, "n_cap_verts": int(idx.size), "used_crossing": True})
+    dome = np.zeros(n_verts, dtype=bool)
+    if "dome_logits" in extra:
+        d = torch.sigmoid(extra["dome_logits"][0, :nv]).detach().cpu().numpy() > 0.5
+        dome[:nv] = d
+    return (caps, cap_id, dome,
+            ep[0].detach().cpu().numpy(), tg[0].detach().cpu().numpy(), info)
 
 
 def _add_arrow_and_point(plotter, origin, direction, color_point, color_arrow="yellow", scale=2.0):
@@ -1053,7 +1114,7 @@ def label_real_case(rec, endcaps_path, endcaps_rec, use_auto=True, plane_frac=0.
 
 
 def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
-                         scale=1.0, provenance=None):
+                         scale=1.0, provenance=None, sensor=None, device=None):
     """No automatic record exists for a fresh synthetic sample, so this writes
     a brand-new record directly into synthetic_dir (runtime_dataset/AneuG_morpho_synthetic/,
     kept separate from the real cases' AneuG_morpho/ — see module docstring),
@@ -1091,11 +1152,7 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
         amp = provenance.get("z_amp", "?")
         amp_txt = f"{amp:.2f}" if isinstance(amp, (int, float)) else str(amp)
         tqdm.write(f"[label_morpho] {case_id}: checkpoint {ckpt}, z_amp {amp_txt}")
-    tqdm.write(f"[label_morpho] {case_id}: brushing needed, in this order -- "
-               f"DOME then caps branch(es) {list(range(n_open))}")
-    picked = brush_region(verts, faces, f"{case_id} DOME", add_reference=lambda p: None,
-                          allow_reject=True)
-    if picked is REJECT:
+    def _tombstone():
         # Tombstone, not silence. Writing the rejection keeps the case out of every
         # later run, and the rejection RATE per generator is itself the validity
         # statistic for that generator -- discarding these would throw that away.
@@ -1107,14 +1164,59 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
         }, allow_pickle=True)
         tqdm.write(f"[label_morpho] {case_id}: REJECTED as unrealistic -- recorded, "
                    f"will not be offered again.")
-        return False
-    if picked is None:
-        tqdm.write(f"[label_morpho] {case_id}: dome skipped (no confirmed selection) -- case not saved.")
-        return False
-    dome = np.zeros(len(verts), dtype=bool)
-    dome[np.unique(faces[picked].ravel())] = True
 
-    for b in range(n_open):
+    dome = None
+    caps_to_brush = set(range(n_open))
+    src = {"caps": "manual", "dome": "manual"}
+
+    if sensor is not None:
+        # THE POINT OF THE SENSOR PASS. This labelling exists to fix the sensor
+        # where it is wrong on generated shapes, so showing its own prediction
+        # first turns the job from "brush every shape" into "brush the ones it
+        # got wrong". Cases accepted as-is carry little training signal, but
+        # they cost nothing to keep and they guard against forgetting when
+        # mixed with the corrections.
+        p_caps, p_cap_id, p_dome, p_ep, p_tg, info = _sensor_proposal(
+            sensor, phi, atype, len(verts), n_open, device)
+        choice = review_auto_labels(
+            verts, faces, p_caps, p_cap_id, p_dome, [None] * n_open, n_open,
+            case_id, info, endpoints=p_ep, tangents=p_tg,
+            branch_mask=np.array([True] * n_open + [False] * (MAX_BRANCHES - n_open)),
+            allow_reject=True)
+        if choice is REJECT:
+            _tombstone(); return False
+        if choice is None:
+            tqdm.write(f"[label_morpho] {case_id}: skipped -- not saved, will be re-offered.")
+            return False
+        if "dome" not in choice:
+            dome = p_dome
+            src["dome"] = "sensor"
+        caps_to_brush = _ask_branches(case_id, n_open) if "caps" in choice else set()
+        for b in range(n_open):
+            if b not in caps_to_brush:
+                endpoints[b] = p_ep[b]
+                tangents[b] = p_tg[b]
+                branch_mask[b] = True
+                in_patch[b, p_cap_id == b] = True
+        if not caps_to_brush:
+            src["caps"] = "sensor"
+        elif len(caps_to_brush) < n_open:
+            src["caps"] = "mixed"
+
+    if dome is None:
+        tqdm.write(f"[label_morpho] {case_id}: brushing DOME"
+                   + (f" then caps {sorted(caps_to_brush)}" if caps_to_brush else ""))
+        picked = brush_region(verts, faces, f"{case_id} DOME", add_reference=lambda p: None,
+                              allow_reject=sensor is None)
+        if picked is REJECT:
+            _tombstone(); return False
+        if picked is None:
+            tqdm.write(f"[label_morpho] {case_id}: dome skipped (no confirmed selection) -- case not saved.")
+            return False
+        dome = np.zeros(len(verts), dtype=bool)
+        dome[np.unique(faces[picked].ravel())] = True
+
+    for b in sorted(caps_to_brush):
         idx = opening_indices[b].detach().cpu().numpy() if b < len(opening_indices) else None
         opening_pts = verts[idx] if idx is not None else None
 
@@ -1139,9 +1241,13 @@ def label_synthetic_case(case_id, atype, phi, multi_recon, synthetic_dir,
         "branch_mask": branch_mask, "in_patch": in_patch,
         # "manual_dome" is the key MorphoDataset._dome_for looks for first, so a
         # synthetic record is picked up by exactly the same path as a real one.
-        "manual_dome": dome, "dome_source": "manual",
-        "tangent_source": "manual", "in_patch_source": "manual",
+        "manual_dome": dome, "dome_source": src["dome"],
+        "tangent_source": src["caps"], "in_patch_source": src["caps"],
         "reviewed": True,
+        # Which parts the human actually corrected. The corrected ones are where
+        # the training signal is; "sensor" everywhere means this shape taught the
+        # model nothing new, which is worth being able to count later.
+        "label_source": dict(src),
         # Stage-2 pose. A synthetic shape is decoded straight into the canonical
         # frame, so its rotation and translation are identity by construction.
         # log_scale is NOT identity: the stage-1 VAE has withscale=True and
@@ -1187,7 +1293,16 @@ def main():
                              "-- this is the default mode; pass --z-amp instead for the old fixed-"
                              "list behaviour.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--device", default="cpu", help="Only used in synthetic mode, to run the frozen GHD VAE.")
+    parser.add_argument("--device", default="cpu",
+                        help="Synthetic mode only: runs the frozen GHD VAE and, if given, the sensor.")
+    parser.add_argument("--pool-dir", default=None,
+                        help="Label a PRE-GENERATED pool (scripts/generate/gen_synthetic_pool.py) "
+                             "instead of sampling here. Preferred: the set being labelled is then a "
+                             "fixed artefact rather than a function of which day the labeller ran.")
+    parser.add_argument("--sensor", default=None,
+                        help="morphology_sensor checkpoint. When given, its prediction is shown "
+                             "FIRST as a proposal and you only brush what it got wrong -- which is "
+                             "the whole reason for this labelling round.")
     parser.add_argument("--no-auto", dest="auto", action="store_false",
                         help="Real mode: skip the automatic cap pass and brush every case "
                              "by hand, as before.")
@@ -1365,70 +1480,100 @@ def main():
         device = torch.device(args.device)
         multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=device)
 
-        # Default mode: one group per checkpoint, each shape within it draws its own random
-        # amplitude below (so a single run mixes typical and extreme shapes). Passing --z-amp
-        # explicitly opts back into the old fixed-list behaviour (every checkpoint crossed
-        # with every amplitude, every shape in a group sharing that one value) and disables
-        # --z-amp-range entirely, even its default.
-        random_amp = args.z_amp is None
-        groups = ([(Path(c), None) for c in args.ghd_vae] if random_amp else
-                  [(Path(c), float(a)) for c in args.ghd_vae for a in args.z_amp])
-        for c, _ in groups:
-            if not c.exists():
-                parser.error(f"--ghd-vae not found: {c}")
-        base, extra = divmod(args.n_synthetic, len(groups))
-        plan = []
-        for gi, (ckpt_path, z_amp) in enumerate(groups):
-            n_g = base + (1 if gi < extra else 0)
-            if n_g == 0:
-                continue
-            ghd_vae, ghd_mean, ghd_std, ghd_input_dim = load_ghd_vae(ckpt_path, device)
-            for prm in ghd_vae.parameters():
-                prm.requires_grad_(False)
-            tag = f"{ckpt_path.parent.name}_arand" if random_amp else f"{ckpt_path.parent.name}_a{z_amp:g}"
+        sensor = None
+        if args.sensor:
+            from models.morphoformer import MorphoFormer
+            sck = torch.load(args.sensor, map_location=device, weights_only=False)
+            if not sck["args"].get("predict_dome"):
+                parser.error("--sensor has no dome head: that is an uncapper, not a "
+                             "morphology_sensor, and it cannot propose a dome.")
+            sensor = MorphoFormer(multi_recon, **sck["args"]).to(device)
+            sensor.load_state_dict(sck["model"]); sensor.eval()
+            tqdm.write(f"[label_morpho] sensor: {Path(args.sensor).parent.name} "
+                       f"epoch {sck.get('epoch')} -- its prediction is the proposal; "
+                       f"brush only what it gets wrong")
 
-            g = torch.Generator(device="cpu").manual_seed(args.seed + 1000 * gi)
-            types = torch.randint(0, 2, (n_g,), generator=g)   # type 2 merged into 1 -- never sampled
-            # One amplitude per shape when random (uniform over [LOW, HIGH]), else every
-            # shape in this group shares the fixed --z-amp value -- same as before.
-            z_amp_g = (torch.empty(n_g).uniform_(*args.z_amp_range, generator=g) if random_amp
-                       else torch.full((n_g,), z_amp))
-            z_ghd = torch.randn(n_g, ghd_vae.latent_dim, generator=g) * z_amp_g.unsqueeze(-1)
-            with_scale = ghd_mean.numel() > ghd_input_dim
-            with torch.no_grad():
-                out = ghd_vae.decode(z_ghd.to(device), types.to(device))
-                # The stage-1 VAE is trained withscale=True, so decode returns the
-                # generated exp(log_scale) alongside phi. It used to be discarded
-                # here; it is the synthetic counterpart of the real fitted Stage-2
-                # scale, so it is kept and written into the record.
-                ghd_n, scale_n = out if isinstance(out, tuple) else (out, None)
-                phi_all = (ghd_n * ghd_std[:, :ghd_input_dim]
-                           + ghd_mean[:, :ghd_input_dim]).reshape(n_g, -1, 3).cpu().numpy()
-                scale_all = ((scale_n * ghd_std[:, ghd_input_dim:]
-                              + ghd_mean[:, ghd_input_dim:]).squeeze(1).cpu().numpy()
-                             if with_scale and scale_n is not None
-                             else np.ones(n_g, dtype=np.float32))
-            amp_txt = (f"z_amp in [{z_amp_g.min():.2f}, {z_amp_g.max():.2f}]" if random_amp
-                      else f"z_amp {z_amp:g}")
-            tqdm.write(f"[label_morpho] {tag}: {n_g} shape(s), {amp_txt}, generated scale mean "
-                       f"{float(np.mean(scale_all)):.4f}")
-            for i in range(n_g):
-                amp_i = float(z_amp_g[i])
-                case_id = (f"synthetic_{tag}_a{amp_i:.2f}_seed{args.seed}_{i:04d}" if random_amp
-                          else f"synthetic_{tag}_seed{args.seed}_{i:04d}")
-                plan.append({
-                    "case_id": case_id,
-                    "atype": int(types[i]), "phi": phi_all[i], "scale": float(scale_all[i]),
-                    "provenance": {"ghd_vae": str(ckpt_path), "z_amp": amp_i,
-                                   "seed": int(args.seed), "index": int(i),
-                                   "z": z_ghd[i].cpu().numpy().astype(np.float32)},
-                })
+        if args.pool_dir:
+            pool = sorted(Path(args.pool_dir).glob("*.npy"))
+            if not pool:
+                parser.error(f"--pool-dir is empty: {args.pool_dir}")
+            plan = []
+            for q in pool:
+                r = np.load(q, allow_pickle=True).item()
+                plan.append({"case_id": r["case"], "atype": int(r["aneurysm_type"]),
+                             "phi": np.asarray(r["phi"], dtype=np.float32),
+                             "scale": float(r.get("scale", 1.0)),
+                             "provenance": r.get("provenance", {})})
+            # Interleave generators: labelling gets abandoned partway, so any
+            # PREFIX of the session has to stay a balanced sample.
+            np.random.default_rng(args.seed).shuffle(plan)
+            tqdm.write(f"[label_morpho] labelling pool of {len(plan)} from {args.pool_dir}")
 
-        # Interleave the groups. Labelling is slow and gets abandoned partway, so
-        # the order has to make any PREFIX of the session a balanced sample across
-        # generators and amplitudes -- brushing group by group would mean stopping
-        # early leaves the corpus skewed to whichever config happened to be first.
-        np.random.default_rng(args.seed).shuffle(plan)
+        if not args.pool_dir:
+            # Default mode: one group per checkpoint, each shape within it draws its own random
+            # amplitude below (so a single run mixes typical and extreme shapes). Passing --z-amp
+            # explicitly opts back into the old fixed-list behaviour (every checkpoint crossed
+            # with every amplitude, every shape in a group sharing that one value) and disables
+            # --z-amp-range entirely, even its default.
+            random_amp = args.z_amp is None
+            groups = ([(Path(c), None) for c in args.ghd_vae] if random_amp else
+                      [(Path(c), float(a)) for c in args.ghd_vae for a in args.z_amp])
+            for c, _ in groups:
+                if not c.exists():
+                    parser.error(f"--ghd-vae not found: {c}")
+            base, extra = divmod(args.n_synthetic, len(groups))
+            plan = []
+            for gi, (ckpt_path, z_amp) in enumerate(groups):
+                n_g = base + (1 if gi < extra else 0)
+                if n_g == 0:
+                    continue
+                ghd_vae, ghd_mean, ghd_std, ghd_input_dim = load_ghd_vae(ckpt_path, device)
+                for prm in ghd_vae.parameters():
+                    prm.requires_grad_(False)
+                tag = f"{ckpt_path.parent.name}_arand" if random_amp else f"{ckpt_path.parent.name}_a{z_amp:g}"
+
+                g = torch.Generator(device="cpu").manual_seed(args.seed + 1000 * gi)
+                types = torch.randint(0, 2, (n_g,), generator=g)   # type 2 merged into 1 -- never sampled
+                # One amplitude per shape when random (uniform over [LOW, HIGH]), else every
+                # shape in this group shares the fixed --z-amp value -- same as before.
+                z_amp_g = (torch.empty(n_g).uniform_(*args.z_amp_range, generator=g) if random_amp
+                           else torch.full((n_g,), z_amp))
+                z_ghd = torch.randn(n_g, ghd_vae.latent_dim, generator=g) * z_amp_g.unsqueeze(-1)
+                with_scale = ghd_mean.numel() > ghd_input_dim
+                with torch.no_grad():
+                    out = ghd_vae.decode(z_ghd.to(device), types.to(device))
+                    # The stage-1 VAE is trained withscale=True, so decode returns the
+                    # generated exp(log_scale) alongside phi. It used to be discarded
+                    # here; it is the synthetic counterpart of the real fitted Stage-2
+                    # scale, so it is kept and written into the record.
+                    ghd_n, scale_n = out if isinstance(out, tuple) else (out, None)
+                    phi_all = (ghd_n * ghd_std[:, :ghd_input_dim]
+                               + ghd_mean[:, :ghd_input_dim]).reshape(n_g, -1, 3).cpu().numpy()
+                    scale_all = ((scale_n * ghd_std[:, ghd_input_dim:]
+                                  + ghd_mean[:, ghd_input_dim:]).squeeze(1).cpu().numpy()
+                                 if with_scale and scale_n is not None
+                                 else np.ones(n_g, dtype=np.float32))
+                amp_txt = (f"z_amp in [{z_amp_g.min():.2f}, {z_amp_g.max():.2f}]" if random_amp
+                          else f"z_amp {z_amp:g}")
+                tqdm.write(f"[label_morpho] {tag}: {n_g} shape(s), {amp_txt}, generated scale mean "
+                           f"{float(np.mean(scale_all)):.4f}")
+                for i in range(n_g):
+                    amp_i = float(z_amp_g[i])
+                    case_id = (f"synthetic_{tag}_a{amp_i:.2f}_seed{args.seed}_{i:04d}" if random_amp
+                              else f"synthetic_{tag}_seed{args.seed}_{i:04d}")
+                    plan.append({
+                        "case_id": case_id,
+                        "atype": int(types[i]), "phi": phi_all[i], "scale": float(scale_all[i]),
+                        "provenance": {"ghd_vae": str(ckpt_path), "z_amp": amp_i,
+                                       "seed": int(args.seed), "index": int(i),
+                                       "z": z_ghd[i].cpu().numpy().astype(np.float32)},
+                    })
+
+            # Interleave the groups. Labelling is slow and gets abandoned partway, so
+            # the order has to make any PREFIX of the session a balanced sample across
+            # generators and amplitudes -- brushing group by group would mean stopping
+            # early leaves the corpus skewed to whichever config happened to be first.
+            np.random.default_rng(args.seed).shuffle(plan)
 
         n_done = n_skip = 0
         pbar = tqdm(plan, desc="Labeling", unit="case", dynamic_ncols=True)
@@ -1440,7 +1585,8 @@ def main():
                 continue   # resumable
             if label_synthetic_case(case_id, item["atype"], item["phi"], multi_recon,
                                     synthetic_dir, scale=item["scale"],
-                                    provenance=item["provenance"]):
+                                    provenance=item["provenance"],
+                                    sensor=sensor, device=device):
                 n_done += 1
         pbar.set_postfix(done=n_done, skipped=n_skip)
         pbar.close()
