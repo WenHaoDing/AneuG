@@ -669,7 +669,11 @@ def main():
         print(f"held-out test set: {len(test_idx)} case(s) -> {', '.join(names)}")
         print(f"training on {len(dataset.samples)}")
 
-    held_out = []
+    # --test-size cases are just as unseen as --folds cases, so they belong in
+    # the checkpoint's held_out_cases too. Without this the FPD/KPD reference
+    # set has to be re-derived from the hash by hand, and a checkpoint that
+    # genuinely held out 16 cases looks like one that held out none.
+    held_out = list(names) if test_set is not None else []
     if FOLDS > 0:
         # Deterministic split on the case name, so every fold of every run sees
         # the same partition regardless of directory listing order -- the
