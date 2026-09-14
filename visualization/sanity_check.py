@@ -12,8 +12,12 @@ from pathlib import Path
 
 
 @torch.no_grad()
-def sanity_check(model, val_dataset, epoch, save_dir, device, cond_cls, max_branches, max_local_points):
-    """Sample one random val case and visualise generated branches vs GHD mesh.
+def sanity_check(model, val_dataset, epoch, save_dir, device, cond_cls, max_branches,
+                 max_local_points, case_index=None, multi_recon=None):
+    """Visualise generated branches against the GHD mesh for ONE val case.
+
+    case_index: pick a FIXED case instead of a random one. A random draw makes
+    two epochs incomparable, because the case changes underneath you.
 
     Args:
         model:             MultiBranchVAE (switched to eval inside, restored after)
@@ -32,7 +36,8 @@ def sanity_check(model, val_dataset, epoch, save_dir, device, cond_cls, max_bran
 
     base_dataset = val_dataset.dataset   # unwrap Subset → VesselSkeletonDataset
 
-    idx  = torch.randint(len(val_dataset), (1,)).item()
+    idx  = (torch.randint(len(val_dataset), (1,)).item() if case_index is None
+            else int(case_index) % len(val_dataset))
     item = val_dataset[idx]
 
     # build batch-of-1 condition
@@ -56,12 +61,20 @@ def sanity_check(model, val_dataset, epoch, save_dir, device, cond_cls, max_bran
     lengths = lengths[0].cpu()                                             # [max_branches]
     start_points = item["start_points"]                                    # [max_branches, 3]
 
-    # reconstruct GHD mesh (numpy-only, no pytorch3d)
-    checkpoint = {
-        "aneurysm_type": int(item["aneurysm_type"]),
-        "ghd": {"phi": item["phi"].numpy()},
-    }
-    verts, faces = _reconstruct_ghd_numpy(checkpoint, denormalize_shape=True)
+    # Reconstruct the GHD mesh.
+    #
+    # _reconstruct_ghd_numpy carries a legacy norm_canonical * 1.10 * 2.50. It
+    # leaves the canonical template in place but multiplies the DEFORMATION by
+    # 2.75, so the panel shows a caricature of the shape next to correctly
+    # placed branches. Prefer multi_recon, which is what the model actually saw.
+    atype = int(item["aneurysm_type"])
+    if multi_recon is not None:
+        verts = multi_recon._reconstruct_verts_np(item["phi"].numpy(), atype)
+        faces = multi_recon.get(atype).canonical_Meshes.faces_packed().cpu().numpy()
+    else:
+        verts, faces = _reconstruct_ghd_numpy(
+            {"aneurysm_type": atype, "ghd": {"phi": item["phi"].numpy()}},
+            denormalize_shape=True)
 
     # build absolute branch curves from sampled output
     branch_points = []

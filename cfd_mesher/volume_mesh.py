@@ -69,6 +69,25 @@ def load_opening_info_from_npz(npz_path):
 
 
 # =========================================================
+# Surface input
+# =========================================================
+def read_surface(path):
+    """Read a surface file with its vertices actually shared between triangles.
+
+    Geomagic writes OBJ faces as `v//vn`, with a normal index that differs from the
+    vertex index, and pyvista's OBJ reader splits a vertex wherever the two differ.
+    On a processed case that turned 41,451 shared vertices into 247,920 -- one set
+    per triangle -- so every edge read as a boundary. Enclosed volume is unaffected
+    (141.4 mm^3 either way), which is why this can pass unnoticed, but boundary
+    extraction, flow extensions and the regularizer's opening check all need real
+    connectivity. Merging exact duplicate points restores it: that same case then
+    shows its three openings, each within 0.13 mm of the position the fusion npz
+    records.
+    """
+    return pv.read(path).clean().triangulate()
+
+
+# =========================================================
 # Small geometry helpers
 # =========================================================
 def _points_from_vtk_cell(cell):
@@ -477,6 +496,122 @@ def scan_inlet_nodes(mesh_file, csv_path=None, scale_factor=0.001, inlet_id=INLE
          for i in cell_indices], axis=0) * scale_factor
     pd.DataFrame(point_set, columns=["x", "y", "z"]).to_csv(csv_path, index=False)
     return csv_path
+
+
+# =========================================================
+# Roughness regularization (optional, before meshing)
+# =========================================================
+def _open_boundary_centroids(polydata):
+    """Centroid of every open boundary loop, in vtkvmtkPolyDataBoundaryExtractor order."""
+    return [b["centroid"] for b in get_open_boundary_info_from_surface(polydata)]
+
+
+def regularize_surface_if_needed(surface_file, output_file, report_path,
+                                 tolerance=1.0, remesher="auto", n_seeds=4000,
+                                 max_cap_shift=0.5, overwrite=False):
+    """Bring the surface's roughness into the physiological range, only if it is outside.
+
+    Uses mesh_regularizer (see its README). The shape is first MEASURED against the
+    reference without being touched. If no target scale sits above `tolerance` SD --
+    within the typical range, or smoother than it -- the input is returned unchanged
+    and nothing is written except the report. Smoothing can only lower roughness, so
+    a shape at or below the band is one it could not improve anyway.
+
+    Only when the shape is rougher than the reference is it regularized, and the
+    result is then CHECKED before being used, because everything after meshing
+    depends on the openings: relabelling matches each cap to a fixed reference
+    position, so the regularized surface must keep the same number of open
+    boundaries, each within `max_cap_shift` mm of where it was. If either check
+    fails, the unregularized surface is used and the report says why, rather than
+    handing the mesher a surface whose caps it can no longer identify.
+
+    The regularizer's own final export remesh is disabled (export_edge=None): the
+    mesher sets the element size itself from the shape's volume and area, so a
+    second resolution imposed here would only be overwritten.
+
+    Measured on raw generated shapes, the finest target scale (0.3 mm) reads +2.9 to
+    +4.3 SD above the reference. Those meshes are faceted at that scale -- native
+    edges of 0.2 to 0.55 mm -- which a quadric fit reads as roughness, so expect this
+    step to act on unprocessed generator output and possibly not on shapes that have
+    already been remeshed and smoothed.
+
+    Returns (surface path to mesh, report dict). The report is also written to
+    `report_path`, and reused on later runs unless `overwrite`.
+    """
+    import json
+
+    if os.path.exists(report_path) and not overwrite:
+        with open(report_path) as f:
+            report = json.load(f)
+        chosen = report.get("surface_used")
+        if chosen and os.path.exists(chosen):
+            return chosen, report
+
+    try:
+        from mesh_regularizer import MeshRegularizer
+    except ImportError as exc:                                  # pragma: no cover
+        raise RuntimeError(
+            "mesh_regularizer is not importable (run from the AneuG repo root, with "
+            "trimesh and scipy installed): %s" % exc)
+
+    # No wall-clock budget, and a fixed seed sample instead. With the regularizer's
+    # defaults (60 s budget, every vertex measured) the first real case stopped on
+    # time_budget_exceeded before a single smoothing round: the vmtk remesh fallback
+    # alone ate the budget. The surface came back merely remeshed -- moved 0.000 mm,
+    # roughness +2.91 -> +2.84 SD -- and would have been reported as regularized.
+    # 4000 seeds is what the reference model itself was scanned with, so the
+    # comparison stays consistent and the cost per round stays bounded.
+    reg = MeshRegularizer(tolerance=tolerance, remesher=remesher, export_edge=None,
+                          time_budget_s=None, n_seeds=n_seeds, verbose=False)
+    assessment = reg.assess(surface_file, n_seeds=n_seeds)
+    report = {"input": surface_file, "assessment": assessment}
+
+    if not assessment["needs_regularization"]:
+        report.update(action="none", surface_used=surface_file,
+                      reason="roughness %s (worst target excess %+.2f SD, tolerance %.2f)"
+                             % (assessment["verdict"], assessment["worst_target_excess_sd"],
+                                tolerance))
+    else:
+        mesh, fwd = reg.forward(surface_file, freeze_boundary=True)
+        fwd.pop("history", None)                     # large; the curves are not needed here
+        report["forward"] = fwd
+
+        # compare openings before and after, on the same boundary extractor the
+        # extension and relabelling steps use
+        before = _open_boundary_centroids(read_surface(surface_file))
+        after_pd = pv.PolyData(np.asarray(mesh.vertices),
+                               np.hstack([np.full((len(mesh.faces), 1), 3),
+                                          np.asarray(mesh.faces)]).ravel())
+        after = _open_boundary_centroids(after_pd)
+        problem = None
+        if len(after) != len(before):
+            problem = "open boundaries changed from %d to %d" % (len(before), len(after))
+        else:
+            shifts = [float(min(np.linalg.norm(np.asarray(b) - np.asarray(a)) for a in after))
+                      for b in before]
+            report["cap_shift_mm"] = shifts
+            if max(shifts) > max_cap_shift:
+                problem = ("a cap moved %.2f mm, beyond the %.2f mm limit"
+                           % (max(shifts), max_cap_shift))
+
+        if not problem and int(fwd.get("rounds", 0)) == 0:
+            # forward() returns a remeshed surface even when it never smoothed;
+            # using that would change the mesh without changing its roughness
+            problem = ("no smoothing round completed (regularizer status %s)"
+                       % fwd.get("status"))
+        if problem:
+            report.update(action="rejected", surface_used=surface_file,
+                          reason="regularized surface not used: " + problem)
+        else:
+            after_pd.save(output_file)
+            report.update(action="regularized", surface_used=output_file,
+                          reason="roughness above reference (worst target excess %+.2f SD); "
+                                 "regularizer status %s"
+                                 % (assessment["worst_target_excess_sd"], fwd["status"]))
+
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2, default=float)
+    return report["surface_used"], report
 
 
 # =========================================================

@@ -1,11 +1,15 @@
 """Tetrahedralize CFD-ready surfaces into boundary-tagged volume meshes for a solver.
 
 Takes the surface stage's deliverable (a closed-except-openings .obj) and its fusion
-bookkeeping npz, converts to .vtp, optionally extends the inlet/outlet openings for a
+bookkeeping npz, converts to .vtp, brings the surface's roughness into the physiological
+range if it is outside it, optionally extends the inlet/outlet openings for a
 developed-flow length, tetrahedralizes at an edge length adaptive to the shape's volume
 and area, relabels wall/inlet/outlet boundary ids to a fixed policy, and exports the
 bookkeeping a Fluent run needs (inlet node coordinates, and for two-outlet cases a
 flow-split ratio).
+
+Mesh parameters match AneuSeg/cfd_meshing/get_mesh_aneux_tune_elements_v3.py exactly,
+including the vmtkmeshgenerator boundary-layer settings in vmtk_backend.py.
 
 This is the volume stage; it reads what generate_cfd_surface_meshes.py writes.
 
@@ -16,7 +20,10 @@ This is the volume stage; it reads what generate_cfd_surface_meshes.py writes.
 Per case the following are written into <save_root>/<case>/ (save_root defaults to
 --surface_root itself, i.e. in place next to the surface stage's output):
 
+    (every source file)         copied from <surface_root>/<case>/ unless --no-copy_case_files
     ghd_surface.vtp             the surface .obj converted to .vtp
+    regularization.json         the roughness assessment and what, if anything, was done
+    ghd_surface_regularized.vtp only if the surface was rougher than the reference
     ghd_surface_extended.vtp    only if --extend_inlet/--extend_outlets is set
     mesh.vtu                    the tagged volume mesh
     mesh.msh                    the same mesh, converted to Fluent format
@@ -29,6 +36,17 @@ documents using.
 
     conda activate vmtk_autogen
     python -m cfd_mesher.generate_cfd_volume_meshes --help
+
+ROUGHNESS. Before meshing, each surface is measured against mesh_regularizer's reference
+model without being modified. A surface within the typical range, or smoother than it,
+is meshed as it is. Only a rougher one is regularized, and the result is used only if it
+keeps every opening in place, since relabelling depends on the caps. Run from the repo
+root so mesh_regularizer imports; --no-regularize skips the step entirely.
+
+GENERATED COHORTS. scripts/generate/gen_merged_cohort.py writes the
+ghd_forward_fusion_info.npz this stage reads, with openings in branch order (inlet
+first). If the surfaces are remeshed by other software first, keep that npz in each
+case folder; the processed surface is read as geomagic_processed.obj by default.
 """
 
 import os
@@ -38,17 +56,39 @@ import argparse
 
 from .config import SURFACE_SAVE_ROOT, VOLUME_SAVE_ROOT
 
-SURFACE_FILENAME = "ghd_smoothed_reconstruction.obj"
+# The Geomagic-processed surface, as in get_mesh_aneux_tune_elements_v3.py
+# (obj_prefix = "geomagic_processed"). The surface stage writes
+# ghd_smoothed_reconstruction.obj, which goes through Geomagic before reaching here;
+# pass --surface_filename ghd_smoothed_reconstruction.obj to mesh it directly.
+SURFACE_FILENAME = "geomagic_processed.obj"
 FUSION_INFO_FILENAME = "ghd_forward_fusion_info.npz"
 
-# Values this module was actually tuned and run with (get_mesh_aneux_tune_elements_v3.py's
-# __main__), not volume_mesh.compute_adaptive_edge's own gentler function defaults.
+# Calibrated for an average of 3 M volume elements on the AneuGv2 generated cohort.
+#
+# The previous values, tuned on AneuX real data (get_mesh_aneux_tune_elements_v3.py),
+# were base_edge 0.13, ref_volume 320, ref_area 320, vol_exponent 0.30,
+# area_exponent 0.50. On this cohort they already averaged 3.0 M, but unevenly:
+# bifurcated shapes rarely exceed either reference, so they were never coarsened and
+# came in at 2.5 M, while the larger sidewall shapes were coarsened too little and
+# averaged 3.5 M. Measured on five cases they spanned 1.72 to 3.88 M.
+#
+# Element count fits N = 27.4 V/e^3 + 36.1 A/e^2 (V mm^3, A mm^2, e mm) to within 5%
+# over seven meshes, one of them re-meshed at a second edge length. Solving against
+# the volume and area of all 650 cases for a 3.0 M mean with the least spread gives
+# the values below. vol_exponent 0.33 is the natural choice: edge growing as V^(1/3)
+# holds V/e^3 constant. Predicted: mean 3.00 M, 5th-95th percentile 2.62-3.14 M,
+# bifurcated 2.96 / sidewall 3.05. Re-meshed, the same five cases span 2.15 to
+# 3.19 M, each within 5% of prediction.
+#
+# The mechanism only coarsens shapes above the references; it never refines below
+# base_edge. A shape smaller than both therefore still falls short -- the smallest
+# case here meshes to 2.15 M.
 DEFAULT_MESH_PARAMS = dict(
-    base_edge=0.13,
-    ref_volume=320.0,
-    ref_area=320.0,
-    vol_exponent=0.30,
-    area_exponent=0.50,
+    base_edge=0.1194,
+    ref_volume=150.0,
+    ref_area=300.0,
+    vol_exponent=0.33,
+    area_exponent=0.70,
     max_edge=1.0,
 )
 
@@ -95,6 +135,20 @@ def build_parser():
     p.add_argument("--inflation", action=argparse.BooleanOptionalAction, default=True,
                    help="add boundary-layer sublayers at the wall")
 
+    p.add_argument("--regularize", action=argparse.BooleanOptionalAction, default=True,
+                   help="measure roughness against the physiological reference and smooth "
+                        "only surfaces rougher than it")
+    p.add_argument("--regularizer_tolerance", type=float, default=1.0,
+                   help="SD above the reference mean a target scale may sit before the "
+                        "surface counts as too rough")
+    p.add_argument("--regularizer_remesher", default="auto",
+                   choices=["auto", "pymeshlab", "vmtk"],
+                   help="auto prefers pymeshlab and falls back to vmtk. The two gave the "
+                        "same verdict to within 0.15 SD on generated shapes")
+    p.add_argument("--max_cap_shift", type=float, default=0.5,
+                   help="mm a cap centroid may move under regularization before the "
+                        "regularized surface is rejected in favour of the original")
+
     p.add_argument("--extend_inlet", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--inlet_extension_length", type=float, default=3.0)
     p.add_argument("--extend_outlets", action=argparse.BooleanOptionalAction, default=False)
@@ -105,6 +159,9 @@ def build_parser():
     p.add_argument("--inlet_scale", type=float, default=0.001,
                    help="scale factor applied to inlet node coordinates in the CSV export")
 
+    p.add_argument("--copy_case_files", action=argparse.BooleanOptionalAction, default=True,
+                   help="copy every file in the source case folder into the output case "
+                        "folder, so the volume disk holds complete cases")
     p.add_argument("--overwrite", action="store_true",
                    help="reprocess cases whose mesh.vtu and mesh.msh already both exist")
     p.add_argument("--cases", nargs="*", default=None,
@@ -151,28 +208,57 @@ def main():
 
         attempted += 1
         os.makedirs(save_dir, exist_ok=True)
-        print("[%s]" % case)
+        print("[%s]" % case, flush=True)
+
+        # Copy the whole source case folder alongside the volume mesh, so each output
+        # case is self-contained on the volume disk: GHD coefficients, latent, opening
+        # data, metadata and the processed surface travel with their mesh. Files
+        # only, and never over an existing copy unless --overwrite.
+        if args.copy_case_files and os.path.abspath(save_dir) != os.path.abspath(case_surface_dir):
+            for name in sorted(os.listdir(case_surface_dir)):
+                src = os.path.join(case_surface_dir, name)
+                dst = os.path.join(save_dir, name)
+                if os.path.isfile(src) and (args.overwrite or not os.path.exists(dst)):
+                    shutil.copy2(src, dst)
         try:
             # -- obj -> vtp --------------------------------------------------------
             if not os.path.exists(vtp_path) or args.overwrite:
-                import pyvista as pv
-                pv.read(obj_path).save(vtp_path)
+                # merged, not a plain pv.read: see volume_mesh.read_surface
+                vm.read_surface(obj_path).save(vtp_path)
+
+            surface_for_meshing = vtp_path
+
+            # -- roughness: measure, and smooth only if rougher than the reference ---
+            if args.regularize:
+                reg_path = os.path.join(save_dir, "ghd_surface_regularized.vtp")
+                used, report = vm.regularize_surface_if_needed(
+                    surface_file=obj_path, output_file=reg_path,
+                    report_path=os.path.join(save_dir, "regularization.json"),
+                    tolerance=args.regularizer_tolerance,
+                    remesher=args.regularizer_remesher,
+                    max_cap_shift=args.max_cap_shift, overwrite=args.overwrite)
+                a = report["assessment"]
+                print("  roughness: %s (worst target %+.2f SD) -> %s"
+                      % (a["verdict"], a["worst_target_excess_sd"], report["action"]))
+                if report["action"] == "rejected":
+                    print("  ! %s" % report["reason"])
+                if report["action"] == "regularized":
+                    surface_for_meshing = used
 
             # -- optional inlet/outlet flow extension -------------------------------
-            surface_for_meshing = vtp_path
             if args.extend_inlet or args.extend_outlets:
                 extended_path = os.path.join(save_dir, "ghd_surface_extended.vtp")
-                surface_for_meshing = extended_path
                 if not os.path.exists(extended_path) or args.overwrite:
                     inlet_c, outlet_c = vm.load_opening_info_from_npz(npz_path)
                     vm.extend_inlet_and_outlets(
-                        surface_file=vtp_path, output_file=extended_path,
+                        surface_file=surface_for_meshing, output_file=extended_path,
                         inlet_centroid=inlet_c, outlet_centroids=outlet_c,
                         extend_inlet=args.extend_inlet,
                         inlet_extension_length=args.inlet_extension_length,
                         extend_outlets=args.extend_outlets,
                         outlet_extension_length_one_outlet=args.outlet_extension_length_one_outlet,
                         outlet_extension_length_two_outlets=args.outlet_extension_length_two_outlets)
+                surface_for_meshing = extended_path
 
             # -- volume meshing (adaptive edge from shape volume + area) ------------
             if not os.path.exists(vtu_path) or args.overwrite:

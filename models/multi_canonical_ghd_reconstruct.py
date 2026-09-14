@@ -284,7 +284,8 @@ class MultiCanonicalGHDReconstruct:
                                min_torsion=True, flaw_opening_min_size=10,
                                smooth=True, smooth_n_rings=3, smooth_n_iter=10, smooth_lam=0.5,
                                planarize_n_iter=10, planarize_lam=0.5,
-                               save_path=None):
+                               save_path=None, opening_indices=None, trimmed_faces=None,
+                           opening_normals=None):
         """Fuse a GHD aneurysm dome with tubular branch extensions.
 
         Reconstructs the mesh from `phi`, uncaps it using the canonical trimmed
@@ -320,11 +321,20 @@ class MultiCanonicalGHDReconstruct:
         atype = int(aneurysm_type)
         verts = self._reconstruct_verts_np(phi, atype)                       # [N, 3]
         mesh_ctr = verts.mean(0)
-        opening_indices = [idx.detach().cpu().numpy() for idx in self._load_openings(atype)]
+        # opening_indices / trimmed_faces may be supplied by the morphology
+        # sensor (models.morphoformer.SensorUncapper), which locates the caps on
+        # the DEFORMED mesh. The defaults below are the old precomputed canonical
+        # rings, which stop being the true rim once GHD warps the template --
+        # their plane normals sit a mean 52 degrees off the real centerline
+        # tangent, against 10 for the sensor.
+        if opening_indices is None:
+            opening_indices = [idx.detach().cpu().numpy() for idx in self._load_openings(atype)]
+        else:
+            opening_indices = [np.asarray(i, dtype=int) for i in opening_indices]
         n_open = len(opening_indices)
 
         # Uncapped dome: trimmed faces applied to the deformed verts.
-        tri = self._trimmed_faces(atype)
+        tri = self._trimmed_faces(atype) if trimmed_faces is None else np.asarray(trimmed_faces)
         uncapped = pv.PolyData(verts, np.hstack([np.full((len(tri), 1), 3), tri]).ravel())
         step = avg_edge_length(uncapped)
 
@@ -371,7 +381,13 @@ class MultiCanonicalGHDReconstruct:
                 normal0 = tan[0]                                  # outward dir the vessel leaves by
             else:
                 cl = tan = None
-                normal0 = _outward_normal(ring0, centroid0)       # extrusion direction
+                # Extrusion direction for a branch with no usable centerline.
+                # Prefer the sensor's tangent when supplied: a plane fit to the
+                # rim is only as good as the rim is flat, and degrades to a mean
+                # 34.8 degrees of error once flatness passes 0.25, against 10.6
+                # for the sensor.
+                normal0 = (_outward_normal(ring0, centroid0) if opening_normals is None
+                           else np.asarray(opening_normals[o], dtype=float))
             specs.append({"valid": valid, "cl": cl, "tan": tan,
                           "normal0": normal0, "centroid0": centroid0})
 

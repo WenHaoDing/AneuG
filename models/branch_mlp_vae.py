@@ -136,7 +136,10 @@ class BranchFourierVAE(nn.Module):
         return F.normalize(deriv, dim=-1)
 
     # ── phi conditioning (overridden by the GCN variant) ──────────────────────
-    def encode_phi(self, phi, aneurysm_types=None):
+    def encode_phi(self, phi, aneurysm_types=None, rot=None):
+        # The non-GCN conditioner reads phi directly, which lives in the fixed
+        # canonical basis and therefore cannot be rotated. Augmentation is only
+        # meaningful for the GCN variant, which sees actual vertices.
         return self.ghd_encoder(phi)                                            # [B, ghd_dim]
 
     # ── core ─────────────────────────────────────────────────────────────────
@@ -159,8 +162,8 @@ class BranchFourierVAE(nn.Module):
         z_exp = z.unsqueeze(1).expand(-1, cond_emb.size(1), -1)                  # [B, mb, latent]
         return self.presence_head(torch.cat([z_exp, cond_emb], dim=-1)).squeeze(-1)  # [B, mb] logits
 
-    def forward(self, branch_vector, fourier_coeffs, phi, cond):
-        cond     = cond._replace(ghd_embed=self.encode_phi(phi, cond.aneurysm_type))
+    def forward(self, branch_vector, fourier_coeffs, phi, cond, rot=None):
+        cond     = cond._replace(ghd_embed=self.encode_phi(phi, cond.aneurysm_type, rot))
         cond_emb = self.cond_embed(cond)
         target   = self._norm_target(branch_vector, fourier_coeffs)
         mu, logvar = self._encode(target, cond_emb, cond.branch_mask)
@@ -186,13 +189,13 @@ class BranchFourierVAE(nn.Module):
         return coeff_loss, vec_loss, presence_loss, kl_loss
 
     @torch.no_grad()
-    def sample(self, phi, cond, z=None):
+    def sample(self, phi, cond, z=None, rot=None):
         """Returns (branch_vector [B, mb, 3], coeffs [B, mb, k, 3], presence [B, mb]).
 
         presence is P(branch exists) ∈ (0,1) per branch slot; the caller masks it
         against the candidate openings and thresholds (e.g. > 0.5) to drop branches.
         """
-        cond     = cond._replace(ghd_embed=self.encode_phi(phi, cond.aneurysm_type))
+        cond     = cond._replace(ghd_embed=self.encode_phi(phi, cond.aneurysm_type, rot))
         cond_emb = self.cond_embed(cond)
         if z is None:
             z = torch.randn(phi.size(0), self.latent_dim, device=phi.device)
@@ -215,8 +218,26 @@ class BranchFourierVAE_GCNConditioner(BranchFourierVAE):
         self.ghd_encoder = GCNMeshEncoder(ghd_dim, in_channels=3,
                                           hidden=gcn_hidden, pool_ratio=gcn_pool_ratio)
 
-    def encode_phi(self, phi, aneurysm_types):
+    def encode_phi(self, phi, aneurysm_types, rot=None):
         # point_std=None → mesh verts stay in physical GHD space (same frame as
         # start_points / branch_vector targets).
         pyg_batch = self.multi_recon.to_pyg_batch(phi, aneurysm_types, point_std=None)
+        if rot is not None:
+            # Rotation augmentation. phi CANNOT simply be rotated -- the GHD basis
+            # is defined on a fixed template, so rotating the coefficients would
+            # rotate the deformation while leaving the template behind. The
+            # rotation has to be applied to the reconstructed VERTICES, here,
+            # and the caller must apply the same R to start_points,
+            # branch_direction, branch_vector and the Fourier coefficients so the
+            # whole condition/target system turns together.
+            # Index by pyg_batch.batch, NOT by dividing the node count: a batch
+            # mixes aneurysm types, so graphs have 4143 and 2590 vertices and
+            # there is no single per-graph node count to divide by.
+            R = rot[pyg_batch.batch]                                  # [N_total, 3, 3]
+            pos = torch.einsum('nij,nj->ni', R, pyg_batch.x[:, :3])
+            if pyg_batch.x.shape[1] > 3:                              # normals, if present
+                nrm = torch.einsum('nij,nj->ni', R, pyg_batch.x[:, 3:6])
+                pyg_batch.x = torch.cat([pos, nrm, pyg_batch.x[:, 6:]], dim=1)
+            else:
+                pyg_batch.x = pos
         return self.ghd_encoder(pyg_batch)

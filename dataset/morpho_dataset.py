@@ -150,6 +150,14 @@ class MorphoDataset(torch.utils.data.Dataset):
             if not path.exists():
                 continue
             rec = np.load(path, allow_pickle=True).item()
+            if rec.get("accepted_unedited"):
+                # The human accepted the SENSOR'S OWN prediction unedited, so this
+                # record stores no labels -- and training on it would be a no-op
+                # that only dilutes the corrections, since the target would be
+                # exactly what the model already outputs. Skipped explicitly
+                # rather than left to be dropped for having no dome, so that
+                # materialising these later cannot silently pull them in.
+                continue
             if rec.get("rejected"):
                 # A synthetic shape the human judged unrealistic. The record exists
                 # only so label_morpho never offers it again, and so the rejection

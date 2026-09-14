@@ -86,7 +86,11 @@ def main():
                       if with_scale and scale_n is not None else np.ones(n, dtype=np.float32))
 
         for i in range(n):
-            case = f"synthetic_{tag}_seed{args.seed}_{i:04d}"
+            # Amplitude belongs in the id. Without it a pool drawn at a different
+            # amplitude from the same checkpoint and seed produces IDENTICAL case
+            # ids to an earlier one, which would silently collide with shapes that
+            # have already been labelled.
+            case = f"synthetic_{tag}_a{amps[i]:.1f}_seed{args.seed}_{i:04d}"
             np.save(out / f"{case}.npy", {
                 "case": case, "aneurysm_type": int(types[i]),
                 "phi": phi[i].astype(np.float32), "scale": float(scales[i]),

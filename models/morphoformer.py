@@ -89,6 +89,10 @@ a constant to KL(uniform-over-patch || predicted loc_head distribution).
 conda activate new
 """
 
+import collections
+from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -377,7 +381,6 @@ def region_from_probs(probs_b, frac=0.2, min_ratio=3.0, max_k=400):
     `max_k` caps the count near a real cap's size so the region stays readable
     once the head sharpens.
     """
-    import numpy as np
     if probs_b is None or probs_b.size == 0:
         return np.zeros(0, dtype=int)
     n = probs_b.size
@@ -389,3 +392,480 @@ def region_from_probs(probs_b, frac=0.2, min_ratio=3.0, max_k=400):
     if idx.size > max_k:
         idx = idx[np.argsort(probs_b[idx])[-max_k:]]
     return idx
+
+
+class SensorUncapper:
+    """Loads a trained morphology sensor and uses it to uncap meshes.
+
+    Replaces the old opening-index mechanism. That design marked a fixed set of
+    canonical vertices as "the opening ring" and reused them on every deformed
+    mesh, which stops being true once GHD warps the template: measured against
+    real centerlines, the plane normal of those stale rings is off by a mean of
+    52 degrees, while the sensor's tangent is off by 10.
+
+    THE TANGENT COMES FROM THE SENSOR, not from a plane fit to the cut. Fitting
+    a plane to the rim works when the rim happens to be planar and fails when it
+    is not, and on this corpus that failure is common. Grouped by rim flatness
+    (ratio of the smallest to the middle singular value), error against the real
+    centerline tangent:
+
+        flatness    n     plane fit    sensor
+        0.00-0.08   58       8.0 deg   8.9 deg
+        0.08-0.15  210       9.1       9.2
+        0.15-0.25   63      14.1      12.8
+        0.25-1.00   51      34.8      10.6
+
+    The two agree while the rim is flat, and only the plane fit degrades. The
+    plane fit is still computed, but purely as a health flag -- see `rim_flatness`
+    and `svd_disagreement_deg` in the returned dict -- never as the answer.
+    """
+
+    def __init__(self, model, multi_recon, device=None):
+        # Frozen, permanently. Nothing downstream harvests a loss from the
+        # uncapping or the merged mesh -- the sensor is a fixed measuring
+        # instrument here, and a stage-2 optimiser built over model.parameters()
+        # must never pick these up. eval() alone would not prevent that.
+        self.model = model.eval()
+        for prm in self.model.parameters():
+            prm.requires_grad_(False)
+        self.multi_recon = multi_recon
+        self.device = device or next(model.parameters()).device
+        self.is_probabilistic = any("prior_net" in n for n, _ in model.named_parameters())
+
+    @classmethod
+    def from_checkpoint(cls, ckpt_path, multi_recon, device="cpu", latent_dim=None):
+        """Build from a saved sensor. Detects the probabilistic variant from the
+        weights themselves rather than trusting a flag, so a checkpoint saved by
+        an older script still loads correctly."""
+        device = torch.device(device)
+        ck = torch.load(ckpt_path, map_location=device, weights_only=False)
+        prob = any(k.startswith("prior_net") for k in ck["model"])
+        if prob:
+            from models.morphoformer_prob import ProbMorphoFormer
+            ld = latent_dim or ck.get("hparams", {}).get("latent_dim") \
+                 or ck["model"]["prior_net.net.2.bias"].shape[0] // 2
+            model = ProbMorphoFormer(multi_recon, latent_dim=ld, **ck["args"])
+        else:
+            model = MorphoFormer(multi_recon, **ck["args"])
+        model.load_state_dict(ck["model"])
+        return cls(model.to(device), multi_recon, device)
+
+    # ---- core ---------------------------------------------------------------
+
+    @torch.no_grad()
+    def _predict(self, phi, aneurysm_type, sample=False):
+        """Sensor outputs for a same-type batch. For the probabilistic variant,
+        sample=False uses the prior MEAN -- the single most likely labelling,
+        which is what a deterministic pipeline needs. sample=True draws from the
+        prior, giving a different plausible uncapping each call."""
+        phi = torch.as_tensor(phi, dtype=torch.float32, device=self.device)
+        if phi.dim() == 2:
+            phi = phi[None]
+        at = torch.as_tensor(aneurysm_type, dtype=torch.long, device=self.device)
+        if at.dim() == 0:
+            at = at.expand(phi.size(0))
+        if self.is_probabilistic and not sample:
+            pyg = self.multi_recon.to_pyg_batch(phi, at, point_std=None,
+                                                include_normals=self.model.use_normals)
+            _, feat, batch = self.model.encoder(pyg)
+            fd, tok = to_dense_batch(feat, batch)
+            m = tok.unsqueeze(-1).float()
+            mu, _ = self.model.prior_net((fd * m).sum(1) / m.sum(1).clamp(min=1))
+            return self.model(phi, at, z=mu)
+        return self.model(phi, at)
+
+    @staticmethod
+    def _np(x):
+        """phi may arrive as a CUDA tensor from branch_conditions."""
+        if torch.is_tensor(x):
+            x = x.detach().cpu()
+        return np.asarray(x, dtype=np.float32)
+
+    @staticmethod
+    def push_outside(start, rim_pts, tangent, margin_frac=0.10):
+        """Guarantee the branch start sits OUTSIDE the cut plane.
+
+        The tube is lofted from the planarized rim along the generated
+        centerline, and that centerline begins at this start point. If the start
+        falls behind the rim plane the first ring lands inside the dome and the
+        merged mesh self-intersects. Measured on synthetic shapes the sensor's
+        endpoint is outside by +0.26 on average, but it lands INSIDE on 9% of
+        branches, by a median of 0.13 and up to 0.79 -- so this is not rare
+        enough to leave to chance.
+
+        The margin scales with the opening's own radius, so a small branch is
+        not pushed as far as a large one.
+        """
+        if len(rim_pts) < 3:
+            return start, 0.0
+        cen = rim_pts.mean(0)
+        radius = float(np.linalg.norm(rim_pts - cen, axis=1).mean())
+        margin = margin_frac * radius
+        d = float((start - cen) @ tangent)
+        if d >= margin:
+            return start, 0.0
+        return start + (margin - d) * tangent, margin - d
+
+    @torch.no_grad()
+    def uncap(self, phi, aneurysm_type, sample=False, region_kwargs=None,
+              margin_frac=0.10):
+        """Open one mesh. Returns a dict with the cut mesh and per-branch conditions.
+
+        Faces wholly inside a predicted cap are deleted, which leaves a clean
+        boundary loop; deleting every face that merely touches the cap would eat
+        a ring of extra geometry and push the rim outward.
+        """
+        ep, tg, loc, tok, extra = self._predict(phi, aneurysm_type, sample)
+        atype = int(torch.as_tensor(aneurysm_type).flatten()[0])
+        nv = int(tok[0].sum())
+        verts = self.multi_recon._reconstruct_verts_np(self._np(phi).reshape(-1, 3), atype)
+        faces = self.multi_recon.get(atype).canonical_Meshes.faces_packed().cpu().numpy()
+        n_open = len(self.multi_recon._load_openings(atype))
+        rk = region_kwargs or {}
+
+        caps, rims, starts, dirs, flat, disag = [], [], [], [], [], []
+        n_islands, n_dropped, n_filled, n_pushed, ok = [], [], [], [], []
+        cut = np.zeros(nv, dtype=bool)
+        for b in range(n_open):
+            cap = np.zeros(nv, dtype=bool)
+            cap[region_from_probs(loc[0, b, :nv].cpu().numpy(), **rk)] = True
+            cap, ncomp, dropped = self.largest_component(cap, faces)
+            cap, nfilled = self.fill_holes(cap, faces)
+            n_islands.append(ncomp - 1); n_dropped.append(dropped); n_filled.append(nfilled)
+            caps.append(cap)
+            cut |= cap
+            rim = self._rim(cap, faces)
+            rims.append(rim)
+            t = tg[0, b].cpu().numpy()
+            t = t / (np.linalg.norm(t) + 1e-9)
+            dirs.append(t)
+            st, pushed = self.push_outside(ep[0, b].cpu().numpy(), verts[rim], t, margin_frac)
+            starts.append(st); n_pushed.append(pushed)
+            # a rim whose longest loop misses most of the boundary is split and
+            # cannot be lofted onto; flagged rather than silently swept
+            nl, dmax = self.rim_topology(cap, faces)
+            ok.append(bool(len(rim) >= 5 and nl == 1 and dmax == 2))
+            f, d = self._plane_check(verts, rim, t, verts.mean(0))
+            flat.append(f); disag.append(d)
+
+        keep = ~cut[faces].all(1)
+        return {
+            "verts": verts, "faces": faces[keep], "faces_removed": int((~keep).sum()),
+            "cap_masks": np.stack(caps), "rims": rims,
+            "start_points": np.stack(starts), "directions": np.stack(dirs),
+            "branch_mask": np.ones(n_open, dtype=bool),
+            "dome": (torch.sigmoid(extra["dome_logits"][0, :nv]).cpu().numpy() > 0.5
+                     if "dome_logits" in extra else None),
+            # health flags, not answers
+            "rim_flatness": np.array(flat), "svd_disagreement_deg": np.array(disag),
+            "n_islands_dropped": np.array(n_islands), "verts_dropped": np.array(n_dropped),
+            "verts_hole_filled": np.array(n_filled),
+            "endpoint_pushed": np.array(n_pushed), "rim_ok": np.array(ok),
+        }
+
+    INSPECT_DIR = "runtime_train/synthetic_pool_inspect"
+
+    def validate(self, phi, aneurysm_type, sample=False):
+        """Per-branch usability of a shape's uncapping, without building tubes.
+
+        A branch is unusable when its cap's boundary does not close into one
+        loop, which happens when the predicted region wraps a thin branch and
+        meets itself. Such a cap has two rims and cannot be lofted onto.
+        """
+        o = self.uncap(phi, aneurysm_type, sample=sample)
+        ok = np.asarray(o["rim_ok"], dtype=bool)
+        return {"ok": bool(ok.all()), "rim_ok": ok,
+                "n_failed": int((~ok).sum()), "uncap": o}
+
+    def quarantine(self, phi, aneurysm_type, case=None, provenance=None,
+                   out_dir=None, sample=False, extra=None):
+        """Set a shape aside for inspection if its uncapping fails.
+
+        Returns the written path, or None when the shape is fine. The record
+        matches the synthetic-pool schema so the inspect pool loads with the
+        same tooling, plus which branches failed and why.
+
+        Quarantined shapes must NOT feed the stage-2 direction loss and must NOT
+        be merged: a split rim yields a collapsed tube, and a collapsed tube
+        would teach the branch VAE to aim at geometry that does not exist.
+        """
+        v = self.validate(phi, aneurysm_type, sample=sample)
+        if v["ok"]:
+            return None
+        out = Path(out_dir or self.INSPECT_DIR)
+        out.mkdir(parents=True, exist_ok=True)
+        case = case or f"failed_{abs(hash(self._np(phi).tobytes())) % (10**10):010d}"
+        rec = {"case": case, "aneurysm_type": int(torch.as_tensor(aneurysm_type).flatten()[0]),
+               "phi": self._np(phi).reshape(-1, 3),
+               "is_synthetic": True, "uncap_failed": True,
+               "rim_ok": v["rim_ok"], "n_failed": v["n_failed"],
+               "rim_sizes": np.array([len(r) for r in v["uncap"]["rims"]]),
+               "cap_sizes": v["uncap"]["cap_masks"].sum(1),
+               "provenance": provenance or {}}
+        if extra:
+            rec.update(extra)
+        path = out / f"{case}.npy"
+        np.save(path, rec, allow_pickle=True)
+        return path
+
+    @torch.no_grad()
+    def branch_conditions(self, phi, aneurysm_types, max_branches=3, sample=False,
+                          skip_failed=False):
+        """Drop-in replacement for MultiCanonicalGHDReconstruct.compute_branch_conditions.
+
+        Same (start_points, directions, mask) signature and the same padded
+        widths, so stage-2 call sites swap one for the other. Unlike the
+        original it accepts MIXED types in a batch, looping per type internally.
+        """
+        phi = torch.as_tensor(phi, dtype=torch.float32, device=self.device)
+        at = torch.as_tensor(aneurysm_types, dtype=torch.long, device=self.device)
+        if at.dim() == 0:
+            at = at.expand(phi.size(0))
+        B = phi.size(0)
+        starts = phi.new_zeros(B, max_branches, 3)
+        dirs = phi.new_zeros(B, max_branches, 3)
+        mask = torch.zeros(B, max_branches, dtype=torch.bool, device=self.device)
+        for t in sorted({int(x) for x in at.tolist()}):
+            sel = (at == t).nonzero(as_tuple=True)[0]
+            ep, tg, loc, tok, _ = self._predict(phi[sel], at[sel], sample)
+            n_open = min(len(self.multi_recon._load_openings(t)), max_branches)
+            starts[sel, :n_open] = ep[:, :n_open]
+            dirs[sel, :n_open] = F.normalize(tg[:, :n_open], dim=-1)
+            mask[sel, :n_open] = True
+            if skip_failed:
+                # Clear the mask on branches whose rim will not close, so the
+                # stage-2 direction loss (which averages over this mask) takes
+                # no target from a cap that cannot be swept.
+                #
+                # The rim check reuses loc_probs from the batched forward above.
+                # Calling uncap() per sample here instead re-ran the encoder once
+                # per sample -- B+1 forward passes rather than 1 -- which
+                # dominated the stage-2 step time.
+                faces = self.multi_recon.get(t).canonical_Meshes.faces_packed().cpu().numpy()
+                loc_np = loc[:, :n_open].detach().cpu().numpy()
+                nv = int(tok[0].sum())
+                for j, i in enumerate(sel.tolist()):
+                    for b in range(n_open):
+                        cap = np.zeros(nv, dtype=bool)
+                        cap[region_from_probs(loc_np[j, b, :nv])] = True
+                        cap, _, _ = self.largest_component(cap, faces)
+                        cap, _ = self.fill_holes(cap, faces)
+                        rim = self._rim(cap, faces)
+                        nl, dmax = self.rim_topology(cap, faces)
+                        if len(rim) < 5 or nl != 1 or dmax != 2:
+                            mask[i, b] = False
+        return starts, dirs, mask
+
+    @torch.no_grad()
+    def fused_mesh(self, phi, aneurysm_type, branch_points, branch_mask=None,
+                   sample=False, **kwargs):
+        """Full stage-1 + stage-2 mesh: uncap with the sensor, planarize the cut
+        openings, then sweep the vessel cross-section along each generated
+        centerline and merge.
+
+        Thin wrapper over MultiCanonicalGHDReconstruct.reconstruct_fused_mesh,
+        handing it the SENSOR'S openings instead of the precomputed canonical
+        rings.
+        """
+        atype = int(torch.as_tensor(aneurysm_type).flatten()[0])
+        ep, tg, loc, tok, _ = self._predict(phi, aneurysm_type, sample)
+        nv = int(tok[0].sum())
+        faces = self.multi_recon.get(atype).canonical_Meshes.faces_packed().cpu().numpy()
+        n_open = len(self.multi_recon._load_openings(atype))
+
+        loops, cut_masks, cut = [], [], np.zeros(nv, dtype=bool)
+        for b in range(n_open):
+            cap = np.zeros(nv, dtype=bool)
+            cap[region_from_probs(loc[0, b, :nv].cpu().numpy())] = True
+            cap, _, _ = self.largest_component(cap, faces)
+            cap, _ = self.fill_holes(cap, faces)
+            cut |= cap
+            cut_masks.append(cap)
+            loops.append(self.rim_loop(cap, faces))
+        # Skip rather than sweep a broken rim: a split boundary produces a
+        # collapsed tube, which is worse than no branch at all. Length alone is
+        # not the test -- the split case here has loops of 27 and 17, both long
+        # enough to look fine. The test is whether the LONGEST loop accounts for
+        # essentially the whole boundary.
+        for b, cm in enumerate(cut_masks):
+            nl, dmax = self.rim_topology(cm, faces)
+            if len(loops[b]) < 5 or nl != 1 or dmax != 2:
+                return None
+        trimmed = faces[~cut[faces].all(1)]
+        return self.multi_recon.reconstruct_fused_mesh(
+            self._np(phi).reshape(-1, 3), atype,
+            branch_points, branch_mask,
+            opening_indices=loops, trimmed_faces=trimmed,
+            opening_normals=[F.normalize(tg[0, b], dim=-1).cpu().numpy()
+                             for b in range(n_open)], **kwargs)
+
+    # ---- helpers ------------------------------------------------------------
+
+    @staticmethod
+    def largest_component(cap, faces):
+        """Keep only the biggest connected patch of a predicted cap.
+
+        The loc head is a softmax over every vertex, so a confident cap usually
+        comes with a few stray high-probability vertices elsewhere on the
+        surface. Those islands are not part of the opening, but they make the
+        cap non-simply-connected, which splits its boundary into several loops
+        and leaves the tube sweeper with no single rim to loft onto. Discarding
+        everything but the largest component removes them.
+
+        Returns (kept_mask, n_components, discarded_vertex_count).
+        """
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+        idx = np.flatnonzero(cap)
+        if idx.size == 0:
+            return cap, 0, 0
+        pos = -np.ones(cap.shape[0], dtype=int)
+        pos[idx] = np.arange(idx.size)
+        e = []
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            m = cap[faces[:, a]] & cap[faces[:, b]]
+            if m.any():
+                e.append(np.stack([pos[faces[m, a]], pos[faces[m, b]]], 1))
+        if not e:
+            return cap, int(idx.size), 0
+        e = np.concatenate(e)
+        g = coo_matrix((np.ones(len(e)), (e[:, 0], e[:, 1])), shape=(idx.size, idx.size))
+        n, lab = connected_components(g, directed=False)
+        if n == 1:
+            return cap, 1, 0
+        keep = np.bincount(lab).argmax()
+        out = np.zeros_like(cap)
+        out[idx[lab == keep]] = True
+        return out, int(n), int(cap.sum() - out.sum())
+
+    @staticmethod
+    def fill_holes(cap, faces):
+        """Absorb pockets of non-cap vertices enclosed by the cap.
+
+        Dropping islands is not enough on its own. A cap can be one connected
+        patch and still have a hole punched through it where a few vertices fell
+        below the probability threshold, and that hole contributes a SECOND
+        boundary loop, which splits the rim just as an island does. The mesh is
+        closed and a cap is a small patch, so the non-cap region is one huge
+        component plus any such pockets: keep the huge one as non-cap and flip
+        everything else into the cap.
+        """
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+        out = ~cap
+        idx = np.flatnonzero(out)
+        if idx.size == 0:
+            return cap, 0
+        pos = -np.ones(cap.shape[0], dtype=int); pos[idx] = np.arange(idx.size)
+        e = []
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            m = out[faces[:, a]] & out[faces[:, b]]
+            if m.any():
+                e.append(np.stack([pos[faces[m, a]], pos[faces[m, b]]], 1))
+        if not e:
+            return cap, 0
+        e = np.concatenate(e)
+        g = coo_matrix((np.ones(len(e)), (e[:, 0], e[:, 1])), shape=(idx.size, idx.size))
+        n, lab = connected_components(g, directed=False)
+        if n == 1:
+            return cap, 0
+        main = np.bincount(lab).argmax()
+        filled = cap.copy()
+        filled[idx[lab != main]] = True
+        return filled, int(filled.sum() - cap.sum())
+
+    @staticmethod
+    def _boundary_edges(cap, faces):
+        """Edges of the kept mesh belonging to exactly one face.
+
+        Vectorised. A collections.Counter over ~25k half-edges is pure Python
+        and, run once per branch per sample, dominated the stage-2 step time."""
+        kept = faces[~cap[faces].all(1)]
+        if len(kept) == 0:
+            return np.zeros((0, 2), dtype=int)
+        e = np.sort(np.concatenate([kept[:, [0, 1]], kept[:, [1, 2]], kept[:, [2, 0]]]), axis=1)
+        # Encode each edge as one int64 key. np.unique(..., axis=0) compares rows
+        # and is an order of magnitude slower than the 1-D path.
+        n = int(faces.max()) + 1
+        key = e[:, 0].astype(np.int64) * n + e[:, 1]
+        uk, cnt = np.unique(key, return_counts=True)
+        b = uk[cnt == 1]
+        return np.stack([b // n, b % n], axis=1).astype(int)
+
+    @staticmethod
+    def rim_topology(cap, faces):
+        """True topology of the cut boundary: (n_loops, max_vertex_degree).
+
+        A usable rim is ONE simple cycle: a single connected component in which
+        every vertex has exactly two boundary neighbours. Walking the boundary
+        and comparing lengths -- which is what this used to do -- cannot tell a
+        genuinely split rim from a single loop that pinches against itself at
+        one vertex, because a greedy walk takes a wrong turn at the pinch and
+        reports two fragments. The case that sent me chasing a "split rim" was
+        exactly that: one component, 44 vertices, one of degree 4.
+        """
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+        be = SensorUncapper._boundary_edges(cap, faces)
+        if len(be) == 0:
+            return 0, 0
+        vs = np.unique(be)
+        pos = {int(v): i for i, v in enumerate(vs)}
+        r = np.fromiter((pos[int(x)] for x in be[:, 0]), int, len(be))
+        c = np.fromiter((pos[int(x)] for x in be[:, 1]), int, len(be))
+        g = coo_matrix((np.ones(len(r)), (r, c)), shape=(len(vs), len(vs)))
+        n_loops, _ = connected_components(g, directed=False)
+        deg = np.bincount(np.concatenate([r, c]), minlength=len(vs))
+        return int(n_loops), int(deg.max())
+
+    @staticmethod
+    def rim_loop(cap, faces):
+        """Rim as an ORDERED cycle of vertex indices, walking the boundary.
+
+        The tube sweeper needs the loop in order -- it lofts each centerline
+        ring onto these vertices in sequence -- so an unordered set is useless
+        to it. Returns the LONGEST cycle when a cap's boundary splits into
+        several, which happens if the predicted region is not simply connected.
+        """
+        bedges = SensorUncapper._boundary_edges(cap, faces)
+        if len(bedges) == 0:
+            return np.zeros(0, dtype=int)
+        adj = collections.defaultdict(list)
+        for a, b in bedges:
+            adj[a].append(b); adj[b].append(a)
+        seen, loops = set(), []
+        for start in adj:
+            if start in seen:
+                continue
+            loop, cur, prev = [start], start, None
+            seen.add(start)
+            while True:
+                nxt = next((v for v in adj[cur] if v != prev and v not in seen), None)
+                if nxt is None:
+                    break
+                loop.append(nxt); seen.add(nxt); prev, cur = cur, nxt
+            loops.append(loop)
+        return np.array(max(loops, key=len), dtype=int)
+
+    @staticmethod
+    def _rim(cap, faces):
+        """Vertices on the boundary loop left by deleting the cap."""
+        return np.unique(SensorUncapper._boundary_edges(cap, faces))
+
+    @staticmethod
+    def _plane_check(verts, rim, tangent, centre):
+        """Plane fit to the rim, reported ONLY as a health signal.
+
+        A flat rim whose normal disagrees with the sensor is worth looking at.
+        A non-flat rim explains itself: the plane fit is meaningless there and
+        the sensor is the only usable answer."""
+        if len(rim) < 5:
+            return float("nan"), float("nan")
+        P = verts[rim]; cen = P.mean(0)
+        _, s, vt = np.linalg.svd(P - cen)
+        n = vt[-1]
+        if n @ (cen - centre) < 0:
+            n = -n
+        flat = float(s[2] / (s[1] + 1e-9))
+        d = float(np.degrees(np.arccos(np.clip(abs(n @ tangent), -1, 1))))
+        return flat, d

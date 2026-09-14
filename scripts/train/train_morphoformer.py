@@ -51,6 +51,7 @@ sys.path.insert(0, str(ROOT))
 
 from dataset.morpho_dataset import MorphoDataset, collate_morpho
 from models.morphoformer import MorphoFormer, RandomSO3Rotation
+from models.morphoformer_prob import ProbMorphoFormer
 from models.multi_canonical_ghd_reconstruct import MultiCanonicalGHDReconstruct
 from utils.generate_synthetic import load_ghd_vae
 
@@ -92,6 +93,32 @@ def _parse_args():
     p.add_argument("--no-rotation-augment", dest="rotation_augment", action="store_false",
                    help="Disable the random SO(3) augmentation.")
     p.add_argument("--save-root", default=None)
+    p.add_argument("--init-from", default=None,
+                   help="Checkpoint to initialise from. Turns the run into a FINE-TUNE: "
+                        "'_ft' is appended to the run name so it never overwrites the run "
+                        "it started from.")
+    p.add_argument("--synthetic-root", default=None,
+                   help="Second dataset root of hand-labelled SYNTHETIC cases. Records the "
+                        "human accepted unedited are skipped by MorphoDataset: their target "
+                        "is the model's own output, so they teach nothing and only dilute "
+                        "the corrections.")
+    p.add_argument("--synthetic-frac", type=float, default=0.3,
+                   help="Share of each epoch's draws taken from the synthetic root, via a "
+                        "weighted sampler. Decoupling this from the corpus sizes means the "
+                        "mix does not drift as more cases get labelled.")
+    p.add_argument("--probabilistic", action="store_true",
+                   help="Train ProbMorphoFormer: cap/dome regions conditioned on a latent z, "
+                        "so the model samples plausible labellings instead of one averaged one.")
+    p.add_argument("--latent-dim", type=int, default=8)
+    p.add_argument("--kl-weight", type=float, default=0.1,
+                   help="Weight on KL(posterior||prior). THE knob to watch: too high and the "
+                        "two collapse so z carries nothing and the model is deterministic "
+                        "again; too low and the prior never catches the posterior, so "
+                        "inference samples land where the decoder never trained.")
+    p.add_argument("--lr", type=float, default=None,
+                   help="Peak LR (default 5e-4 from scratch). A fine-tune should use far "
+                        "less, around 1e-4: resuming at the previous run's final 1e-6 would "
+                        "not move, and restarting at 5e-4 would discard what was learned.")
     p.add_argument("--no-sanity-synthetic", dest="sanity_synthetic", action="store_false",
                    help="Skip the synthetic sanity panel (needs a stage-1 GHD VAE checkpoint).")
     p.add_argument("--ghd-vae-ckpt", default=None)
@@ -115,7 +142,7 @@ BATCH_SIZE = 64  # GPSConv's global attention is O(N^2) per graph, up to N=4143 
                  # memory is not the binding constraint. 24 over 32 keeps a
                  # reasonable number of optimizer steps per epoch: the corpus is
                  # only ~507 training cases, so batch 24 gives ~21 steps/epoch.
-LR         = 5e-4
+LR         = _args.lr if _args.lr else 5e-4
 LR_MIN     = 1e-6   # linear-decay floor (1/500 of LR), reached at the final epoch
 
 MAX_BRANCHES = 3
@@ -177,6 +204,12 @@ if PREDICT_ROTATION:
     _tag += f"_rot{ROTATION_WEIGHT:g}"
 if FOLDS > 0:
     _tag += f"_fold{FOLD}of{FOLDS}"
+if _args.probabilistic:
+    _tag += f"_prob_z{_args.latent_dim}_kl{_args.kl_weight:g}"
+if _args.init_from:
+    # Distinct directory, always. A fine-tune that overwrote its own starting
+    # point would destroy the only baseline it can be compared against.
+    _tag += f"_ft_syn{_args.synthetic_frac:g}_lr{LR:g}"
 SAVE_ROOT = Path(_args.save_root) if _args.save_root else ROOT / "runtime_train" / "morphoformer"
 SAVE_DIR = SAVE_ROOT / _VARIANT / _tag
 
@@ -218,6 +251,12 @@ def all_hparams():
         "batch_size": BATCH_SIZE,
         "lr": LR,
         "lr_min": LR_MIN,
+        "probabilistic": _args.probabilistic,
+        "latent_dim": _args.latent_dim,
+        "kl_weight": _args.kl_weight,
+        "init_from": _args.init_from,
+        "synthetic_root": _args.synthetic_root,
+        "synthetic_frac": _args.synthetic_frac,
         "max_branches": MAX_BRANCHES,
         "num_types": NUM_TYPES,
         "hidden": HIDDEN,
@@ -336,7 +375,7 @@ def plot_loss_curves(history, save_dir):
 
     # dome/phi/rotation only exist for the morphology_sensor variant, so include
     # whichever the run actually recorded rather than a fixed list.
-    keys = [k for k in ("loss", "endpoint", "tangent", "patch", "dome", "phi", "rotation")
+    keys = [k for k in ("loss", "endpoint", "tangent", "patch", "dome", "phi", "rotation", "kl")
             if history.get(k)]
     ncols = min(len(keys), 4)
     nrows = (len(keys) + ncols - 1) // ncols
@@ -653,6 +692,22 @@ def main():
                             # would only drop every case that lacks one,
                             # synthetic cases included.
                             with_affine=False)
+    n_real = len(dataset.samples)
+    sampler = None
+    if _args.synthetic_root:
+        syn = MorphoDataset(_args.synthetic_root, max_branches=MAX_BRANCHES,
+                            with_dome=PREDICT_DOME, with_affine=False)
+        dataset.samples = dataset.samples + syn.samples
+        n_syn = len(syn.samples)
+        f = _args.synthetic_frac
+        # Weighted sampling rather than plain concatenation: 68 synthetic against
+        # 523 real would otherwise be 11% of the mix, set by however many cases
+        # happened to get labelled rather than by choice.
+        w = ([(1.0 - f) / max(n_real, 1)] * n_real) + ([f / max(n_syn, 1)] * n_syn)
+        sampler = torch.utils.data.WeightedRandomSampler(
+            w, num_samples=len(dataset.samples), replacement=True)
+        print(f"training mix: {n_real} real + {n_syn} synthetic, "
+              f"synthetic drawn {f:.0%} of the time")
     test_set = None
     if _args.test_size > 0:
         # Hash of the case name, not a shuffle: every run in the sweep must hold
@@ -687,11 +742,20 @@ def main():
         held_out = [dataset.samples[i]["case"] for i in held]
         dataset.samples = [dataset.samples[i] for i in keep]
         print(f"fold {FOLD}/{FOLDS}: training on {len(keep)}, holding out {len(held)}")
-    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                        num_workers=4, drop_last=True, collate_fn=collate_morpho)
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=(sampler is None),
+                        sampler=sampler, num_workers=4, drop_last=True,
+                        collate_fn=collate_morpho)
 
     multi_recon = MultiCanonicalGHDReconstruct(CANONICAL_ROOT, device=DEVICE)
-    model = MorphoFormer(multi_recon, **model_args()).to(DEVICE)
+    model = (ProbMorphoFormer(multi_recon, latent_dim=_args.latent_dim, **model_args())
+             if _args.probabilistic else MorphoFormer(multi_recon, **model_args())).to(DEVICE)
+    if _args.init_from:
+        _ck = torch.load(_args.init_from, map_location=DEVICE, weights_only=False)
+        if _ck["args"] != model_args():
+            raise SystemExit(f"--init-from architecture differs from this run's:\n"
+                             f"  ckpt: {_ck['args']}\n  here: {model_args()}")
+        model.load_state_dict(_ck["model"])
+        print(f"initialised from {_args.init_from} (epoch {_ck.get('epoch')})")
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     # Linear decay rather than cosine: a plain ramp spends less of the run at a
     # very low rate than cosine's long tail, which matters at LR=5e-5 where
@@ -709,14 +773,27 @@ def main():
     print(f"{_VARIANT}: {len(dataset)} samples (no held-out split)")
 
     history = {"epoch": [], "loss": [], "endpoint": [], "tangent": [], "patch": [],
-               "dome": [], "phi": [], "rotation": []}
+               "dome": [], "phi": [], "rotation": [], "kl": []}
 
     for epoch in range(EPOCHS + 1):
         model.train()
         metrics = {}
         for batch in loader:
             data = prepare_batch(batch, multi_recon, augment=ROTATION_AUGMENT)
-            endpoint_pred, tangent_pred, loc_weights, token_mask, extra = model(pyg_batch=data["pyg_batch"])
+            if _args.probabilistic:
+                # Posterior path: hand the label in so z can encode WHICH labelling
+                # this is. Sampling z from the prior here instead would make it
+                # noise uncorrelated with the target, and the model would learn to
+                # ignore it -- collapsing back to a deterministic mean predictor.
+                ip_dense = to_dense_batch(data["in_patch"].t().float(),
+                                          data["node_batch"])[0].permute(0, 2, 1)
+                dm_dense = (to_dense_batch(data["dome"].float(), data["node_batch"])[0]
+                            if "dome" in data else None)
+                endpoint_pred, tangent_pred, loc_weights, token_mask, extra = model(
+                    pyg_batch=data["pyg_batch"], in_patch=ip_dense, dome=dm_dense)
+            else:
+                endpoint_pred, tangent_pred, loc_weights, token_mask, extra = model(
+                    pyg_batch=data["pyg_batch"])
             endpoint_loss, tangent_loss, patch_loss = model.get_loss(
                 endpoint_pred, tangent_pred, loc_weights, token_mask,
                 data["endpoints"], data["tangents"], data["branch_mask"],
@@ -741,6 +818,10 @@ def main():
                 rotation_loss = F.mse_loss(extra["rotation_pred"], data["rotation"])
                 loss = loss + ROTATION_WEIGHT * rotation_loss
 
+            kl_loss = extra.get("kl") if _args.probabilistic else None
+            if kl_loss is not None:
+                loss = loss + _args.kl_weight * kl_loss
+
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
@@ -756,6 +837,8 @@ def main():
                 metrics["phi"] = float(phi_loss)
             if rotation_loss is not None:
                 metrics["rotation"] = float(rotation_loss)
+            if kl_loss is not None:
+                metrics["kl"] = float(kl_loss)
 
         scheduler.step()
         if epoch % LOG_EVERY == 0:
@@ -763,7 +846,7 @@ def main():
             wandb.log({"epoch": epoch, "lr": scheduler.get_last_lr()[0], **metrics}, step=epoch)
             history["epoch"].append(epoch)
             # dome/phi only exist for the descriptor variant
-            for key in (k for k in ("loss", "endpoint", "tangent", "patch", "dome", "phi", "rotation")
+            for key in (k for k in ("loss", "endpoint", "tangent", "patch", "dome", "phi", "rotation", "kl")
                         if k in metrics):
                 history[key].append(metrics[key])
             plot_loss_curves(history, SAVE_DIR)

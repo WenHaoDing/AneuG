@@ -28,7 +28,9 @@ SURFACE_SAVE_ROOT = _env(
     "/media/yaplab2/HDD Storage/wenhao/AneuSeg/cfd_meshing/processed_shapes/aneux_cfd_batch1")
 
 # -- volume stage -------------------------------------------------------------------------
-# Empty by default: generate_cfd_volume_meshes.py then writes in place next to the surface
-# stage's own output (SURFACE_SAVE_ROOT/<case>/), since the volume mesher needs that
-# case's .obj and fusion npz sitting right there anyway. Set this to redirect elsewhere.
-VOLUME_SAVE_ROOT = _env("CFDMESH_VOLUME_SAVE_ROOT", "")
+# Volume meshes go to the wd8tb disk, which has the room for them: a tetrahedral mesh
+# with boundary layers runs to millions of cells per case. The volume stage reads the
+# surface .obj and fusion npz from SURFACE_SAVE_ROOT/<case>/ and writes everything it
+# produces under VOLUME_SAVE_ROOT/<case>/. Set this to "" to write in place instead.
+VOLUME_SAVE_ROOT = _env("CFDMESH_VOLUME_SAVE_ROOT",
+                        "/media/yaplab2/wd8tb/wenhao/angioflow/cfd/AneuGv2")

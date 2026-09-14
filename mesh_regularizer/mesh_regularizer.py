@@ -1095,6 +1095,59 @@ class MeshRegularizer:
         return {s: weighted_quantile(vals[s], weights, self.model.quantiles)
                 for s in self.model.scales}
 
+    def assess(self, mesh, n_seeds=4000):
+        """Measure a shape against the reference WITHOUT modifying it.
+
+        forward() always remeshes and returns a new mesh, even when the shape needs no
+        smoothing: its first round finds the target scales already inside tolerance and
+        converges immediately, but the remesh has happened by then. A caller that wants
+        "leave it alone unless it is actually too rough" must decide before calling
+        forward, and this is how.
+
+        The measurement is still taken on a remeshed COPY at the reference edge length,
+        because that is what makes the z-scores comparable to the reference model. The
+        input itself is never changed.
+
+        Smoothing can only lower roughness, so a shape at or below the band (within
+        tolerance, or smoother than typical) is one forward() could not improve.
+        `needs_regularization` is True only when some target scale sits above tolerance.
+
+        `n_seeds` samples vertices for speed; 4000 matches what the reference model
+        itself was scanned with.
+        """
+        model = self.model
+        self._validate_model()
+        t0 = time.perf_counter()
+        original = load_mesh(mesh) if isinstance(mesh, str) else mesh
+        work = remesh(original, model.target_edge, self.remesher)
+        rings = ring_sets(work, model.scales)
+        n = len(work.vertices)
+        k = n if (n_seeds is None or n_seeds >= n) else int(n_seeds)
+        seeds = (np.arange(n) if k >= n
+                 else np.random.default_rng(0).choice(n, size=k, replace=False))
+        curves = self._curves(work, rings, seeds, vertex_areas(work)[seeds])
+        excess = {str(s): float(model.signed_excess(s, curves[s])) for s in model.scales}
+        worst = max(excess[str(s)] for s in self.target_scales)
+        gs = self.guard_scale
+        return {
+            "needs_regularization": bool(worst > self.tolerance),
+            "worst_target_excess_sd": worst,
+            "tolerance_sd": self.tolerance,
+            "signed_excess_sd": excess,
+            "verdict": ("rougher_than_reference" if worst > self.tolerance
+                        else "within_reference" if worst >= self.overshoot_limit
+                        else "smoother_than_reference"),
+            "guard_scale": gs,
+            "guard_below_band": (None if gs is None
+                                 else float(model.below_band(gs, curves[gs]))),
+            "target_scales": list(self.target_scales),
+            "measured_at_edge": model.target_edge,
+            "edge_after_measurement_remesh": float(work.edges_unique_length.mean()),
+            "remesher": self.remesher,
+            "n_seeds": int(len(seeds)),
+            "elapsed_s": round(time.perf_counter() - t0, 2),
+        }
+
     def forward(self, mesh, freeze_boundary=True, plot_path=None, title=""):
         """Remesh, then smooth in rounds until the target scales match the reference.
 

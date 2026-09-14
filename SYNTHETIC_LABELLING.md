@@ -1,8 +1,5 @@
 # Synthetic labelling
 
-`REMOTE=yaplab2@bm-yaplab2`
-`RROOT="/media/yaplab2/HDD Storage/wenhao/AneuG"`
-
 Sensor checkpoint:
 `runtime_train/morphoformer/morphology_sensor/h128_gps4_tw1_pw2_dome1_phi0.5_rot0.5/epoch_02000.pth`
 
@@ -37,18 +34,20 @@ little fidelity for a wider spread of failure modes.
 
 ## 2. Pull to the laptop — run on the laptop
 
-Read-only from the workstation. No `--delete`, nothing writes back here.
+No variables. The `\ ` before `Storage` is required: rsync hands the remote path
+to a shell on the workstation, which would otherwise split it at the space.
 
 ```bash
-REMOTE=yaplab2@bm-yaplab2
-RROOT="/media/yaplab2/HDD Storage/wenhao/AneuG"
-SENSOR=runtime_train/morphoformer/morphology_sensor/h128_gps4_tw1_pw2_dome1_phi0.5_rot0.5
+mkdir -p runtime_train/synthetic_pool
+mkdir -p runtime_dataset/AneuG_morpho_synthetic
+mkdir -p runtime_train/morphoformer/morphology_sensor/h128_gps4_tw1_pw2_dome1_phi0.5_rot0.5
 
-mkdir -p runtime_train/synthetic_pool runtime_dataset/AneuG_morpho_synthetic "$SENSOR"
+rsync -av "yaplab2@bm-yaplab2:/media/yaplab2/HDD\ Storage/wenhao/AneuG/runtime_train/synthetic_pool/" runtime_train/synthetic_pool/
 
-rsync -av "$REMOTE:$RROOT/runtime_train/synthetic_pool/" runtime_train/synthetic_pool/
-rsync -av "$REMOTE:$RROOT/$SENSOR/epoch_02000.pth"       "$SENSOR/"
+rsync -av "yaplab2@bm-yaplab2:/media/yaplab2/HDD\ Storage/wenhao/AneuG/runtime_train/morphoformer/morphology_sensor/h128_gps4_tw1_pw2_dome1_phi0.5_rot0.5/epoch_02000.pth" runtime_train/morphoformer/morphology_sensor/h128_gps4_tw1_pw2_dome1_phi0.5_rot0.5/
 ```
+
+Read-only from the workstation. No `--delete`, so nothing there is touched.
 
 ## 3. Label — on the laptop
 
@@ -64,13 +63,12 @@ Resumable: re-run the same command to continue.
 
 ## 4. Push labels back — run on the laptop
 
-Targets only the labels directory. No `--delete`, so nothing else on the
-workstation is touched.
-
 ```bash
-rsync -av runtime_dataset/AneuG_morpho_synthetic/ \
-  "$REMOTE:$RROOT/runtime_dataset/AneuG_morpho_synthetic/"
+rsync -av runtime_dataset/AneuG_morpho_synthetic/ "yaplab2@bm-yaplab2:/media/yaplab2/HDD\ Storage/wenhao/AneuG/runtime_dataset/AneuG_morpho_synthetic/"
 ```
+
+Targets only the labels directory, no `--delete`, so the trained checkpoints
+cannot be affected.
 
 ---
 

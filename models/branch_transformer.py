@@ -270,11 +270,11 @@ class MultiBranchVAE(nn.Module):
     def reparameterize(mu, logvar):
         return mu + torch.randn_like(mu) * torch.exp(0.5 * logvar)
 
-    def forward(self, local_points, token_mask, phi, cond):
+    def forward(self, local_points, token_mask, phi, cond, rot=None):
         # local_points: [B, seq_len, 3]
         # token_mask:   [B, seq_len]
         # phi:          [B, 144, 3]
-        cond       = cond._replace(ghd_embed=self.ghd_encoder(phi))             # ghd_embed: [B, ghd_dim]
+        cond       = cond._replace(ghd_embed=self.encode_phi(phi, None, rot))   # ghd_embed: [B, ghd_dim]
         mu, logvar = self.encoder(local_points, token_mask, cond)               # [B, latent_dim] × 2
         z          = self.reparameterize(mu, logvar)                            # [B, latent_dim]
         recon, length_logit = self.decoder(z, local_points, token_mask, cond)
@@ -325,8 +325,11 @@ class MultiBranchVAE(nn.Module):
         cos_sim  = (pred_dir * branch_direction).sum(dim=-1)                  # [B, max_branches]
         return (1.0 - cos_sim)[branch_mask].mean()
 
-    def encode_phi(self, phi, _aneurysm_types=None):
-        """Encode phi → ghd_embed [B, ghd_dim].  Override in GCN variant."""
+    def encode_phi(self, phi, _aneurysm_types=None, rot=None):
+        """Encode phi → ghd_embed [B, ghd_dim].  Override in GCN variant.
+
+        rot is ignored here: this variant reads phi directly, which lives in the
+        fixed canonical basis and cannot be rotated."""
         return self.ghd_encoder(phi)
 
     @torch.no_grad()
@@ -560,16 +563,29 @@ class MultiBranchVAE_GCNConditioner(MultiBranchVAE):
         self.ghd_encoder = GCNMeshEncoder(ghd_dim, in_channels=3,
                                           hidden=gcn_hidden, pool_ratio=gcn_pool_ratio)
 
-    def forward(self, local_points, token_mask, phi, cond):
-        pyg_batch = self.multi_recon.to_pyg_batch(phi, cond.aneurysm_type, self.point_std)
-        cond      = cond._replace(ghd_embed=self.ghd_encoder(pyg_batch))
+    def forward(self, local_points, token_mask, phi, cond, rot=None):
+        # via encode_phi so rotation augmentation reaches the mesh; building the
+        # pyg batch inline here is what made the rot argument silently inert.
+        cond      = cond._replace(ghd_embed=self.encode_phi(phi, cond.aneurysm_type, rot))
         mu, logvar = self.encoder(local_points, token_mask, cond)
         z          = self.reparameterize(mu, logvar)
         recon, length_logit = self.decoder(z, local_points, token_mask, cond)
         return recon, length_logit, mu, logvar
 
-    def encode_phi(self, phi, aneurysm_types):
+    def encode_phi(self, phi, aneurysm_types, rot=None):
         pyg_batch = self.multi_recon.to_pyg_batch(phi, aneurysm_types, self.point_std)
+        if rot is not None:
+            # phi cannot be rotated -- the GHD basis is on a fixed template, so
+            # rotating coefficients turns the deformation and leaves the template
+            # behind. Rotate the reconstructed VERTICES instead. Indexed by
+            # pyg_batch.batch because a batch mixes 4143- and 2590-vertex meshes.
+            R = rot[pyg_batch.batch]
+            pos = torch.einsum('nij,nj->ni', R, pyg_batch.x[:, :3])
+            if pyg_batch.x.shape[1] > 3:
+                nrm = torch.einsum('nij,nj->ni', R, pyg_batch.x[:, 3:6])
+                pyg_batch.x = torch.cat([pos, nrm, pyg_batch.x[:, 6:]], dim=1)
+            else:
+                pyg_batch.x = pos
         return self.ghd_encoder(pyg_batch)
 
     @torch.no_grad()
