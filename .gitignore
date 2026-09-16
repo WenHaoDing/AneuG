@@ -17,3 +17,4 @@ wandb/
 runtime_dataset/
 runtime_fitting/
 runtime_train/
+runtime_debug/
