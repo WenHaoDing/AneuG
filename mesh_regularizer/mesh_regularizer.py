@@ -101,8 +101,13 @@ from .config import (REFERENCE_ROOT, REFERENCE_FILENAME,  # noqa: F401
 # over-smoothing is a modelling choice, so both are arguments. They are recorded inside
 # each cached model, and the cache filename carries them, so several configurations can
 # coexist and a run always knows which roles its model was built for.
-DEFAULT_TARGET_SCALES = (0.3, 0.5)
-DEFAULT_GUARD_SCALE = 0.8
+#
+# The default is reference_roughness__t0.3-0.5-0.8-1-1.2__g1.6: targets from 0.3 to
+# 1.2 mm, guard at 1.6 mm. It was previously t0.3-0.5__g0.8. Every cached model records
+# its own roles, so this only chooses which model loads when none is given -- it does not
+# change how any existing model behaves.
+DEFAULT_TARGET_SCALES = (0.3, 0.5, 0.8, 1.0, 1.2)
+DEFAULT_GUARD_SCALE = 1.6
 GUARD_QUANTILE_MIN = 0.70     # focal features live in the upper tail; see module docstring
 QUANTILES = np.round(np.arange(0.05, 0.96, 0.05), 2)
 REPORT_QUANTILES = (0.25, 0.50, 0.90)

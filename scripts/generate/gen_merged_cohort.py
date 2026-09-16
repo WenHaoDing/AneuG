@@ -335,9 +335,17 @@ def main():
             t_end = cl[-1] - cl[max(len(cl) - 3, 0)]
             t_end = t_end / (np.linalg.norm(t_end) + 1e-12)
             keep = ((cl - cap) @ t_end) < 0.0
-            cl = np.vstack([cl[keep], cap[None]]) if keep.sum() >= 1 else np.vstack([cl[:1], cap[None]])
-            tan = np.gradient(cl, axis=0)
+            body = cl[keep] if keep.sum() >= 2 else cl[:2]
+            # Tangents come from the centerline BEFORE the cap point is appended. The
+            # cap centroid sits 0.1-0.2 mm to the side of the last centerline point,
+            # so differencing across that jog made the final tangent nearly
+            # perpendicular to the branch (median 74 deg over 1625 branches in
+            # cohort_650) and the one before it 21 deg off. The cap point instead
+            # inherits the last centerline tangent, which runs along the branch.
+            tan = np.gradient(body, axis=0)
             tan = tan / (np.linalg.norm(tan, axis=1, keepdims=True) + 1e-12)
+            cl = np.vstack([body, cap[None]])
+            tan = np.vstack([tan, tan[-1:]])
             cpcd_glo.append(cl.astype(np.float64))
             cpcd_tan.append(tan.astype(np.float64))
 

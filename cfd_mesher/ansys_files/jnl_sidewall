@@ -1,0 +1,24 @@
+/file/read-case mesh.msh
+/mesh/scale 0.001 0.001 0.001
+/define/models/unsteady-2nd-order? yes
+/define/models/viscous/laminar yes
+/define/materials/change-create air blood yes constant 1050 no no yes carreau shear-rate-dependent 3.313 0.3568 0.056 0.00345 no no no yes
+/define/boundary-conditions/zone-type 4 velocity-inlet
+/define/boundary-conditions/zone-type 5 pressure-outlet
+/define/user-defined/use-built-in-compiler? yes
+/define/user-defined/compiled-functions compile libudf yes parabolic_vinlet_udf_full.c "" ""
+/define/user-defined/compiled-functions load libudf
+/define/boundary-conditions/set/velocity-inlet surface4 () vmag yes yes udf inlet_x_velocity_transient::libudf quit
+/solve/set/p-v-coupling 24
+/solve/set/p-v-controls 2000000 0.5 0.5
+/solve/monitors/residual/convergence-criteria 0.0001 0.0001 0.0001 0.0001
+/solve/initialize/compute-defaults velocity-inlet surface4
+/solve/initialize/initialize-flow
+/file/transient-export/ensight-gold-transient ensight_files () * () absolute-pressure dynamic-pressure x-velocity y-velocity z-velocity wall-shear x-wall-shear y-wall-shear z-wall-shear dx-velocity-dx dy-velocity-dy dz-velocity-dz dx-velocity-dy dy-velocity-dx dx-velocity-dz dz-velocity-dx dy-velocity-dz dz-velocity-dy dp-dx dp-dy dp-dz dp-dt viscosity-lam x-coordinate y-coordinate z-coordinate quit no yes export-1 time-step 10 yes
+/file/autosave/data-frequency 10
+/solve/set/time-step 0.001
+/solve/dual-time-iterate 1600 100
+/file/write-case mesh_new.cas yes
+/file/write-data mesh_new.dat yes
+exit
+yes

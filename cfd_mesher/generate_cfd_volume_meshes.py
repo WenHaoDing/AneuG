@@ -29,6 +29,9 @@ Per case the following are written into <save_root>/<case>/ (save_root defaults 
     mesh.msh                    the same mesh, converted to Fluent format
     inlet_centroids.csv         every inlet node's coordinates, scaled by --inlet_scale
     flowsplit_ratio.txt         two-outlet cases only: normalized per-outlet flow split
+    parabolic_vinlet_udf_full.c Fluent inlet velocity UDF       (cfd_mesher/ansys_files)
+    udf_waveform_5cycles.txt    inlet waveform the UDF reads    (cfd_mesher/ansys_files)
+    jnl_transient               Fluent journal: jnl_bifurcated or jnl_sidewall, by outlet count
 
 Requires the vmtk CLI on PATH, not just the vmtk python package (vmtkmeshgenerator is
 shelled out to) -- true in the vmtk_autogen conda environment the surface stage already
@@ -38,10 +41,11 @@ documents using.
     python -m cfd_mesher.generate_cfd_volume_meshes --help
 
 ROUGHNESS. Before meshing, each surface is measured against mesh_regularizer's reference
-model without being modified. A surface within the typical range, or smoother than it,
-is meshed as it is. Only a rougher one is regularized, and the result is used only if it
-keeps every opening in place, since relabelling depends on the caps. Run from the repo
-root so mesh_regularizer imports; --no-regularize skips the step entirely.
+model without being modified. A surface no rougher than the reference mean + 0.25 SD at
+every target scale (--regularizer_tolerance) is meshed as it is; a rougher one is smoothed
+down to that level. The smoothed surface is used only if it keeps every opening in place,
+since relabelling depends on the caps. Run from the repo root so mesh_regularizer
+imports; --no-regularize skips the step entirely.
 
 GENERATED COHORTS. scripts/generate/gen_merged_cohort.py writes the
 ghd_forward_fusion_info.npz this stage reads, with openings in branch order (inlet
@@ -116,6 +120,35 @@ def _volume_mesh():
             "  underlying import error: %s" % exc)
 
 
+CAP_SHIFT_LOG = "regularization_cap_shift.csv"
+CAP_SHIFT_WATCH_MM = 0.5
+
+
+def _log_cap_shift(save_root, case, report):
+    """One row per smoothed (or rejected) surface in <save_root>/regularization_cap_shift.csv,
+    with how far each opening moved, so cases whose openings shifted more than
+    CAP_SHIFT_WATCH_MM can be found without opening every regularization.json. Parallel
+    workers share the file; each row is a single short append."""
+    shifts = report.get("cap_shift_mm") or []
+    max_shift = max(shifts) if shifts else float("nan")
+    reason = str(report.get("reason", "")).replace('"', "'")
+    row = '%s,%s,%d,%.4f,"%s",%s,"%s"\n' % (
+        case, report["action"], len(shifts), max_shift,
+        " ".join("%.4f" % x for x in shifts),
+        bool(shifts) and max_shift > CAP_SHIFT_WATCH_MM, reason)
+    path = os.path.join(save_root, CAP_SHIFT_LOG)
+    header = "case,action,n_openings,max_shift_mm,shifts_mm,over_%gmm,reason\n" % CAP_SHIFT_WATCH_MM
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o664)
+    try:
+        if os.fstat(fd).st_size == 0:
+            os.write(fd, header.encode())
+        os.write(fd, row.encode())
+    finally:
+        os.close(fd)
+    if shifts and max_shift > CAP_SHIFT_WATCH_MM:
+        print("  note: an opening moved %.2f mm under regularization" % max_shift)
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -134,18 +167,22 @@ def build_parser():
     p.add_argument("--max_edge", type=float, default=DEFAULT_MESH_PARAMS["max_edge"])
     p.add_argument("--inflation", action=argparse.BooleanOptionalAction, default=True,
                    help="add boundary-layer sublayers at the wall")
+    p.add_argument("--mesh_timeout", type=float, default=2700.0,
+                   help="seconds before a vmtkmeshgenerator run is killed and the case marked "
+                        "failed (0 disables). Cases take 3-4 minutes; one hung for over an hour")
 
     p.add_argument("--regularize", action=argparse.BooleanOptionalAction, default=True,
                    help="measure roughness against the physiological reference and smooth "
                         "only surfaces rougher than it")
-    p.add_argument("--regularizer_tolerance", type=float, default=1.0,
+    p.add_argument("--regularizer_tolerance", type=float, default=0.25,
                    help="SD above the reference mean a target scale may sit before the "
-                        "surface counts as too rough")
+                        "surface counts as too rough; also the level smoothing brings it "
+                        "down to (default 0.25, i.e. mean + 0.25 SD)")
     p.add_argument("--regularizer_remesher", default="auto",
                    choices=["auto", "pymeshlab", "vmtk"],
                    help="auto prefers pymeshlab and falls back to vmtk. The two gave the "
                         "same verdict to within 0.15 SD on generated shapes")
-    p.add_argument("--max_cap_shift", type=float, default=0.5,
+    p.add_argument("--max_cap_shift", type=float, default=1.0,
                    help="mm a cap centroid may move under regularization before the "
                         "regularized surface is rejected in favour of the original")
 
@@ -159,6 +196,10 @@ def build_parser():
     p.add_argument("--inlet_scale", type=float, default=0.001,
                    help="scale factor applied to inlet node coordinates in the CSV export")
 
+    p.add_argument("--fluent_files", action=argparse.BooleanOptionalAction, default=True,
+                   help="after meshing, copy the Fluent UDF, inlet waveform and the journal "
+                        "for this case's outlet count (as jnl_transient) into the case folder; "
+                        "see cfd_mesher/fluent_setup.py")
     p.add_argument("--copy_case_files", action=argparse.BooleanOptionalAction, default=True,
                    help="copy every file in the source case folder into the output case "
                         "folder, so the volume disk holds complete cases")
@@ -168,6 +209,9 @@ def build_parser():
                    help="only these case names (default: everything under --surface_root)")
     p.add_argument("--exclude", nargs="*", default=[], help="case names to skip")
     p.add_argument("--limit", type=int, default=None, help="stop after N cases")
+    p.add_argument("--run_tag", default="",
+                   help="suffix for this run's failure file, so parallel workers sharing a "
+                        "save_root each keep their own instead of overwriting one another's")
     return p
 
 
@@ -242,6 +286,8 @@ def main():
                       % (a["verdict"], a["worst_target_excess_sd"], report["action"]))
                 if report["action"] == "rejected":
                     print("  ! %s" % report["reason"])
+                if report["action"] != "none":
+                    _log_cap_shift(save_root, case, report)
                 if report["action"] == "regularized":
                     surface_for_meshing = used
 
@@ -270,7 +316,8 @@ def main():
                 print("  volume=%.2f area=%.2f edge=%.4f (base=%.4f)"
                       % (vol, area, edge, args.base_edge))
                 backend.cfdmesher_custom(surface_for_meshing, vtu_path, edge, args.max_edge,
-                                         "y" if args.inflation else "n")
+                                         "y" if args.inflation else "n",
+                                         timeout=args.mesh_timeout or None)
                 vm.report_mesh_stats(vtu_path)
 
             # -- relabel wall/inlet/outlet ids by npz cpcd endpoints ----------------
@@ -288,6 +335,17 @@ def main():
             # -- write Fluent mesh ---------------------------------------------------
             if not os.path.exists(msh_path) or args.overwrite:
                 backend.write_msh_single(vtu_path, msh_path)
+
+            # -- Fluent run files: UDF, waveform, and the journal for this outlet count
+            if args.fluent_files:
+                from .fluent_setup import install_fluent_files
+                fl = install_fluent_files(save_dir, overwrite=args.overwrite,
+                                          npz_filename=args.npz_filename)
+                print("  fluent: %s journal -> %s" % (fl["configuration"],
+                      "ready" if fl["ready"] else "missing %s" % fl["missing_mesher_outputs"]))
+                if not fl["ready"]:
+                    raise RuntimeError("Fluent files installed but case is missing %s"
+                                       % fl["missing_mesher_outputs"])
         except Exception as exc:
             print("  failed: %r" % exc)
             failed.append({"case": case, "error": repr(exc)})
@@ -301,7 +359,8 @@ def main():
 
     print("meshed %d, skipped %d, failed %d" % (done, skipped, len(failed)))
     if failed:
-        path = os.path.join(save_root, "volume_mesh_failures.json")
+        path = os.path.join(save_root, "volume_mesh_failures%s.json"
+                            % ("_" + args.run_tag if args.run_tag else ""))
         os.makedirs(save_root, exist_ok=True)
         with open(path, "w") as f:
             json.dump(failed, f, indent=2)

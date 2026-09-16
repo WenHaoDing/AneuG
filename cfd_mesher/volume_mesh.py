@@ -507,8 +507,8 @@ def _open_boundary_centroids(polydata):
 
 
 def regularize_surface_if_needed(surface_file, output_file, report_path,
-                                 tolerance=1.0, remesher="auto", n_seeds=4000,
-                                 max_cap_shift=0.5, overwrite=False):
+                                 tolerance=0.25, remesher="auto", n_seeds=4000,
+                                 max_cap_shift=1.0, overwrite=False):
     """Bring the surface's roughness into the physiological range, only if it is outside.
 
     Uses mesh_regularizer (see its README). The shape is first MEASURED against the
@@ -536,7 +536,8 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
     already been remeshed and smoothed.
 
     Returns (surface path to mesh, report dict). The report is also written to
-    `report_path`, and reused on later runs unless `overwrite`.
+    `report_path`, and reused on later runs unless `overwrite` -- or unless it was made
+    at a different `tolerance`, since that changes both the decision and the result.
     """
     import json
 
@@ -544,7 +545,9 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
         with open(report_path) as f:
             report = json.load(f)
         chosen = report.get("surface_used")
-        if chosen and os.path.exists(chosen):
+        # reports written before the tolerance was recorded were all made at 1.0
+        same_tolerance = abs(float(report.get("tolerance", 1.0)) - tolerance) < 1e-9
+        if chosen and os.path.exists(chosen) and same_tolerance:
             return chosen, report
 
     try:
@@ -564,7 +567,7 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
     reg = MeshRegularizer(tolerance=tolerance, remesher=remesher, export_edge=None,
                           time_budget_s=None, n_seeds=n_seeds, verbose=False)
     assessment = reg.assess(surface_file, n_seeds=n_seeds)
-    report = {"input": surface_file, "assessment": assessment}
+    report = {"input": surface_file, "tolerance": tolerance, "assessment": assessment}
 
     if not assessment["needs_regularization"]:
         report.update(action="none", surface_used=surface_file,

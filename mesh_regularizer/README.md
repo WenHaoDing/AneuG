@@ -172,6 +172,10 @@ Cached models are committed because rebuilding one costs ~15 min and needs the r
 dataset present. Filenames encode their scale roles, e.g.
 `reference_roughness__t0.3-0.5__g0.8.npz` = targets 0.3/0.5 mm, guard 0.8 mm.
 
+**The default model** (loaded when `MeshRegularizer()` is given none) is
+`reference_roughness__t0.3-0.5-0.8-1-1.2__g1.6.npz`: targets 0.3, 0.5, 0.8, 1.0 and 1.2 mm,
+guard 1.6 mm. It was previously `t0.3-0.5__g0.8`.
+
 Depends only on numpy, trimesh, pyvista, scipy and matplotlib — no intra-repo imports.
 `pymeshlab` (or `vmtk`) is needed for remeshing; `torch` only for the downstream
 measurement script.

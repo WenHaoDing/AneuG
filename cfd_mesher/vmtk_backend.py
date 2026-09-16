@@ -17,12 +17,26 @@ import os
 import vmtk
 
 
-def cfdmesher_custom(ifile, ofile, edge, max_edge, inflation):
+def cfdmesher_custom(ifile, ofile, edge, max_edge, inflation, timeout=None):
     """Tetrahedralize `ifile` (a closed-except-openings surface) into `ofile` (.vtu).
 
     `edge` / `max_edge` bound the target element size; `inflation` is "y" to add
     boundary-layer sublayers at the wall (skipped on caps) or "n" for a uniform mesh.
+
+    Two failure modes are caught here rather than downstream, both seen on one
+    otherwise clean surface in the AneuGv2 cohort:
+
+    * TetGen's quality refinement can loop forever: 63 minutes at 100% CPU with memory
+      flat to the byte, against 3-4 minutes for comparable cases. `timeout` (seconds)
+      kills the whole process group -- vmtkmeshgenerator runs TetGen in a child
+      process, so killing only the shell would leave it running.
+    * vmtkmeshgenerator can exit 0 without writing any mesh. The caller then read a
+      missing file and crashed in C++ (std::bad_alloc), which ends the Python process
+      outright, so a batch worker would silently drop every case queued after it.
     """
+    import signal
+    import subprocess
+
     if inflation == "y":
         arg = (
             ' vmtkmeshgenerator -ifile "%s" -edgelength %s -maxedgelength %s '
@@ -32,8 +46,21 @@ def cfdmesher_custom(ifile, ofile, edge, max_edge, inflation):
         )
     else:
         arg = ' vmtkmeshgenerator -ifile "%s" -edgelength %s -ofile "%s"' % (ifile, edge, ofile)
-    if os.system(arg) != 0:
-        raise RuntimeError("vmtkmeshgenerator failed on %r (see console output above)" % ifile)
+
+    if os.path.exists(ofile):
+        os.remove(ofile)                      # a stale file must not pass the check below
+    proc = subprocess.Popen(arg, shell=True, start_new_session=True)
+    try:
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        raise RuntimeError("vmtkmeshgenerator exceeded %s s on %r and was killed"
+                           % (timeout, ifile))
+    if rc != 0:
+        raise RuntimeError("vmtkmeshgenerator failed (exit %d) on %r" % (rc, ifile))
+    if not os.path.exists(ofile) or os.path.getsize(ofile) == 0:
+        raise RuntimeError("vmtkmeshgenerator exited 0 but wrote no mesh for %r" % ifile)
 
 
 def write_msh_single(ifile, ofile):
