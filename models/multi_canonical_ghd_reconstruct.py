@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,12 +30,74 @@ class CanonicalSpec:
         return Path(self.root) / self.eigen_name
 
 
+class LegacyGHDReconstruct(GHD_Reconstruct):
+    """DEPRECATED normalisation, for replaying OLD checkpoints only.
+
+    Old fittings divided the canonical by ``max||v|| * 1.10 * 2.50`` where the
+    current code divides by ``max||v||``, so their phi belong to a canonical
+    NORM_FACTOR times smaller. Mixing the two silently deforms the shape by the
+    wrong magnitude, which is why this is a separate class rather than a flag:
+    ``isinstance(recon, LegacyGHDReconstruct)`` tells you which convention you
+    hold, and nothing reaches it unless you ask for it by name.
+
+    Reach for it only when the phi were fitted under the old convention. For
+    anything current use ``MultiCanonicalGHDReconstruct.get()``.
+    """
+
+    NORM_FACTOR = 1.10 * 2.50
+    _warned = False          # per instance, set on the first reconstruction
+
+    def _warn(self, fn):
+        warnings.warn(
+            f"LegacyGHDReconstruct.{fn}() uses the deprecated canonical normalisation "
+            f"(x{self.NORM_FACTOR:.2f}); valid only for phi fitted the old way.",
+            DeprecationWarning, stacklevel=3)
+        if not self._warned:
+            print(f"[LegacyGHDReconstruct] {fn}() is reconstructing with the DEPRECATED "
+                  f"canonical normalisation (max||v|| x {self.NORM_FACTOR:.2f}). Correct "
+                  f"ONLY for old checkpoints -- use MultiCanonicalGHDReconstruct.get() "
+                  f"for anything current.", flush=True)
+            self._warned = True
+
+    def reconstruct(self, *args, **kwargs):
+        self._warn("reconstruct")
+        return super().reconstruct(*args, **kwargs)
+
+    def forward(self, *args, **kwargs):
+        self._warn("forward")
+        return super().forward(*args, **kwargs)
+
+    def forward_pcd(self, *args, **kwargs):
+        self._warn("forward_pcd")
+        return super().forward_pcd(*args, **kwargs)
+
+    def forward_as_Meshes(self, *args, **kwargs):
+        self._warn("forward_as_Meshes")
+        return super().forward_as_Meshes(*args, **kwargs)
+
+    def ghd_forward_as_Meshes(self, *args, **kwargs):
+        self._warn("ghd_forward_as_Meshes")
+        return super().ghd_forward_as_Meshes(*args, **kwargs)
+
+    def normalize(self):
+        norm_canonical = torch.max(
+            torch.norm(self.canonical_Meshes.verts_packed(), dim=-1)).detach().item()
+        norm_canonical *= self.NORM_FACTOR
+        canonical_Meshes = self.canonical_Meshes.update_padded(
+            self.canonical_Meshes.verts_padded() / norm_canonical)
+        return norm_canonical, canonical_Meshes
+
+
 class MultiCanonicalGHDReconstruct:
     """
     Lazily manage one GHD_Reconstruct per aneurysm type.
 
     Type 0 uses the bifurcated canonical.
     Types 1 and 2 use the sidewall canonical.
+
+    get() serves the current normalisation. get_legacy() serves the deprecated one
+    (see LegacyGHDReconstruct) from a separate cache, so the two conventions never
+    share an instance.
     """
 
     def __init__(self, canonical_root, specs=None, device=None):
@@ -48,6 +111,7 @@ class MultiCanonicalGHDReconstruct:
             self.specs.update(specs)
         self.device = torch.device(device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
         self.reconstructors = {}
+        self.legacy_reconstructors = {}   # type_id → GHD_Reconstruct, old normalisation
         self._edge_cache    = {}   # type_id → edge_index [2, E]
         self._opening_cache = {}   # type_id → list of long tensors [K_i]
         self._trimmed_faces_cache = {}   # type_id → trimmed faces [F', 3] in canonical vertex indexing
@@ -61,9 +125,22 @@ class MultiCanonicalGHDReconstruct:
             self.reconstructors[aneurysm_type] = self._build(spec)
         return self.reconstructors[aneurysm_type]
 
-    def _build(self, spec):
+    def get_legacy(self, aneurysm_type) -> LegacyGHDReconstruct:
+        """Reconstructor under the DEPRECATED canonical normalisation.
+
+        Only for phi fitted under the old convention -- see LegacyGHDReconstruct.
+        """
+        aneurysm_type = int(aneurysm_type)
+        if aneurysm_type not in self.legacy_reconstructors:
+            spec = self.specs.get(aneurysm_type)
+            if spec is None:
+                raise ValueError(f"No canonical spec configured for aneurysm_type={aneurysm_type}")
+            self.legacy_reconstructors[aneurysm_type] = self._build(spec, cls=LegacyGHDReconstruct)
+        return self.legacy_reconstructors[aneurysm_type]
+
+    def _build(self, spec, cls=GHD_Reconstruct):
         mesh = safe_load_mesh(str(spec.mesh_path))
-        recon = GHD_Reconstruct(
+        recon = cls(
             mesh,
             str(spec.eigen_path),
             num_Basis=spec.num_basis,
