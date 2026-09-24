@@ -40,10 +40,18 @@ documents using.
     conda activate vmtk_autogen
     python -m cfd_mesher.generate_cfd_volume_meshes --help
 
-ROUGHNESS. Before meshing, each surface is measured against mesh_regularizer's reference
-model without being modified. A surface no rougher than the reference mean + 0.25 SD at
-every target scale (--regularizer_tolerance) is meshed as it is; a rougher one is smoothed
-down to that level. The smoothed surface is used only if it keeps every opening in place,
+ROUGHNESS. Before meshing, each surface is measured against a mesh_regularizer reference
+model without being modified, and only a surface rougher than the reference is smoothed.
+By default that happens in DOME-NORMALIZED mode: the shape is scaled so its aneurysm sac
+matches the reference median, so a roughness scale is the same fraction of the sac on
+every case. Smoothing does not aim at one fixed level: each surface is measured and then
+smoothed to the next level below where it sits (--dome_snap_levels, default
+-1 -0.5 -0.25 0 0.25), so every shape improves by a notch and only one already below the
+lowest level is handed to the ORIGINAL millimetre regularizer instead, at
+--regularizer_tolerance. Backstops are the 'relaxed' preset (1 mm of movement,
+no guard, 50 rounds). A case with no sac measurement under --dome_size_root falls back to
+the millimetre model at --regularizer_tolerance, and --no-dome_normalized forces that for
+everything. The smoothed surface is used only if it keeps every opening in place,
 since relabelling depends on the caps. Run from the repo root so mesh_regularizer
 imports; --no-regularize skips the step entirely.
 
@@ -149,6 +157,33 @@ def _log_cap_shift(save_root, case, report):
         print("  note: an opening moved %.2f mm under regularization" % max_shift)
 
 
+DOME_SIZE_ROOT = "/media/yaplab2/wd8tb/wenhao/angioflow/data/geometry/ImperialNHS_v2"
+DOME_SIZE_FILE = "dome_size.npy"
+
+
+def _dome_sac_mm(case, dome_size_root):
+    """The case's aneurysm sac span in mm, or None if this case has no sac measurement.
+
+    get_dome_ImperialNHS.py writes one dome_size.npy per case from the segmentation's
+    label-2 mask. Each case folder's label holds exactly one sac (the preprocessing
+    splits multi-aneurysm scans into one case per sac), so the file needs no
+    disambiguation. Generated cohorts have no segmentation and therefore no sac size;
+    they fall back to the millimetre model.
+    """
+    path = os.path.join(dome_size_root, case, DOME_SIZE_FILE)
+    if not os.path.exists(path):
+        return None
+    try:
+        import numpy as np
+        d = np.load(path, allow_pickle=True).item()
+        span = float(d["max_extent_mm"])
+        return span if span > 0 else None
+    except Exception as exc:
+        print("  ! %s: could not read %s (%r); using the millimetre model"
+              % (case, DOME_SIZE_FILE, exc))
+        return None
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -174,6 +209,26 @@ def build_parser():
     p.add_argument("--regularize", action=argparse.BooleanOptionalAction, default=True,
                    help="measure roughness against the physiological reference and smooth "
                         "only surfaces rougher than it")
+    p.add_argument("--dome_normalized", action=argparse.BooleanOptionalAction, default=True,
+                   help="measure roughness at scales relative to each case's aneurysm sac "
+                        "(mesh_regularizer.dome_normalized) instead of in fixed "
+                        "millimetres; falls back to millimetres where no sac size is found")
+    p.add_argument("--dome_size_root", default=DOME_SIZE_ROOT,
+                   help="geometry tree holding <case>/dome_size.npy, written by "
+                        "mesh_regularizer/get_dome_ImperialNHS.py")
+    p.add_argument("--dome_snap_levels", type=float, nargs="*",
+                   default=[-1.0, -0.5, -0.25, 0.0, 0.25],
+                   help="smooth each surface to the next level BELOW where it measures, "
+                        "so every shape improves by a notch; empty disables snapping and "
+                        "uses --dome_tolerance for every case")
+    p.add_argument("--dome_tolerance", type=float, default=0.25,
+                   help="SD above the dome-normalized reference mean to smooth down to "
+                        "(default 0.25, chosen by eye against +1.0, +0.5 and 0.0)")
+    p.add_argument("--regularizer_stopping", default="relaxed",
+                   choices=["relaxed", "default"],
+                   help="backstop preset in dome-normalized mode: 'relaxed' keeps "
+                        "smoothing until the target is met rather than stopping on the "
+                        "round cap, the over-smoothing floor or the guard")
     p.add_argument("--regularizer_tolerance", type=float, default=0.25,
                    help="SD above the reference mean a target scale may sit before the "
                         "surface counts as too rough; also the level smoothing brings it "
@@ -275,15 +330,25 @@ def main():
             # -- roughness: measure, and smooth only if rougher than the reference ---
             if args.regularize:
                 reg_path = os.path.join(save_dir, "ghd_surface_regularized.vtp")
+                sac_mm = (_dome_sac_mm(case, args.dome_size_root)
+                          if args.dome_normalized else None)
                 used, report = vm.regularize_surface_if_needed(
                     surface_file=obj_path, output_file=reg_path,
                     report_path=os.path.join(save_dir, "regularization.json"),
-                    tolerance=args.regularizer_tolerance,
+                    tolerance=(args.dome_tolerance if sac_mm
+                               else args.regularizer_tolerance),
                     remesher=args.regularizer_remesher,
-                    max_cap_shift=args.max_cap_shift, overwrite=args.overwrite)
+                    max_cap_shift=args.max_cap_shift, overwrite=args.overwrite,
+                    dome_sac_mm=sac_mm, stopping=args.regularizer_stopping,
+                    snap_levels=(args.dome_snap_levels if sac_mm else None),
+                    fallback_tolerance=args.regularizer_tolerance)
                 a = report["assessment"]
-                print("  roughness: %s (worst target %+.2f SD) -> %s"
-                      % (a["verdict"], a["worst_target_excess_sd"], report["action"]))
+                print("  roughness: %s (worst target %+.2f SD, %s) -> %s%s"
+                      % (a["verdict"], a["worst_target_excess_sd"],
+                         "%s, sac %.2f mm" % (report["mode"], sac_mm)
+                         if sac_mm else "millimetre model", report["action"],
+                         "" if report["tolerance"] is None
+                         else " to %+.2f SD" % report["tolerance"]))
                 if report["action"] == "rejected":
                     print("  ! %s" % report["reason"])
                 if report["action"] != "none":

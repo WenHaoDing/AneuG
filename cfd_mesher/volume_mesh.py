@@ -506,9 +506,16 @@ def _open_boundary_centroids(polydata):
     return [b["centroid"] for b in get_open_boundary_info_from_surface(polydata)]
 
 
+# Real edge length the dome-normalized path exports at: the reference tessellation the
+# roughness model itself was built on, so every case reaches the mesher at one resolution.
+DOME_EXPORT_EDGE_MM = 0.132
+
+
 def regularize_surface_if_needed(surface_file, output_file, report_path,
                                  tolerance=0.25, remesher="auto", n_seeds=4000,
-                                 max_cap_shift=1.0, overwrite=False):
+                                 max_cap_shift=1.0, overwrite=False,
+                                 dome_sac_mm=None, stopping="relaxed", snap_levels=None,
+                                 fallback_tolerance=0.25):
     """Bring the surface's roughness into the physiological range, only if it is outside.
 
     Uses mesh_regularizer (see its README). The shape is first MEASURED against the
@@ -535,9 +542,30 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
     step to act on unprocessed generator output and possibly not on shapes that have
     already been remeshed and smoothed.
 
+    FALLBACK. A shape below the lowest snap level has nothing left for the normalized
+    model to aim at, so it is handed to the ORIGINAL millimetre regularizer at
+    `fallback_tolerance` instead: relative smoothness is settled, absolute smoothness is
+    a separate question. The report then says mode "millimetre_fallback" and keeps the
+    normalized measurement under "dome_assessment".
+
+    SNAPPING. With `snap_levels`, the target is not fixed: the shape is measured first and
+    then smoothed to the next level BELOW where it sits, so every shape improves by at
+    least one notch instead of passing untouched merely because it was already inside the
+    band. A shape below the lowest level is left alone. `tolerance` is then ignored, and
+    the level actually used is what the report records.
+
+    DOME-NORMALIZED MODE. With `dome_sac_mm` (the aneurysm sac's longest span, in mm),
+    mesh_regularizer.dome_normalized is used instead: the shape is scaled so its sac
+    matches the reference median, measured and smoothed against the dome-normalized
+    reference band, then scaled back. Roughness scales are then the same FRACTION of the
+    sac on every case, so one tolerance means the same thing on a 4 mm aneurysm and a
+    14 mm one. `stopping` picks the backstop preset ("relaxed" pushes until the target is
+    met rather than stopping on a round cap or the over-smoothing floor). Without a sac
+    size the millimetre model is used, exactly as before.
+
     Returns (surface path to mesh, report dict). The report is also written to
     `report_path`, and reused on later runs unless `overwrite` -- or unless it was made
-    at a different `tolerance`, since that changes both the decision and the result.
+    at a different `tolerance` or in a different mode, since either changes the result.
     """
     import json
 
@@ -545,9 +573,20 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
         with open(report_path) as f:
             report = json.load(f)
         chosen = report.get("surface_used")
-        # reports written before the tolerance was recorded were all made at 1.0
-        same_tolerance = abs(float(report.get("tolerance", 1.0)) - tolerance) < 1e-9
-        if chosen and os.path.exists(chosen) and same_tolerance:
+        same_mode = report.get("mode", "millimetre") in (
+            ("dome_normalized", "millimetre_fallback") if dome_sac_mm else ("millimetre",))
+        if snap_levels:
+            # Under snapping the target is derived per case from the measurement, so the
+            # report's own tolerance is an OUTPUT; what has to match is the level set,
+            # and the fallback tolerance when the case fell below it.
+            same_setup = (report.get("snap_levels") == [float(l) for l in snap_levels]
+                          and (report.get("mode") != "millimetre_fallback"
+                               or abs(float(report.get("tolerance", -99))
+                                      - fallback_tolerance) < 1e-9))
+        else:
+            # reports written before the tolerance was recorded were all made at 1.0
+            same_setup = abs(float(report.get("tolerance", 1.0)) - tolerance) < 1e-9
+        if chosen and os.path.exists(chosen) and same_setup and same_mode:
             return chosen, report
 
     try:
@@ -564,18 +603,67 @@ def regularize_surface_if_needed(surface_file, output_file, report_path,
     # roughness +2.91 -> +2.84 SD -- and would have been reported as regularized.
     # 4000 seeds is what the reference model itself was scanned with, so the
     # comparison stays consistent and the cost per round stays bounded.
-    reg = MeshRegularizer(tolerance=tolerance, remesher=remesher, export_edge=None,
-                          time_budget_s=None, n_seeds=n_seeds, verbose=False)
-    assessment = reg.assess(surface_file, n_seeds=n_seeds)
-    report = {"input": surface_file, "tolerance": tolerance, "assessment": assessment}
+    mode = "dome_normalized" if dome_sac_mm else "millimetre"
+    dome_assessment = None
+    if dome_sac_mm:
+        from mesh_regularizer.dome_normalized import (DomeNormalizedRegularizer,
+                                                      snap_target)
+
+        def dome_reg(tol):
+            # export at a fixed REAL edge: normalizing shrinks a big sac, so leaving the
+            # surface at the normalized resolution would hand the volume mesher a surface
+            # coarser than the one it was calibrated on (0.30 mm instead of 0.13 mm).
+            return DomeNormalizedRegularizer(tolerance=tol, stopping=stopping,
+                                             remesher=remesher, export_edge=None,
+                                             export_edge_real_mm=DOME_EXPORT_EDGE_MM,
+                                             time_budget_s=None, n_seeds=n_seeds,
+                                             verbose=False)
+
+        if snap_levels:
+            # Measure against the LOWEST level first, so "needs regularization" means
+            # "there is still a level below this shape", then aim at the next one down.
+            reg = dome_reg(min(snap_levels))
+            assessment = reg.assess(surface_file, dome_sac_mm, n_seeds=n_seeds)
+            dome_assessment = assessment
+            tolerance = snap_target(assessment["worst_target_excess_sd"], snap_levels)
+            if tolerance is not None:
+                reg = dome_reg(tolerance)
+            else:
+                # Below the lowest level there is nothing left for the normalized model to
+                # aim at: relative to its own sac the shape is already smoother than any
+                # reference vessel. The millimetre model is a different question -- is it
+                # smooth in absolute terms -- and it is the one that can still answer.
+                mode = "millimetre_fallback"
+                tolerance = fallback_tolerance
+                reg = MeshRegularizer(tolerance=tolerance, remesher=remesher,
+                                      export_edge=None, time_budget_s=None,
+                                      n_seeds=n_seeds, verbose=False)
+                assessment = reg.assess(surface_file, n_seeds=n_seeds)
+        else:
+            reg = dome_reg(tolerance)
+            assessment = reg.assess(surface_file, dome_sac_mm, n_seeds=n_seeds)
+    else:
+        reg = MeshRegularizer(tolerance=tolerance, remesher=remesher, export_edge=None,
+                              time_budget_s=None, n_seeds=n_seeds, verbose=False)
+        assessment = reg.assess(surface_file, n_seeds=n_seeds)
+    report = {"input": surface_file, "tolerance": tolerance, "mode": mode,
+              "dome_sac_mm": dome_sac_mm,
+              "stopping": stopping if mode == "dome_normalized" else None,
+              "snap_levels": [float(l) for l in snap_levels] if snap_levels else None,
+              "assessment": assessment}
+    if mode == "millimetre_fallback":
+        report["dome_assessment"] = dome_assessment
 
     if not assessment["needs_regularization"]:
         report.update(action="none", surface_used=surface_file,
-                      reason="roughness %s (worst target excess %+.2f SD, tolerance %.2f)"
+                      reason="roughness %s (worst target excess %+.2f SD, %s model, "
+                             "tolerance %.2f)"
                              % (assessment["verdict"], assessment["worst_target_excess_sd"],
-                                tolerance))
+                                mode, tolerance))
     else:
-        mesh, fwd = reg.forward(surface_file, freeze_boundary=True)
+        mesh, fwd = (reg.forward(surface_file, dome_sac_mm, freeze_boundary=True)
+                     if mode == "dome_normalized"
+                     else reg.forward(surface_file, freeze_boundary=True))
         fwd.pop("history", None)                     # large; the curves are not needed here
         report["forward"] = fwd
 

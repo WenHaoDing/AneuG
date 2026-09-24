@@ -1,7 +1,7 @@
 
 
 <!-- rsync -ahz --partial --info=progress2 \
-    /media/yaplab2/wd8tb/wenhao/angioflow/cfd/AneuGv2 \
+    /media/yaplab2/wd8tb/wenhao/angioflow/cfd/ImperialNHS_fix \
     wd123@dtn-c.cx3.hpc.ic.ac.uk:/rds/general/user/wd123/home/Angioflow/ -->
 
 
