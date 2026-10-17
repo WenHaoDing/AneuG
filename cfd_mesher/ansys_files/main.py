@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import glob
+import json
 import os
 import sys
 import time
@@ -29,6 +30,17 @@ WALL_KEYS = [
 ]
 
 COORD_KEYS = ("x_coordinate", "y_coordinate", "z_coordinate")
+
+# The journals run 1600 steps of 1e-3 s (two cycles) and export every 10 steps, so the
+# .encas holds 160 frames. udf_waveform_5cycles.txt repeats every 0.8 s. The first cycle
+# still carries the initialisation transient: export the second one.
+CYCLE_PERIOD = 0.8
+EXPORT_CYCLE = 2      # 1-based
+N_FRAMES = 80         # frames per cycle
+
+# Written last in each case folder, after both .pt files. A case is done only if this
+# names the cycle we want, so exports from before it existed (first cycle) are redone.
+FRAMES_JSON = "frames.json"
 
 WALL_PARTS = [
     ("wall", "surface3"),
@@ -161,12 +173,62 @@ def _cells_to_edge_index(cells):
     return np.unique(edges, axis=0).T.astype(np.int64)
 
 
-def _read_frames(case, part, keys, n_frames):
-    """Read each `key` over `n_frames` timesteps -> {key: [T, N, 1]}."""
+def read_encas_times(encas_path):
+    """Time values listed in the .encas TIME section, in timestep order."""
+    with open(encas_path, "r") as f:
+        lines = f.read().splitlines()
+    n_steps, times, collecting = None, [], False
+    for line in lines:
+        s = line.strip()
+        if collecting:
+            try:
+                times.extend(float(tok) for tok in s.split())
+                continue
+            except ValueError:
+                break
+        if s.startswith("number of steps:"):
+            n_steps = int(s.split(":", 1)[1])
+        elif s.startswith("time values:"):
+            collecting = True
+            rest = s.split(":", 1)[1].split()
+            times.extend(float(tok) for tok in rest)
+    if n_steps is not None and len(times) != n_steps:
+        raise ValueError(f"{encas_path}: 'number of steps' is {n_steps} "
+                         f"but {len(times)} time values are listed")
+    return np.asarray(times, dtype=np.float64)
+
+
+def select_cycle_frames(encas_path, n_frames=N_FRAMES, cycle=EXPORT_CYCLE,
+                        period=CYCLE_PERIOD):
+    """Timestep indices (and their times) of the frames in t ∈ ((cycle-1)·T, cycle·T].
+
+    Selected by simulated time, not by index, and an incomplete or oddly exported run
+    raises instead of quietly handing back frames from the wrong cycle.
+    """
+    times = read_encas_times(encas_path)
+    tol = 0.25 * period / n_frames
+    lo, hi = (cycle - 1) * period, cycle * period
+    idx = np.nonzero((times > lo + tol) & (times <= hi + tol))[0]
+    span = (f"{len(times)} frames in .encas, t = {times[0]:.4f} .. {times[-1]:.4f} s"
+            if len(times) else "no time values in .encas")
+    if len(idx) != n_frames:
+        raise ValueError(f"cycle {cycle} (t in ({lo:.3f}, {hi:.3f}] s) has {len(idx)} "
+                         f"frames, expected {n_frames}; {span}")
+    dt = np.diff(times[idx])
+    if not np.allclose(dt, period / n_frames, rtol=1e-3, atol=1e-9):
+        raise ValueError(f"cycle {cycle} frames are not evenly spaced at "
+                         f"{period / n_frames:.4f} s (dt {dt.min():.4f} .. {dt.max():.4f}); "
+                         f"{span}")
+    return idx.astype(np.int64), times[idx]
+
+
+def _read_frames(case, part, keys, timesteps):
+    """Read each `key` at the given timestep indices -> {key: [T, N, 1]}."""
     out = {}
     for key in keys:
         cols = []
-        for t in range(n_frames):
+        for t in timesteps:
+            t = int(t)
             v = case.get_variable(key, timestep=t)
             with open(v.file_path, "rb") as fp:
                 arr = np.asarray(v.read_node_data(fp, part.part_id), dtype=np.float64)
@@ -197,7 +259,7 @@ def _print_data_shapes(label, data):
             print(f"  {k:<25s} {tuple(v.shape)}")
 
 
-def extract_blood_data(encas_path, n_frames=80):
+def extract_blood_data(encas_path, timesteps, times):
     case = ensightreader.read_case(encas_path)
     geofile = case.get_geometry_model()
     part = geofile.get_part_by_name("blood")
@@ -206,13 +268,14 @@ def extract_blood_data(encas_path, n_frames=80):
         "pos": torch.from_numpy(pos).float(),
         "pos_frame": _read_pos_frame(case, part),            # [N, 3] coords from t=0 vars
         "cells": torch.from_numpy(cells),                    # [C, k] volumetric cell conn
+        "frame_times": torch.from_numpy(times),              # [T] simulated time (s)
     }
-    data.update(_read_frames(case, part, BLOOD_KEYS, n_frames))
+    data.update(_read_frames(case, part, BLOOD_KEYS, timesteps))
     _print_data_shapes("blood", data)
     return data
 
 
-def extract_wall_data(encas_path, n_frames=80):
+def extract_wall_data(encas_path, timesteps, times):
     """Per-zone dict; only the wall zone carries WSS/coord time series."""
     case = ensightreader.read_case(encas_path)
     geofile = case.get_geometry_model()
@@ -228,7 +291,8 @@ def extract_wall_data(encas_path, n_frames=80):
             "faces": torch.from_numpy(faces),                # [F, k]
         }
         if zone_name == "wall":
-            zone.update(_read_frames(case, part, WALL_KEYS, n_frames))
+            zone["frame_times"] = torch.from_numpy(times)    # [T] simulated time (s)
+            zone.update(_read_frames(case, part, WALL_KEYS, timesteps))
         out[zone_name] = zone
     _print_data_shapes("wall", out)
     return out
@@ -256,31 +320,61 @@ def copy_case_metadata(case_dir, out_dir):
     print(f"  metadata  copied={len(copied)}  missing={len(missing)}")
 
 
-def process_case(case_dir, save_root, n_frames=80):
-    """Write `<save_root>/<case_name>/blood_data.pt` and `wall_data.pt`."""
+def _save_atomic(obj, path):
+    """torch.save via a temp file, so a walltime kill never leaves a truncated .pt."""
+    tmp = path + ".tmp"
+    torch.save(obj, tmp)
+    os.replace(tmp, path)
+
+
+def export_is_current(out_dir, n_frames=N_FRAMES, cycle=EXPORT_CYCLE):
+    """True if out_dir holds both .pt files and a frames.json for this cycle."""
+    if not all(os.path.exists(os.path.join(out_dir, f))
+               for f in ("blood_data.pt", "wall_data.pt", FRAMES_JSON)):
+        return False
+    try:
+        with open(os.path.join(out_dir, FRAMES_JSON)) as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return info.get("cycle") == cycle and info.get("n_frames") == n_frames
+
+
+def process_case(case_dir, save_root, n_frames=N_FRAMES, cycle=EXPORT_CYCLE):
+    """Write `<save_root>/<case_name>/blood_data.pt`, `wall_data.pt` and frames.json."""
     encas = os.path.join(case_dir, "Results", "ensight_files.encas")
     if not os.path.exists(encas):
         print(f"[skip] {os.path.basename(case_dir)}: no .encas")
         return False
     fix_encas_geometry_model(encas)
+    # before anything is written: a run that did not finish the cycle fails here and
+    # leaves whatever is already in out_dir alone
+    timesteps, times = select_cycle_frames(encas, n_frames, cycle)
+    print(f"  cycle {cycle}: timesteps {timesteps[0]}..{timesteps[-1]}, "
+          f"t = {times[0]:.4f} .. {times[-1]:.4f} s")
     out_dir = os.path.join(save_root, os.path.basename(case_dir))
     os.makedirs(out_dir, exist_ok=True)
-    blood_path = os.path.join(out_dir, "blood_data.pt")
-    wall_path = os.path.join(out_dir, "wall_data.pt")
-    if not os.path.exists(blood_path):
-        torch.save(extract_blood_data(encas, n_frames), blood_path)
-    if not os.path.exists(wall_path):
-        torch.save(extract_wall_data(encas, n_frames), wall_path)
+    frames_path = os.path.join(out_dir, FRAMES_JSON)
+    if os.path.exists(frames_path):
+        os.remove(frames_path)   # the case is not current until both .pt files are rewritten
+    _save_atomic(extract_blood_data(encas, timesteps, times),
+                 os.path.join(out_dir, "blood_data.pt"))
+    _save_atomic(extract_wall_data(encas, timesteps, times),
+                 os.path.join(out_dir, "wall_data.pt"))
     copy_case_metadata(case_dir, out_dir)
+    with open(frames_path, "w") as f:
+        json.dump({"cycle": cycle, "period": CYCLE_PERIOD, "n_frames": n_frames,
+                   "timesteps": timesteps.tolist(), "times": times.tolist()}, f, indent=1)
     return True
 
 
-def export_encase_to_pt(case_root, save_root, n_frames=80, case_pattern="case_*",
-                        redo=False, sanity_check=True):
+def export_encase_to_pt(case_root, save_root, n_frames=N_FRAMES, case_pattern="case_*",
+                        redo=False, sanity_check=True, cycle=EXPORT_CYCLE):
     """
     🔥🔥🔥
     Export all cases under `case_root` matching `case_pattern` to `save_root` as .pt files.
-    Skips cases where both .pt files already exist unless redo=True.
+    Skips cases already exported for `cycle` (see export_is_current) unless redo=True.
+    Cases exported before frames.json existed hold the first cycle and are re-extracted.
     If sanity_check=True, runs sanity_check_case after each successful export.
     """
     sanity_dir = os.path.join(save_root, "_sanity")
@@ -288,13 +382,14 @@ def export_encase_to_pt(case_root, save_root, n_frames=80, case_pattern="case_*"
     for case_dir in sorted(glob.glob(os.path.join(case_root, case_pattern))):
         name = os.path.basename(case_dir)
         out_dir = os.path.join(save_root, name)
-        if not redo and os.path.exists(os.path.join(out_dir, "blood_data.pt")) \
-                    and os.path.exists(os.path.join(out_dir, "wall_data.pt")):
-            print(f"[skip] {name}: already done")
+        if not redo and export_is_current(out_dir, n_frames, cycle):
+            print(f"[skip] {name}: already done (cycle {cycle})")
             continue
+        if os.path.exists(os.path.join(out_dir, "blood_data.pt")):
+            print(f"[stale] {name}: existing export is not cycle {cycle}, re-extracting")
         t0 = time.time()
         try:
-            if process_case(case_dir, save_root, n_frames=n_frames):
+            if process_case(case_dir, save_root, n_frames=n_frames, cycle=cycle):
                 print(f"[ok] {name}  ({time.time() - t0:.1f} s)")
                 if sanity_check:
                     try:
@@ -525,8 +620,8 @@ def test_wall_coords_in_blood(encas_path):
 
 
 if __name__ == "__main__":
-    CASE_ROOT_list = ["/rds/general/user/wd123/ephemeral/Angioflow/AneuGv2"]
-    SAVE_ROOT  = "/rds/general/user/wd123/ephemeral/Angioflow/AneuGv2/processed"
+    CASE_ROOT_list = ["/rds/general/user/jp3025/ephemeral/Angioflow/AneuGv2"]
+    SAVE_ROOT  = "/rds/general/user/jp3025/ephemeral/Angioflow/AneuGv2/processed"
 
     # One log per run, kept under <SAVE_ROOT>/_logs. Every print below lands there as well
     # as on the console, with a traceback for any case that fails, so a run can be debugged
@@ -541,10 +636,11 @@ if __name__ == "__main__":
             export_encase_to_pt(
                 case_root=CASE_ROOT,
                 save_root=SAVE_ROOT,
-                n_frames=80,
-                case_pattern="case_*",
+                n_frames=N_FRAMES,
+                cycle=EXPORT_CYCLE,
+                case_pattern="cohort_*",
                 redo=False,
-                sanity_check=True,
+                sanity_check=False,
             )
 
 """
