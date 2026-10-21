@@ -67,3 +67,32 @@ This creates a tmux session, then in the tmux session, run SSH command:
 ssh <your_username>@login.cx3.hpc.imperial.ac.uk
 ```
 Once this is done, could you kindly inform me the name of your tmux session?
+
+
+
+# transfer angioflow_fix
+rsync -ahz --partial --info=progress2 \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/wd8tb/wenhao/angioflow/cfd/angioflow_fix' \
+    $HOME/Angioflow/
+
+
+rsync -ahz --partial --info=progress2 \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/HDD Storage/wenhao/AneuG/cfd_mesher/ansys_files/export_n_upload.py' \
+    /rds/general/user/zy3326/home/Angioflow/export/
+
+
+rsync -ahz --partial --info=progress2 \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/HDD Storage/wenhao/AneuG/cfd_mesher/ansys_files/export_n_upload.sh' \
+    /rds/general/user/zy3326/home/Angioflow/export/
+
+
+# 1. transfer ImperialNHS_fix_follow data
+
+rsync -ahz --partial --info=progress2 \
+    /rds/general/user/wd123/ephemeral/Angioflow/ImperialNHS_fix_follow/processed/ \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/wd8tb/wenhao/datasets/ImperialNHS_fix_follow/'
+
+# 2. transfer AneuX_fix data
+rsync -ahz --partial --info=progress2 \
+    /rds/general/user/wd123/ephemeral/Angioflow/AneuX_fix/processed/ \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/wd8tb/wenhao/datasets/ImperialNHS_fix_follow/'

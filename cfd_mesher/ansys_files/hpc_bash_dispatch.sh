@@ -2,8 +2,8 @@
 
 #asking for n nodes, 20 proc each 
 #PBS -l select=1:ncpus=64:mem=72gb
-#PBS -l walltime=24:00:00
-#PBS -J 1-100
+#PBS -l walltime=16:00:00
+#PBS -J 1-30
 
 # CASE FOLDERS KEEP THEIR OWN NAMES. Sub-job N runs the case named on line N of
 # case_list.txt, instead of a folder that had to be renamed case_N. Write the list once
@@ -19,14 +19,14 @@
 
 #Define the simulation name & directories name
 Project_Name=Angioflow
-Run_Name=AneuGv2
+Run_Name=angioflow_fix
 Journal_Name=jnl_transient
 nodes=1
 cpus=64
 Log_File_Name=log
 Results=Results
 Time_Stamp=timeStamp.log
-Save_dir=/rds/general/user/your_username/ephemeral/$Project_Name/$Run_Name
+Save_dir=$EPHEMERAL/$Project_Name/$Run_Name
 Case_List=$HOME/$Project_Name/$Run_Name/case_list.txt
 
 # line PBS_ARRAY_INDEX of the list; tr drops a Windows line ending if the list was edited there
