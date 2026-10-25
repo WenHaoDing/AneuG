@@ -1,0 +1,80 @@
+{
+ "note": "ostium model validation cases: 15 drawn at random at patient level (seed 0), 7 ImperialNHS + 8 AneuX; every case of a drawn patient is held out, so no vessel tree is shared with training",
+ "cases": [
+  {
+   "dataset": "ImperialNHS",
+   "case": "184D0jB3dS_aneurysm1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "7UdKnGmnSl_aneurysm1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "7UdKnGmnSl_aneurysm2",
+   "aneurysm_type": 1
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "BBHJDCAXOc_aneurysm1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "psZtYn1Eg8_aneurysm1",
+   "aneurysm_type": 1
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "yUJN2uVA3D_aneurysm1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "ImperialNHS",
+   "case": "vudNr4Zebe_aneurysm1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "p479_FBMdGw4aHRsXFwkVFhMBHxEK_cut2",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "UPF_P0053.00_ID1_cut1",
+   "aneurysm_type": 2
+  },
+  {
+   "dataset": "AneuX",
+   "case": "ANSYS_UNIGE_30_614_cut1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "USFD_0033_cut1",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "SNF00000365_02_1_cut2",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "p144_GgAREAUBFxMNBAUeBwgLFx8Z_cut2",
+   "aneurysm_type": 2
+  },
+  {
+   "dataset": "AneuX",
+   "case": "p482_AwAaCAQBDAAbDBIGAQAGDAER_cut2",
+   "aneurysm_type": 0
+  },
+  {
+   "dataset": "AneuX",
+   "case": "p357_EhMTDxQHHB8BBAgLHQ8MFxQW_cut2",
+   "aneurysm_type": 0
+  }
+ ]
+}

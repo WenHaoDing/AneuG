@@ -111,6 +111,10 @@ control `volume_mesh.compute_adaptive_edge` — element size scales with whichev
 shape's enclosed volume or surface area implies the coarser edge, so a small-volume but
 elongated/thin shape still gets caught. The defaults are the values this pipeline was
 actually tuned and run with, not that function's own (gentler) fallback defaults.
+`--mesh_preset legacy` swaps in the AneuSeg `get_mesh_aneux_tune_elements_v3.py` values
+as a backup; it gives fewer elements only on the smaller shapes (see `LEGACY_MESH_PARAMS`).
+`--remesh` regenerates just the mesh and its derived files for cases already done,
+reusing their surfaces and regularization.
 
 ## Requirements
 

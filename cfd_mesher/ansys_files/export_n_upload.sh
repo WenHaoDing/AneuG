@@ -17,9 +17,9 @@
 #
 #   export HF_TOKEN=hf_...              # this shell only, never in a file
 #   qsub -v HF_TOKEN export_n_upload.sh
-#   qsub -v "HF_TOKEN,PROJECT=AneuGv2,CASE_PATTERN=cohort_*,REPO_ID=whding123/AneuGv2,OVERWRITE_HF=true" export_n_upload.sh
+#   qsub -v "HF_TOKEN,HPC_USER=jp3025,PROJECT=AneuGv2,CASE_PATTERN=cohort_*,REPO_ID=whding123/AneuGv2,OVERWRITE_HF=true" export_n_upload.sh
 #   qsub -v "HF_TOKEN,HPC_USER=wd123,PROJECT=AneuX_fix,CASE_PATTERN=none,REPO_ID=whding123/Angioflow_fix,SANITY=true,UPLOAD_SANITY=true" export_n_upload.sh
-#   qsub -v "HF_TOKEN,HPC_USER=wd123,PROJECT=Angioflow_fix,CASE_PATTERN=none,REPO_ID=whding123/Angioflow_fix,SANITY=true,UPLOAD_SANITY=true" export_n_upload.sh
+#   qsub -v "HF_TOKEN,HPC_USER=jp3025,PROJECT=AneuGv2,CASE_PATTERN=none,REPO_ID=whding123/AneuGv2,SANITY=true,UPLOAD_SANITY=true" export_n_upload.sh
 
 # Quote the -v list (a bare * would be expanded by your shell) and keep commas out of the
 # values: qsub splits the list on them. Re-submit after a walltime kill: exported cases

@@ -8,8 +8,10 @@ and area, relabels wall/inlet/outlet boundary ids to a fixed policy, and exports
 bookkeeping a Fluent run needs (inlet node coordinates, and for two-outlet cases a
 flow-split ratio).
 
-Mesh parameters match AneuSeg/cfd_meshing/get_mesh_aneux_tune_elements_v3.py exactly,
-including the vmtkmeshgenerator boundary-layer settings in vmtk_backend.py.
+The vmtkmeshgenerator boundary-layer settings in vmtk_backend.py match
+AneuSeg/cfd_meshing/get_mesh_aneux_tune_elements_v3.py exactly. The edge-length
+parameters are recalibrated for this cohort (see DEFAULT_MESH_PARAMS); --mesh_preset
+legacy restores that script's values instead.
 
 This is the volume stage; it reads what generate_cfd_surface_meshes.py writes.
 
@@ -18,7 +20,9 @@ This is the volume stage; it reads what generate_cfd_surface_meshes.py writes.
         --surface_root /path/to/surfaces --save_root /path/to/volumes --overwrite
 
 Per case the following are written into <save_root>/<case>/ (save_root defaults to
---surface_root itself, i.e. in place next to the surface stage's output):
+VOLUME_SAVE_ROOT in cfd_mesher/config.py, overridable by $CFDMESH_VOLUME_SAVE_ROOT, and
+to --surface_root itself only if that is empty -- pass --save_root explicitly for a
+test run, or it writes into the real cohort):
 
     (every source file)         copied from <surface_root>/<case>/ unless --no-copy_case_files
     ghd_surface.vtp             the surface .obj converted to .vtp
@@ -26,6 +30,7 @@ Per case the following are written into <save_root>/<case>/ (save_root defaults 
     ghd_surface_regularized.vtp only if the surface was rougher than the reference
     ghd_surface_extended.vtp    only if --extend_inlet/--extend_outlets is set
     mesh.vtu                    the tagged volume mesh
+    mesh_params.json            preset, edge parameters, volume, area, edge and element count
     mesh.msh                    the same mesh, converted to Fluent format
     inlet_centroids.csv         every inlet node's coordinates, scaled by --inlet_scale
     flowsplit_ratio.txt         two-outlet cases only: normalized per-outlet flow split
@@ -103,6 +108,25 @@ DEFAULT_MESH_PARAMS = dict(
     area_exponent=0.70,
     max_edge=1.0,
 )
+
+# The get_mesh_aneux_tune_elements_v3.py values, kept as a backup for cases whose CFD
+# run has to be shorter. They give FEWER elements only on shapes small enough to sit
+# at or near base_edge under both presets (the coarser 0.13 base wins there, ~20%
+# fewer); above roughly V 190 mm^3 / A 390 mm^2 they coarsen more slowly than the
+# calibrated values and give MORE, up to ~40%. Predicted from the fit above over the
+# 650 cases: fewer on 338, ratio legacy/calibrated 0.79-1.42, median 0.98. Check a
+# case's ratio before remeshing it with this preset.
+LEGACY_MESH_PARAMS = dict(
+    base_edge=0.13,
+    ref_volume=320.0,
+    ref_area=320.0,
+    vol_exponent=0.30,
+    area_exponent=0.50,
+    max_edge=1.0,
+)
+
+MESH_PRESETS = {"calibrated": DEFAULT_MESH_PARAMS, "legacy": LEGACY_MESH_PARAMS}
+MESH_PARAMS_FILENAME = "mesh_params.json"
 
 
 def _check_vmtk_available():
@@ -190,16 +214,17 @@ def build_parser():
     p.add_argument("--surface_root", default=SURFACE_SAVE_ROOT,
                    help="per-case surface stage output (.obj + fusion npz)")
     p.add_argument("--save_root", default=VOLUME_SAVE_ROOT or None,
-                   help="output root; default is --surface_root itself (in place)")
+                   help="output root; default is VOLUME_SAVE_ROOT from config.py "
+                        "(--surface_root itself if that is empty)")
     p.add_argument("--surface_filename", default=SURFACE_FILENAME)
     p.add_argument("--npz_filename", default=FUSION_INFO_FILENAME)
 
-    p.add_argument("--base_edge", type=float, default=DEFAULT_MESH_PARAMS["base_edge"])
-    p.add_argument("--ref_volume", type=float, default=DEFAULT_MESH_PARAMS["ref_volume"])
-    p.add_argument("--ref_area", type=float, default=DEFAULT_MESH_PARAMS["ref_area"])
-    p.add_argument("--vol_exponent", type=float, default=DEFAULT_MESH_PARAMS["vol_exponent"])
-    p.add_argument("--area_exponent", type=float, default=DEFAULT_MESH_PARAMS["area_exponent"])
-    p.add_argument("--max_edge", type=float, default=DEFAULT_MESH_PARAMS["max_edge"])
+    p.add_argument("--mesh_preset", default="calibrated", choices=sorted(MESH_PRESETS),
+                   help="edge-length parameters: 'calibrated' (this cohort, ~3 M elements "
+                        "evenly) or 'legacy' (get_mesh_aneux_tune_elements_v3.py). Any of "
+                        "the six flags below, if given, overrides the preset's value")
+    for name in DEFAULT_MESH_PARAMS:
+        p.add_argument("--" + name, type=float, default=None)
     p.add_argument("--inflation", action=argparse.BooleanOptionalAction, default=True,
                    help="add boundary-layer sublayers at the wall")
     p.add_argument("--mesh_timeout", type=float, default=2700.0,
@@ -260,6 +285,12 @@ def build_parser():
                         "folder, so the volume disk holds complete cases")
     p.add_argument("--overwrite", action="store_true",
                    help="reprocess cases whose mesh.vtu and mesh.msh already both exist")
+    p.add_argument("--remesh", action="store_true",
+                   help="regenerate mesh.vtu and everything derived from it (mesh.msh, "
+                        "inlet_centroids.csv, flowsplit_ratio.txt, mesh_params.json) "
+                        "from the same surface as before: the .vtp and the decision in "
+                        "regularization.json are reused, not redone as --overwrite does; "
+                        "use with --mesh_preset legacy")
     p.add_argument("--cases", nargs="*", default=None,
                    help="only these case names (default: everything under --surface_root)")
     p.add_argument("--exclude", nargs="*", default=[], help="case names to skip")
@@ -274,6 +305,12 @@ def main():
     args = build_parser().parse_args()
     _check_vmtk_available()
     vm, backend = _volume_mesh()
+
+    mesh_params = {k: (v if getattr(args, k) is None else getattr(args, k))
+                   for k, v in MESH_PRESETS[args.mesh_preset].items()}
+    print("mesh preset %s: %s" % (args.mesh_preset,
+          " ".join("%s=%g" % kv for kv in mesh_params.items())))
+    remesh = args.overwrite or args.remesh
 
     save_root = args.save_root or args.surface_root
     cases = args.cases or sorted(os.listdir(args.surface_root))
@@ -301,7 +338,7 @@ def main():
             print("[%s] no %s, skipping" % (case, args.npz_filename))
             skipped += 1
             continue
-        if os.path.exists(vtu_path) and os.path.exists(msh_path) and not args.overwrite:
+        if os.path.exists(vtu_path) and os.path.exists(msh_path) and not remesh:
             skipped += 1
             continue
 
@@ -321,20 +358,34 @@ def main():
                     shutil.copy2(src, dst)
         try:
             # -- obj -> vtp --------------------------------------------------------
-            if not os.path.exists(vtp_path) or args.overwrite:
+            if not os.path.exists(vtp_path) or remesh:
                 # merged, not a plain pv.read: see volume_mesh.read_surface
                 vm.read_surface(obj_path).save(vtp_path)
 
             surface_for_meshing = vtp_path
 
             # -- roughness: measure, and smooth only if rougher than the reference ---
-            if args.regularize:
+            reg_report = os.path.join(save_dir, "regularization.json")
+            if args.remesh and not args.overwrite and os.path.exists(reg_report):
+                # Mesh the surface the existing mesh was made from, whatever today's
+                # regularizer settings would decide: the AneuGv2 reports were written at
+                # tolerance 1.0, and re-assessing at the current 0.25 re-smooths cases
+                # that were meshed unsmoothed, changing the geometry and not just the mesh.
+                with open(reg_report) as f:
+                    previous = json.load(f)
+                if previous.get("action") == "regularized":
+                    surface_for_meshing = os.path.join(save_dir, "ghd_surface_regularized.vtp")
+                    if not os.path.exists(surface_for_meshing):
+                        raise RuntimeError("regularization.json says regularized but %s is "
+                                           "missing" % surface_for_meshing)
+                print("  roughness: reusing previous decision (%s)" % previous.get("action"))
+            elif args.regularize:
                 reg_path = os.path.join(save_dir, "ghd_surface_regularized.vtp")
                 sac_mm = (_dome_sac_mm(case, args.dome_size_root)
                           if args.dome_normalized else None)
                 used, report = vm.regularize_surface_if_needed(
                     surface_file=obj_path, output_file=reg_path,
-                    report_path=os.path.join(save_dir, "regularization.json"),
+                    report_path=reg_report,
                     tolerance=(args.dome_tolerance if sac_mm
                                else args.regularizer_tolerance),
                     remesher=args.regularizer_remesher,
@@ -372,25 +423,33 @@ def main():
                 surface_for_meshing = extended_path
 
             # -- volume meshing (adaptive edge from shape volume + area) ------------
-            if not os.path.exists(vtu_path) or args.overwrite:
+            if not os.path.exists(vtu_path) or remesh:
                 vol, area = vm.get_surface_geometry_stats(surface_for_meshing)
                 edge = vm.compute_adaptive_edge(
-                    vol, area, base_edge=args.base_edge, ref_volume=args.ref_volume,
-                    ref_area=args.ref_area, vol_exponent=args.vol_exponent,
-                    area_exponent=args.area_exponent)
-                print("  volume=%.2f area=%.2f edge=%.4f (base=%.4f)"
-                      % (vol, area, edge, args.base_edge))
-                backend.cfdmesher_custom(surface_for_meshing, vtu_path, edge, args.max_edge,
+                    vol, area, base_edge=mesh_params["base_edge"],
+                    ref_volume=mesh_params["ref_volume"], ref_area=mesh_params["ref_area"],
+                    vol_exponent=mesh_params["vol_exponent"],
+                    area_exponent=mesh_params["area_exponent"])
+                print("  volume=%.2f area=%.2f edge=%.4f (base=%.4f, %s)"
+                      % (vol, area, edge, mesh_params["base_edge"], args.mesh_preset))
+                backend.cfdmesher_custom(surface_for_meshing, vtu_path, edge,
+                                         mesh_params["max_edge"],
                                          "y" if args.inflation else "n",
                                          timeout=args.mesh_timeout or None)
-                vm.report_mesh_stats(vtu_path)
+                n_cells = vm.report_mesh_stats(vtu_path)
+                with open(os.path.join(save_dir, MESH_PARAMS_FILENAME), "w") as f:
+                    json.dump({"preset": args.mesh_preset, "params": mesh_params,
+                               "inflation": args.inflation,
+                               "surface": os.path.basename(surface_for_meshing),
+                               "volume": vol, "area": area, "edge": edge,
+                               "n_volume_cells": n_cells}, f, indent=2)
 
             # -- relabel wall/inlet/outlet ids by npz cpcd endpoints ----------------
             vm.relabel_inlet_outlets_v2(mesh_file=vtu_path, npz_path=npz_path)
 
             # -- export inlet node coordinates for a Fluent UDF ---------------------
             inlet_csv = os.path.join(save_dir, "inlet_centroids.csv")
-            if not os.path.exists(inlet_csv) or args.overwrite:
+            if not os.path.exists(inlet_csv) or remesh:
                 vm.scan_inlet_nodes(vtu_path, csv_path=inlet_csv, scale_factor=args.inlet_scale)
 
             # -- export flow-split ratio for two-outlet cases -----------------------
@@ -398,7 +457,7 @@ def main():
                                      output_path=os.path.join(save_dir, "flowsplit_ratio.txt"))
 
             # -- write Fluent mesh ---------------------------------------------------
-            if not os.path.exists(msh_path) or args.overwrite:
+            if not os.path.exists(msh_path) or remesh:
                 backend.write_msh_single(vtu_path, msh_path)
 
             # -- Fluent run files: UDF, waveform, and the journal for this outlet count

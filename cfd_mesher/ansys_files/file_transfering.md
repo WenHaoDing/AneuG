@@ -69,6 +69,11 @@ ssh <your_username>@login.cx3.hpc.imperial.ac.uk
 Once this is done, could you kindly inform me the name of your tmux session?
 
 
+rsync -ahz --partial --info=progress2 \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/wd8tb/wenhao/angioflow/cfd/angioflow_fix/4hTp3oln7B_aneurysm1' \
+    $HOME/Angioflow/angioflow_fix/
+
+
 
 # transfer angioflow_fix
 rsync -ahz --partial --info=progress2 \
@@ -78,12 +83,12 @@ rsync -ahz --partial --info=progress2 \
 
 rsync -ahz --partial --info=progress2 \
     'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/HDD Storage/wenhao/AneuG/cfd_mesher/ansys_files/export_n_upload.py' \
-    /rds/general/user/zy3326/home/Angioflow/export/
+    $HOME/Angioflow/export/
 
 
 rsync -ahz --partial --info=progress2 \
     'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/HDD Storage/wenhao/AneuG/cfd_mesher/ansys_files/export_n_upload.sh' \
-    /rds/general/user/zy3326/home/Angioflow/export/
+    $HOME/Angioflow/export/
 
 
 # 1. transfer ImperialNHS_fix_follow data
