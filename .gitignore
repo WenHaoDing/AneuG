@@ -24,3 +24,5 @@ runtime_vessel_graph_work/
 cfd_data_factory/
 place_cfd_in_scan/
 runtime_infer/
+
+__pycache__/
