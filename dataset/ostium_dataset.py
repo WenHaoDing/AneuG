@@ -36,6 +36,7 @@ from torch_geometric.data import Data
 REPO = Path(__file__).resolve().parents[1]
 ASSEMBLED = REPO / "runtime_dataset" / "assembled"
 VAE_CKPT = REPO / "runtime_train/ghd_vae/stage1/ghd_vae_gan_h256_z16_kl2_adv0.3/epoch_05000.pth"
+MORPH_REFERENCE = REPO / "dataset" / "ostium_morph_reference.json"   # condition labels, see scripts/ostium/morph_reference.py
 
 
 # ---------------------------------------------------------------------- batching
@@ -148,26 +149,74 @@ def positional_encodings(n, ei, k, rw_steps, rng, flip):
 
 # ---------------------------------------------------------------------- dataset
 
+def graph_inputs(pos, radius, ei, rng, unit=10.0, l1_mm=1.0, l2_mm=4.0, pe_k=8, rw_steps=8, flip_pe=False, A=None):
+    """Model inputs of a point graph in mm: node features, the two coarse levels and their positional
+    encodings. Shared by training (OstiumGraphDataset) and inference, so both build exactly the same
+    inputs. rng draws the farthest-point seeds and (flip_pe) the eigenvector signs.
+    Returns (OstiumData fields, centre in mm); positions in the fields are (pos - centre) / unit."""
+    n = len(pos)
+    A = adjacency(pos, ei) if A is None else A
+    deg = np.bincount(ei[0], minlength=n)
+    tang = np.zeros((n, 3))
+    dv = pos[ei[1]] - pos[ei[0]]
+    dv /= np.linalg.norm(dv, axis=1, keepdims=True) + 1e-9
+    dv *= np.sign(dv[:, :1] + 1e-12)                            # sign-free direction
+    np.add.at(tang, ei[0], dv)
+    tang /= np.linalg.norm(tang, axis=1, keepdims=True) + 1e-9
+    tt = np.stack([tang[:, 0] ** 2, tang[:, 1] ** 2, tang[:, 2] ** 2,
+                   tang[:, 0] * tang[:, 1], tang[:, 0] * tang[:, 2], tang[:, 1] * tang[:, 2]], 1)
+    centre = pos.mean(0)
+    posn = (pos - centre) / unit
+    feat = np.concatenate([posn, radius[:, None] / unit, tt,
+                           (deg >= 3)[:, None].astype(float), (deg == 1)[:, None].astype(float)], 1)
+    # hierarchy
+    mean_edge = float(np.linalg.norm(pos[ei[0]] - pos[ei[1]], axis=1).mean())
+    seeds1 = fps(pos, min(1.0, mean_edge / l1_mm), rng)           # ~1 point per l1_mm
+    lab1 = voronoi(A, seeds1)
+    ei1 = coarse_edges(ei, lab1)
+    seeds2_in1 = fps(pos[seeds1], min(1.0, l1_mm / l2_mm), rng)
+    lab2_full = voronoi(A, seeds1[seeds2_in1])
+    assign12 = lab2_full[seeds1]
+    ei2 = coarse_edges(ei, lab2_full)
+    pe1 = positional_encodings(len(seeds1), ei1, pe_k, rw_steps, rng, flip_pe)
+    pe2 = positional_encodings(len(seeds2_in1), ei2, pe_k, rw_steps, rng, flip_pe)
+    f32 = lambda a: torch.as_tensor(np.asarray(a), dtype=torch.float32)
+    i64 = lambda a: torch.as_tensor(np.asarray(a), dtype=torch.long)
+    fields = dict(
+        x=f32(feat), pos=f32(posn), edge_index=i64(ei), radius=f32(radius / unit),
+        pos_1=f32(posn[seeds1]), edge_index_1=i64(ei1), assign_01=i64(lab1), n1=len(seeds1),
+        pe_1=f32(pe1[0]), eig_1=f32(pe1[1]), rw_1=f32(pe1[2]),
+        pos_2=f32(posn[seeds1[seeds2_in1]]), edge_index_2=i64(ei2), assign_12=i64(assign12), n2=len(seeds2_in1),
+        pe_2=f32(pe2[0]), eig_2=f32(pe2[1]), rw_2=f32(pe2[2]))
+    return fields, centre
+
+
 class OstiumGraphDataset(Dataset):
     def __init__(self, split="train", datasets=("ImperialNHS", "AneuX"), root=ASSEMBLED,
                  val_frac=0.15, split_seed=0, augment=None, H=5, M=128, unit_mm=10.0,
                  keep_mm=6.0, crop_min_mm=8.0, p_whole=0.2, centre_frac=0.8, jitter_mm=0.3,
                  site_sigma_mm=1.0, l1_mm=1.0, l2_mm=4.0, pe_k=8, rw_steps=8, n_ring=64,
                  complex_targets=True, vae_ckpt=VAE_CKPT, cases=None, seed=None, val_cases=None,
-                 point_frames=False, rotate=True):
+                 point_frames=False, rotate=True, crop=True, rot_max_deg=180.0, morph=False):
         """split: "train" | "val" | "all". augment defaults to (split == "train"): pass it
         explicitly for split "all" (training on every case needs augment=True). The split is by patient: with `val_cases` (case names)
         every case of those cases' patients is validation; otherwise a hash of the patient id
         (val_frac, split_seed). point_frames: also store the signed tangent and the local scale at
         every graph point (tangent_pts, scale_pts), so the ostium head can be run at a sampled site
         (evaluation only; not needed for training). rotate: with augment, a random SO(3) rotation per
-        sample (False keeps the scan orientation; trimming, sigma and jitter are unchanged)."""
+        sample (False keeps the scan orientation; trimming, sigma and jitter are unchanged). crop: with
+        augment, trim off-centre (False always keeps the whole graph; the rest unchanged).
+        rot_max_deg: with rotate, below 180 the rotation is about a uniformly random axis by an angle
+        uniform in [0, rot_max_deg] (180: a uniformly random rotation, as before). morph: also store the
+        case's morphology condition [log dome volume (mm3), aspect ratio] (morph, raw) from
+        MORPH_REFERENCE (scripts/ostium/morph_reference.py); it does not change with augmentation."""
         self.split, self.H, self.M, self.unit = split, H, M, unit_mm
         self.augment = (split == "train") if augment is None else augment
         self.keep_mm, self.crop_min_mm, self.p_whole = keep_mm, crop_min_mm, p_whole
         self.centre_frac, self.jitter_mm, self.site_sigma = centre_frac, jitter_mm, site_sigma_mm
         self.l1_mm, self.l2_mm, self.pe_k, self.rw_steps, self.n_ring = l1_mm, l2_mm, pe_k, rw_steps, n_ring
-        self.complex_targets, self.point_frames, self.rotate = complex_targets, point_frames, rotate
+        self.complex_targets, self.point_frames, self.rotate, self.crop = complex_targets, point_frames, rotate, crop
+        self.rot_max_deg = rot_max_deg
         self.rng = np.random.default_rng(seed)
         found = [(ds, f.parent.parent.name, f) for ds in datasets
                  for f in sorted((Path(root) / ds).glob("*/vessel_graph/vessel_graph.npz"))]
@@ -186,6 +235,10 @@ class OstiumGraphDataset(Dataset):
             if split == "all" or (split == "val") == v:
                 items.append((ds, case, f))
         self.items = items
+        self.morph = None
+        if morph:
+            ref = json.loads(Path(MORPH_REFERENCE).read_text())
+            self.morph = {(r["ds"], r["case"]): [float(np.log(r["volume_mm3"])), r["aspect_ratio"]] for r in ref["cases"]}
         self._cache = {}
         self._vae = None
         if complex_targets:
@@ -239,7 +292,7 @@ class OstiumGraphDataset(Dataset):
         pos, ei, P = d["pos"], d["ei"], d["site"]
         A = adjacency(pos, ei)
         n = len(pos)
-        if not self.augment or rng.random() < self.p_whole:
+        if not self.augment or not self.crop or rng.random() < self.p_whole:
             return np.arange(n), A
         gP = geodesic(A, P)
         from scipy.spatial import cKDTree
@@ -270,8 +323,14 @@ class OstiumGraphDataset(Dataset):
         pos = d["pos"][sel]
         radius = d["radius"][sel]
         P = int(remap[d["site"]])
-        G = (Rotation.random(random_state=rng.integers(1 << 31)).as_matrix() if self.augment and self.rotate
-             else np.eye(3))
+        if not (self.augment and self.rotate):
+            G = np.eye(3)
+        elif self.rot_max_deg >= 180:
+            G = Rotation.random(random_state=rng.integers(1 << 31)).as_matrix()
+        else:                                               # small rotations about a random axis
+            ax = rng.normal(size=3)
+            ax /= np.linalg.norm(ax)
+            G = Rotation.from_rotvec(ax * np.radians(rng.uniform(0, self.rot_max_deg))).as_matrix()
         pos = pos @ G.T
         rim = d["rim"] @ G.T
         n = len(pos)
@@ -297,45 +356,15 @@ class OstiumGraphDataset(Dataset):
         from geometry.ostium import decode_ostium
         ring_img = decode_ostium(code, pg, M=self.n_ring)
         ring_loc = (ring_img - C) @ Rf.T / s
-        # node features
-        tang = np.zeros((n, 3))
-        for a_, b_ in ((ei[0], ei[1]),):
-            dv = pos[b_] - pos[a_]
-            dv /= np.linalg.norm(dv, axis=1, keepdims=True) + 1e-9
-            dv *= np.sign(dv[:, :1] + 1e-12)                    # sign-free direction
-            np.add.at(tang, a_, dv)
-        tang /= np.linalg.norm(tang, axis=1, keepdims=True) + 1e-9
-        tt = np.stack([tang[:, 0] ** 2, tang[:, 1] ** 2, tang[:, 2] ** 2,
-                       tang[:, 0] * tang[:, 1], tang[:, 0] * tang[:, 2], tang[:, 1] * tang[:, 2]], 1)
-        centre = pos.mean(0)
-        posn = (pos - centre) / self.unit
-        feat = np.concatenate([posn, radius[:, None] / self.unit, tt,
-                               (deg >= 3)[:, None].astype(float), (deg == 1)[:, None].astype(float)], 1)
         # site soft label
         q = np.exp(-0.5 * (gP / self.site_sigma) ** 2)
         q /= q.sum()
-        # hierarchy
-        mean_edge = float(np.linalg.norm(pos[ei[0]] - pos[ei[1]], axis=1).mean())
-        seeds1 = fps(pos, min(1.0, mean_edge / self.l1_mm), rng)   # ~1 point per l1_mm
-        lab1 = voronoi(A, seeds1)
-        ei1 = coarse_edges(ei, lab1)
-        pos1 = posn[seeds1]
-        seeds2_in1 = fps(pos[seeds1], min(1.0, self.l1_mm / self.l2_mm), rng)
-        lab2_full = voronoi(A, seeds1[seeds2_in1])
-        assign12 = lab2_full[seeds1]
-        ei2 = coarse_edges(ei, lab2_full)
-        pos2 = posn[seeds1[seeds2_in1]]
-        pe1 = positional_encodings(len(seeds1), ei1, self.pe_k, self.rw_steps, rng, self.augment)
-        pe2 = positional_encodings(len(seeds2_in1), ei2, self.pe_k, self.rw_steps, rng, self.augment)
+        fields, centre = graph_inputs(pos, radius, ei, rng, unit=self.unit, l1_mm=self.l1_mm, l2_mm=self.l2_mm,
+                                      pe_k=self.pe_k, rw_steps=self.rw_steps, flip_pe=self.augment, A=A)
         f32 = lambda a: torch.as_tensor(np.asarray(a), dtype=torch.float32)
         i64 = lambda a: torch.as_tensor(np.asarray(a), dtype=torch.long)
         data = OstiumData(
-            x=f32(feat), pos=f32(posn), edge_index=i64(ei), site_q=f32(q),
-            site=i64([Pj]), site_true=i64([P]), radius=f32(radius / self.unit),
-            pos_1=f32(pos1), edge_index_1=i64(ei1), assign_01=i64(lab1), n1=len(seeds1),
-            pe_1=f32(pe1[0]), eig_1=f32(pe1[1]), rw_1=f32(pe1[2]),
-            pos_2=f32(pos2), edge_index_2=i64(ei2), assign_12=i64(assign12), n2=len(seeds2_in1),
-            pe_2=f32(pe2[0]), eig_2=f32(pe2[1]), rw_2=f32(pe2[2]),
+            **fields, site_q=f32(q), site=i64([Pj]), site_true=i64([P]),
             y_ost=f32(y)[None], tangent=f32(t)[None], scale=f32([[s / self.unit]]),
             sigma=f32([sigma]), ring_loc=f32(ring_loc)[None], ring_img=f32((ring_img - centre) / self.unit)[None],
             frame=f32(Rf)[None], C=f32((C - centre) / self.unit)[None],
@@ -350,6 +379,8 @@ class OstiumGraphDataset(Dataset):
             data.x_cx = f32(np.r_[d["z"], aff])[None]
             data.phi = f32(d["phi"])[None]
             data.log_scale = f32([d["log_scale"]])
+        if self.morph is not None:
+            data.morph = f32([self.morph[(d["ds"], d["case"])]])
         return data
 
 

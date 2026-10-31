@@ -154,6 +154,7 @@ def main():
     args = ck["args"]
     cx = not args.get("no_complex", False)
     model = OstiumModel(d=args["d"], mode=args["mode"], with_complex=cx,
+                        flow_h=args.get("flow_h", 256), flow_blocks=args.get("flow_blocks", 4),
                         norm_tokens=bool(args.get("norm_tokens", 0))).to(dev).eval()
     model.load_state_dict(ck["model"])
     ys = T.Stats(torch.zeros(2, 33)); ys.mean, ys.std = ck["y_stats"]; ys.to(dev)

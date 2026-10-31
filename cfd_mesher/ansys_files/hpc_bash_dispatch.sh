@@ -88,4 +88,4 @@ date>> $Save_dir/$Sim_Folder_Name/$Time_Stamp
 #rm -r $WORK/$Project_Name/$Run_Name/$Sim_Folder_Name/*.vtu
 
 # qstat -u $USER
-# qsub array_transient_aneux.sh
+# qsub -J 25-26 hpc_bash_dispatch.sh

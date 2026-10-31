@@ -1,0 +1,8945 @@
+{
+ "n": 522,
+ "n_valid": 522,
+ "condition": [
+  "log_volume_mm3",
+  "aspect_ratio"
+ ],
+ "mean": [
+  3.9882809206991254,
+  2.2170204980842905
+ ],
+ "std": [
+  0.9818319096275979,
+  0.7624427441485249
+ ],
+ "quantiles_pct": [
+  1,
+  5,
+  25,
+  50,
+  75,
+  95,
+  99
+ ],
+ "quantiles": {
+  "volume_mm3": [
+   6.561779,
+   12.036575000000001,
+   26.17145,
+   52.62225,
+   98.62572499999999,
+   304.1408599999999,
+   664.8765209999962
+  ],
+  "aspect_ratio": [
+   0.944738,
+   1.1935200000000001,
+   1.6721,
+   2.1124,
+   2.628225,
+   3.6417699999999997,
+   4.543910999999991
+  ],
+  "height_mm": [
+   1.817522,
+   2.317165,
+   3.4193749999999996,
+   4.493600000000001,
+   5.798975,
+   8.746749999999999,
+   11.029528999999998
+  ],
+  "neck_radius_mm": [
+   1.189904,
+   1.379665,
+   1.734175,
+   2.13665,
+   2.49665,
+   3.350895,
+   4.1334459999999975
+  ]
+ },
+ "vae_vs_fit": {
+  "volume_rel_median": 0.051742408810989904,
+  "volume_rel_abs_p90": 0.3078709463872247,
+  "ar_diff_median": 0.05095000000000005,
+  "ar_absdiff_p90": 0.4787199999999999
+ },
+ "cases": [
+  {
+   "ds": "ImperialNHS",
+   "case": "0HRrQPIFOr_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 68.9127,
+   "height_mm": 3.6399,
+   "neck_radius_mm": 3.0047,
+   "aspect_ratio": 1.2114,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 62.8578,
+    "height_mm": 4.0613,
+    "neck_radius_mm": 2.931,
+    "aspect_ratio": 1.3856,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0WM2CpNLPz_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 59.8414,
+   "height_mm": 4.9656,
+   "neck_radius_mm": 2.279,
+   "aspect_ratio": 2.1788,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 61.7775,
+    "height_mm": 5.0059,
+    "neck_radius_mm": 2.2835,
+    "aspect_ratio": 2.1922,
+    "rim_points": 181.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0WM2CpNLPz_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 24.1332,
+   "height_mm": 3.5603,
+   "neck_radius_mm": 2.1011,
+   "aspect_ratio": 1.6945,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 25.1174,
+    "height_mm": 3.4734,
+    "neck_radius_mm": 2.2003,
+    "aspect_ratio": 1.5786,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0YC7yhYVd5_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 129.7903,
+   "height_mm": 5.7507,
+   "neck_radius_mm": 2.4574,
+   "aspect_ratio": 2.3401,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 136.3247,
+    "height_mm": 5.9493,
+    "neck_radius_mm": 2.4202,
+    "aspect_ratio": 2.4582,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0ZafRQZ51s_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 60.3605,
+   "height_mm": 4.257,
+   "neck_radius_mm": 2.4142,
+   "aspect_ratio": 1.7633,
+   "rim_points": 180.0,
+   "vae": {
+    "volume_mm3": 57.6826,
+    "height_mm": 4.1602,
+    "neck_radius_mm": 2.3791,
+    "aspect_ratio": 1.7487,
+    "rim_points": 174.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0ZafRQZ51s_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 10.3597,
+   "height_mm": 2.7333,
+   "neck_radius_mm": 1.586,
+   "aspect_ratio": 1.7234,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 9.5592,
+    "height_mm": 2.8582,
+    "neck_radius_mm": 1.4985,
+    "aspect_ratio": 1.9073,
+    "rim_points": 159.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0bjVkRg2pM_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 96.9958,
+   "height_mm": 8.3833,
+   "neck_radius_mm": 1.4498,
+   "aspect_ratio": 5.7823,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 108.4829,
+    "height_mm": 9.129,
+    "neck_radius_mm": 1.9765,
+    "aspect_ratio": 4.6188,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "0m5cVmE8R1_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 72.2252,
+   "height_mm": 4.8627,
+   "neck_radius_mm": 2.4823,
+   "aspect_ratio": 1.9589,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 73.2738,
+    "height_mm": 4.7936,
+    "neck_radius_mm": 2.6299,
+    "aspect_ratio": 1.8227,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "184D0jB3dS_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 100.4112,
+   "height_mm": 4.8795,
+   "neck_radius_mm": 2.9057,
+   "aspect_ratio": 1.6793,
+   "rim_points": 216.0,
+   "vae": {
+    "volume_mm3": 96.9382,
+    "height_mm": 4.7747,
+    "neck_radius_mm": 2.8817,
+    "aspect_ratio": 1.6569,
+    "rim_points": 166.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "1AICKuP53m_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 314.0476,
+   "height_mm": 7.8704,
+   "neck_radius_mm": 3.5254,
+   "aspect_ratio": 2.2325,
+   "rim_points": 160.0,
+   "vae": {
+    "volume_mm3": 394.2125,
+    "height_mm": 8.9703,
+    "neck_radius_mm": 3.4178,
+    "aspect_ratio": 2.6246,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "1FtKxiai9X_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 54.0904,
+   "height_mm": 5.868,
+   "neck_radius_mm": 2.1401,
+   "aspect_ratio": 2.7419,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 55.1182,
+    "height_mm": 5.0777,
+    "neck_radius_mm": 2.1577,
+    "aspect_ratio": 2.3533,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "1NndJJrTjS_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 25.5662,
+   "height_mm": 4.5184,
+   "neck_radius_mm": 1.3866,
+   "aspect_ratio": 3.2585,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 26.3424,
+    "height_mm": 4.5595,
+    "neck_radius_mm": 1.31,
+    "aspect_ratio": 3.4805,
+    "rim_points": 159.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "2uw5ITsPNj_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 39.7073,
+   "height_mm": 3.1236,
+   "neck_radius_mm": 2.2229,
+   "aspect_ratio": 1.4052,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 38.5668,
+    "height_mm": 3.2046,
+    "neck_radius_mm": 2.1611,
+    "aspect_ratio": 1.4829,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "33aRAgScjC_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 140.7288,
+   "height_mm": 7.2639,
+   "neck_radius_mm": 1.8694,
+   "aspect_ratio": 3.8857,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 128.1423,
+    "height_mm": 7.3919,
+    "neck_radius_mm": 1.6999,
+    "aspect_ratio": 4.3485,
+    "rim_points": 168.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "33aRAgScjC_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 81.3782,
+   "height_mm": 3.8789,
+   "neck_radius_mm": 3.2906,
+   "aspect_ratio": 1.1788,
+   "rim_points": 192.0,
+   "vae": {
+    "volume_mm3": 76.0607,
+    "height_mm": 3.6724,
+    "neck_radius_mm": 3.2587,
+    "aspect_ratio": 1.127,
+    "rim_points": 180.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "34cX31boJl_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 72.2125,
+   "height_mm": 4.3536,
+   "neck_radius_mm": 2.6074,
+   "aspect_ratio": 1.6697,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 74.8427,
+    "height_mm": 4.6614,
+    "neck_radius_mm": 2.7935,
+    "aspect_ratio": 1.6686,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "3AZ6NRxph7_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 44.9908,
+   "height_mm": 4.7127,
+   "neck_radius_mm": 2.1528,
+   "aspect_ratio": 2.1891,
+   "rim_points": 165.0,
+   "vae": {
+    "volume_mm3": 40.158,
+    "height_mm": 4.5492,
+    "neck_radius_mm": 2.1291,
+    "aspect_ratio": 2.1367,
+    "rim_points": 189.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "4Kg5vZ4wzI_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 214.4332,
+   "height_mm": 6.5631,
+   "neck_radius_mm": 3.1372,
+   "aspect_ratio": 2.0921,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 233.0312,
+    "height_mm": 7.2865,
+    "neck_radius_mm": 3.0944,
+    "aspect_ratio": 2.3547,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "4N00Dar9XN_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 31.5536,
+   "height_mm": 3.5807,
+   "neck_radius_mm": 2.4075,
+   "aspect_ratio": 1.4873,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 32.8039,
+    "height_mm": 3.4405,
+    "neck_radius_mm": 2.4216,
+    "aspect_ratio": 1.4208,
+    "rim_points": 189.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "4hTp3oln7B_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 24.6767,
+   "height_mm": 3.0127,
+   "neck_radius_mm": 2.1241,
+   "aspect_ratio": 1.4183,
+   "rim_points": 165.0,
+   "vae": {
+    "volume_mm3": 25.1101,
+    "height_mm": 2.7581,
+    "neck_radius_mm": 1.9839,
+    "aspect_ratio": 1.3902,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "4lNuZOEFjC_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 46.4103,
+   "height_mm": 3.5549,
+   "neck_radius_mm": 2.2632,
+   "aspect_ratio": 1.5707,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 48.3277,
+    "height_mm": 3.6454,
+    "neck_radius_mm": 2.1704,
+    "aspect_ratio": 1.6796,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "5M9lbzxsQn_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 37.9517,
+   "height_mm": 3.4893,
+   "neck_radius_mm": 2.3825,
+   "aspect_ratio": 1.4646,
+   "rim_points": 188.0,
+   "vae": {
+    "volume_mm3": 39.2071,
+    "height_mm": 3.4857,
+    "neck_radius_mm": 2.3396,
+    "aspect_ratio": 1.4898,
+    "rim_points": 191.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6CEUwdLVY7_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 147.4556,
+   "height_mm": 6.0015,
+   "neck_radius_mm": 3.3706,
+   "aspect_ratio": 1.7805,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 156.0619,
+    "height_mm": 6.1179,
+    "neck_radius_mm": 3.5091,
+    "aspect_ratio": 1.7435,
+    "rim_points": 169.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6CEUwdLVY7_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 63.1188,
+   "height_mm": 4.5254,
+   "neck_radius_mm": 2.6113,
+   "aspect_ratio": 1.733,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 69.1038,
+    "height_mm": 4.902,
+    "neck_radius_mm": 2.5956,
+    "aspect_ratio": 1.8885,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6GpXbvnIHl_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 31.1066,
+   "height_mm": 3.5178,
+   "neck_radius_mm": 2.1262,
+   "aspect_ratio": 1.6545,
+   "rim_points": 176.0,
+   "vae": {
+    "volume_mm3": 33.3431,
+    "height_mm": 3.6377,
+    "neck_radius_mm": 1.9583,
+    "aspect_ratio": 1.8576,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6RKCruGy1L_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 106.6759,
+   "height_mm": 5.7608,
+   "neck_radius_mm": 2.9872,
+   "aspect_ratio": 1.9285,
+   "rim_points": 186.0,
+   "vae": {
+    "volume_mm3": 115.6844,
+    "height_mm": 5.8587,
+    "neck_radius_mm": 2.985,
+    "aspect_ratio": 1.9627,
+    "rim_points": 190.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6RKCruGy1L_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 70.0987,
+   "height_mm": 4.3727,
+   "neck_radius_mm": 2.6562,
+   "aspect_ratio": 1.6462,
+   "rim_points": 215.0,
+   "vae": {
+    "volume_mm3": 66.8983,
+    "height_mm": 4.4663,
+    "neck_radius_mm": 2.2761,
+    "aspect_ratio": 1.9622,
+    "rim_points": 191.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6RKCruGy1L_aneurysm3",
+   "atype": 0,
+   "volume_mm3": 34.83,
+   "height_mm": 4.8133,
+   "neck_radius_mm": 2.0053,
+   "aspect_ratio": 2.4003,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 34.4765,
+    "height_mm": 4.8791,
+    "neck_radius_mm": 2.0668,
+    "aspect_ratio": 2.3607,
+    "rim_points": 185.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "6jilh4kjKC_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 124.8675,
+   "height_mm": 5.6546,
+   "neck_radius_mm": 2.462,
+   "aspect_ratio": 2.2967,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 92.5247,
+    "height_mm": 5.5214,
+    "neck_radius_mm": 2.2683,
+    "aspect_ratio": 2.4342,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "72rwT0u5nJ_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 56.3788,
+   "height_mm": 4.4927,
+   "neck_radius_mm": 2.2798,
+   "aspect_ratio": 1.9706,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 55.0521,
+    "height_mm": 4.4392,
+    "neck_radius_mm": 2.2272,
+    "aspect_ratio": 1.9932,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "72rwT0u5nJ_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 27.2541,
+   "height_mm": 3.7582,
+   "neck_radius_mm": 2.0964,
+   "aspect_ratio": 1.7927,
+   "rim_points": 230.0,
+   "vae": {
+    "volume_mm3": 20.5711,
+    "height_mm": 3.5063,
+    "neck_radius_mm": 2.1276,
+    "aspect_ratio": 1.648,
+    "rim_points": 258.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7TFJw4nWkT_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 107.8946,
+   "height_mm": 6.5735,
+   "neck_radius_mm": 2.2049,
+   "aspect_ratio": 2.9813,
+   "rim_points": 184.0,
+   "vae": {
+    "volume_mm3": 100.23,
+    "height_mm": 5.8863,
+    "neck_radius_mm": 2.4909,
+    "aspect_ratio": 2.3631,
+    "rim_points": 279.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7UdKnGmnSl_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 33.1649,
+   "height_mm": 3.3083,
+   "neck_radius_mm": 2.23,
+   "aspect_ratio": 1.4836,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 37.2602,
+    "height_mm": 3.7304,
+    "neck_radius_mm": 2.1128,
+    "aspect_ratio": 1.7656,
+    "rim_points": 240.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7UdKnGmnSl_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 12.7815,
+   "height_mm": 1.7025,
+   "neck_radius_mm": 1.9169,
+   "aspect_ratio": 0.8881,
+   "rim_points": 160.0,
+   "vae": {
+    "volume_mm3": 14.9058,
+    "height_mm": 2.0762,
+    "neck_radius_mm": 1.9496,
+    "aspect_ratio": 1.065,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7WAaHVj4Ph_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 77.9609,
+   "height_mm": 5.5151,
+   "neck_radius_mm": 2.3927,
+   "aspect_ratio": 2.305,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 87.1517,
+    "height_mm": 5.3758,
+    "neck_radius_mm": 2.3294,
+    "aspect_ratio": 2.3078,
+    "rim_points": 154.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7WAaHVj4Ph_aneurysm2",
+   "atype": 2,
+   "volume_mm3": 26.7555,
+   "height_mm": 3.5385,
+   "neck_radius_mm": 1.7464,
+   "aspect_ratio": 2.0261,
+   "rim_points": 124.0,
+   "vae": {
+    "volume_mm3": 27.8053,
+    "height_mm": 3.7114,
+    "neck_radius_mm": 1.4731,
+    "aspect_ratio": 2.5195,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7kb6NlsoYG_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 43.8447,
+   "height_mm": 5.0928,
+   "neck_radius_mm": 1.8209,
+   "aspect_ratio": 2.7968,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 56.6481,
+    "height_mm": 5.2542,
+    "neck_radius_mm": 1.938,
+    "aspect_ratio": 2.7111,
+    "rim_points": 163.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7kb6NlsoYG_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 17.7643,
+   "height_mm": 3.3797,
+   "neck_radius_mm": 1.9412,
+   "aspect_ratio": 1.741,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 16.7238,
+    "height_mm": 3.1802,
+    "neck_radius_mm": 1.7704,
+    "aspect_ratio": 1.7964,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7oc9yUpOpK_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 32.8066,
+   "height_mm": 3.8112,
+   "neck_radius_mm": 1.9427,
+   "aspect_ratio": 1.9618,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 39.7161,
+    "height_mm": 4.3134,
+    "neck_radius_mm": 2.1295,
+    "aspect_ratio": 2.0256,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7oc9yUpOpK_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 39.77,
+   "height_mm": 4.1385,
+   "neck_radius_mm": 2.1999,
+   "aspect_ratio": 1.8812,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 51.7281,
+    "height_mm": 4.4714,
+    "neck_radius_mm": 2.4647,
+    "aspect_ratio": 1.8142,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "7xgWsj2Zyy_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 44.8194,
+   "height_mm": 4.5171,
+   "neck_radius_mm": 2.2353,
+   "aspect_ratio": 2.0208,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 58.6156,
+    "height_mm": 4.7337,
+    "neck_radius_mm": 2.4891,
+    "aspect_ratio": 1.9018,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "85ysHiRLZo_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 47.1041,
+   "height_mm": 3.5563,
+   "neck_radius_mm": 2.7541,
+   "aspect_ratio": 1.2913,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 45.0402,
+    "height_mm": 3.7554,
+    "neck_radius_mm": 2.5251,
+    "aspect_ratio": 1.4872,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "8QGRdoo5w7_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 65.2755,
+   "height_mm": 4.4738,
+   "neck_radius_mm": 2.434,
+   "aspect_ratio": 1.8381,
+   "rim_points": 213.0,
+   "vae": {
+    "volume_mm3": 65.9267,
+    "height_mm": 4.4331,
+    "neck_radius_mm": 2.483,
+    "aspect_ratio": 1.7854,
+    "rim_points": 253.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "8dVIkrLOF3_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 276.0059,
+   "height_mm": 9.631,
+   "neck_radius_mm": 2.4308,
+   "aspect_ratio": 3.962,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 262.0208,
+    "height_mm": 7.5189,
+    "neck_radius_mm": 2.6773,
+    "aspect_ratio": 2.8084,
+    "rim_points": 234.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "8jD72Wn56o_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 109.706,
+   "height_mm": 4.7033,
+   "neck_radius_mm": 3.1144,
+   "aspect_ratio": 1.5102,
+   "rim_points": 259.0,
+   "vae": {
+    "volume_mm3": 104.5903,
+    "height_mm": 4.8435,
+    "neck_radius_mm": 3.137,
+    "aspect_ratio": 1.544,
+    "rim_points": 251.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "8t4XoA0zQ0_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 25.4539,
+   "height_mm": 3.3346,
+   "neck_radius_mm": 1.7491,
+   "aspect_ratio": 1.9065,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 25.7074,
+    "height_mm": 2.9606,
+    "neck_radius_mm": 1.9641,
+    "aspect_ratio": 1.5074,
+    "rim_points": 195.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "92CNYwYfxY_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 495.0132,
+   "height_mm": 9.3858,
+   "neck_radius_mm": 4.3078,
+   "aspect_ratio": 2.1788,
+   "rim_points": 168.0,
+   "vae": {
+    "volume_mm3": 612.5197,
+    "height_mm": 10.8422,
+    "neck_radius_mm": 4.3329,
+    "aspect_ratio": 2.5023,
+    "rim_points": 176.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "9u0NcIKDhI_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 31.8579,
+   "height_mm": 3.9581,
+   "neck_radius_mm": 1.7821,
+   "aspect_ratio": 2.2211,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 32.2134,
+    "height_mm": 4.6089,
+    "neck_radius_mm": 1.4379,
+    "aspect_ratio": 3.2053,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "AVTJ0tTFOC_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 141.5914,
+   "height_mm": 9.8325,
+   "neck_radius_mm": 2.9929,
+   "aspect_ratio": 3.2852,
+   "rim_points": 213.0,
+   "vae": {
+    "volume_mm3": 120.2547,
+    "height_mm": 9.1786,
+    "neck_radius_mm": 2.7485,
+    "aspect_ratio": 3.3395,
+    "rim_points": 186.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "AnHmgCxWr8_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 53.1883,
+   "height_mm": 3.6663,
+   "neck_radius_mm": 2.7573,
+   "aspect_ratio": 1.3297,
+   "rim_points": 458.0,
+   "vae": {
+    "volume_mm3": 53.3174,
+    "height_mm": 3.8004,
+    "neck_radius_mm": 2.6832,
+    "aspect_ratio": 1.4164,
+    "rim_points": 456.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "AnHmgCxWr8_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 19.9569,
+   "height_mm": 3.0475,
+   "neck_radius_mm": 1.8977,
+   "aspect_ratio": 1.6059,
+   "rim_points": 203.0,
+   "vae": {
+    "volume_mm3": 21.7409,
+    "height_mm": 3.3566,
+    "neck_radius_mm": 1.8897,
+    "aspect_ratio": 1.7763,
+    "rim_points": 206.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "AwTkB4fFo5_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 74.9199,
+   "height_mm": 5.5623,
+   "neck_radius_mm": 2.5936,
+   "aspect_ratio": 2.1446,
+   "rim_points": 164.0,
+   "vae": {
+    "volume_mm3": 76.0409,
+    "height_mm": 5.439,
+    "neck_radius_mm": 2.5077,
+    "aspect_ratio": 2.169,
+    "rim_points": 154.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "AwTkB4fFo5_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 50.7182,
+   "height_mm": 4.3586,
+   "neck_radius_mm": 2.3423,
+   "aspect_ratio": 1.8608,
+   "rim_points": 113.0,
+   "vae": {
+    "volume_mm3": 47.62,
+    "height_mm": 4.5162,
+    "neck_radius_mm": 2.2556,
+    "aspect_ratio": 2.0022,
+    "rim_points": 114.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "B2o6VFmWVW_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 22.9144,
+   "height_mm": 3.1567,
+   "neck_radius_mm": 2.1495,
+   "aspect_ratio": 1.4686,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 38.5943,
+    "height_mm": 3.9568,
+    "neck_radius_mm": 2.5088,
+    "aspect_ratio": 1.5772,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "BBHJDCAXOc_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 22.5486,
+   "height_mm": 2.1265,
+   "neck_radius_mm": 2.182,
+   "aspect_ratio": 0.9746,
+   "rim_points": 288.0,
+   "vae": {
+    "volume_mm3": 16.8105,
+    "height_mm": 1.8105,
+    "neck_radius_mm": 1.9963,
+    "aspect_ratio": 0.907,
+    "rim_points": 323.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "BCwbjsbsql_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 36.8135,
+   "height_mm": 3.303,
+   "neck_radius_mm": 2.3111,
+   "aspect_ratio": 1.4292,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 31.9086,
+    "height_mm": 2.9885,
+    "neck_radius_mm": 2.2576,
+    "aspect_ratio": 1.3237,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "BcXeCx3voF_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 71.2168,
+   "height_mm": 5.6973,
+   "neck_radius_mm": 2.0223,
+   "aspect_ratio": 2.8173,
+   "rim_points": 118.0,
+   "vae": {
+    "volume_mm3": 91.4123,
+    "height_mm": 6.3433,
+    "neck_radius_mm": 2.056,
+    "aspect_ratio": 3.0853,
+    "rim_points": 122.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "BcxvP7fCKc_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 93.9072,
+   "height_mm": 4.1353,
+   "neck_radius_mm": 2.7785,
+   "aspect_ratio": 1.4883,
+   "rim_points": 164.0,
+   "vae": {
+    "volume_mm3": 100.1636,
+    "height_mm": 4.4381,
+    "neck_radius_mm": 2.8331,
+    "aspect_ratio": 1.5665,
+    "rim_points": 159.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "BmsAIvOmyi_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 77.8834,
+   "height_mm": 5.3216,
+   "neck_radius_mm": 2.6008,
+   "aspect_ratio": 2.0461,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 79.4287,
+    "height_mm": 5.3432,
+    "neck_radius_mm": 2.5246,
+    "aspect_ratio": 2.1165,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "CFV81HMHqU_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 59.4471,
+   "height_mm": 4.0231,
+   "neck_radius_mm": 2.4703,
+   "aspect_ratio": 1.6286,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 53.9203,
+    "height_mm": 4.0687,
+    "neck_radius_mm": 2.2987,
+    "aspect_ratio": 1.77,
+    "rim_points": 160.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "CkGC73uoQs_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 31.5932,
+   "height_mm": 3.2062,
+   "neck_radius_mm": 2.4292,
+   "aspect_ratio": 1.3199,
+   "rim_points": 153.0,
+   "vae": {
+    "volume_mm3": 29.1662,
+    "height_mm": 3.174,
+    "neck_radius_mm": 2.4139,
+    "aspect_ratio": 1.3149,
+    "rim_points": 171.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "DEKKRPCeEs_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 6.4505,
+   "height_mm": 1.7636,
+   "neck_radius_mm": 1.7744,
+   "aspect_ratio": 0.9939,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 6.2851,
+    "height_mm": 1.8126,
+    "neck_radius_mm": 1.739,
+    "aspect_ratio": 1.0423,
+    "rim_points": 176.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "DdLdNXx4Ha_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 55.0217,
+   "height_mm": 4.2148,
+   "neck_radius_mm": 2.6033,
+   "aspect_ratio": 1.619,
+   "rim_points": 149.0,
+   "vae": {
+    "volume_mm3": 44.8694,
+    "height_mm": 3.8575,
+    "neck_radius_mm": 2.2084,
+    "aspect_ratio": 1.7468,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "E9qZXSZFkq_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 14.4115,
+   "height_mm": 2.8149,
+   "neck_radius_mm": 1.7312,
+   "aspect_ratio": 1.626,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 14.4061,
+    "height_mm": 2.6506,
+    "neck_radius_mm": 1.7818,
+    "aspect_ratio": 1.4876,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "EKM3GE5uJy_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 152.5722,
+   "height_mm": 6.7764,
+   "neck_radius_mm": 2.489,
+   "aspect_ratio": 2.7226,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 160.0056,
+    "height_mm": 6.5967,
+    "neck_radius_mm": 2.6617,
+    "aspect_ratio": 2.4784,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ELB4vZfIax_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 473.7455,
+   "height_mm": 10.1929,
+   "neck_radius_mm": 3.2836,
+   "aspect_ratio": 3.1042,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 483.6572,
+    "height_mm": 9.7582,
+    "neck_radius_mm": 3.3487,
+    "aspect_ratio": 2.914,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ETdbJM4C7h_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 65.0972,
+   "height_mm": 3.9264,
+   "neck_radius_mm": 2.8679,
+   "aspect_ratio": 1.3691,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 56.3472,
+    "height_mm": 3.6384,
+    "neck_radius_mm": 2.7474,
+    "aspect_ratio": 1.3243,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "EerGeccCJO_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 66.1471,
+   "height_mm": 5.232,
+   "neck_radius_mm": 1.9496,
+   "aspect_ratio": 2.6837,
+   "rim_points": 233.0,
+   "vae": {
+    "volume_mm3": 68.0539,
+    "height_mm": 5.2443,
+    "neck_radius_mm": 1.8954,
+    "aspect_ratio": 2.7669,
+    "rim_points": 221.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "F3C7xUIbYX_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 190.1898,
+   "height_mm": 6.4308,
+   "neck_radius_mm": 2.9711,
+   "aspect_ratio": 2.1645,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 199.6925,
+    "height_mm": 6.4146,
+    "neck_radius_mm": 3.2755,
+    "aspect_ratio": 1.9584,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "F6VVfHU20n_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 18.5646,
+   "height_mm": 3.4447,
+   "neck_radius_mm": 2.2242,
+   "aspect_ratio": 1.5487,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 18.8091,
+    "height_mm": 3.032,
+    "neck_radius_mm": 2.1324,
+    "aspect_ratio": 1.4219,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "FSMAfOehzu_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 68.2024,
+   "height_mm": 4.0248,
+   "neck_radius_mm": 3.1811,
+   "aspect_ratio": 1.2652,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 101.6156,
+    "height_mm": 5.1598,
+    "neck_radius_mm": 3.2347,
+    "aspect_ratio": 1.5952,
+    "rim_points": 166.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "G7XzfBWOwd_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 62.6418,
+   "height_mm": 5.799,
+   "neck_radius_mm": 1.7054,
+   "aspect_ratio": 3.4004,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 64.1271,
+    "height_mm": 5.6238,
+    "neck_radius_mm": 1.534,
+    "aspect_ratio": 3.6661,
+    "rim_points": 237.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "G7XzfBWOwd_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 17.7243,
+   "height_mm": 2.501,
+   "neck_radius_mm": 1.954,
+   "aspect_ratio": 1.2799,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 20.7785,
+    "height_mm": 3.0103,
+    "neck_radius_mm": 2.399,
+    "aspect_ratio": 1.2548,
+    "rim_points": 174.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "GQNJfE8a2B_aneurysm2",
+   "atype": 2,
+   "volume_mm3": 19.2748,
+   "height_mm": 1.9773,
+   "neck_radius_mm": 2.6729,
+   "aspect_ratio": 0.7398,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 67.4651,
+    "height_mm": 4.9762,
+    "neck_radius_mm": 2.9031,
+    "aspect_ratio": 1.7141,
+    "rim_points": 119.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "GdGHoFVI2R_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 20.1214,
+   "height_mm": 2.9396,
+   "neck_radius_mm": 1.9095,
+   "aspect_ratio": 1.5395,
+   "rim_points": 188.0,
+   "vae": {
+    "volume_mm3": 18.8383,
+    "height_mm": 2.935,
+    "neck_radius_mm": 1.8485,
+    "aspect_ratio": 1.5878,
+    "rim_points": 179.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "GfGaEQELI0_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 90.2764,
+   "height_mm": 4.8473,
+   "neck_radius_mm": 2.5448,
+   "aspect_ratio": 1.9048,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 87.8117,
+    "height_mm": 4.9926,
+    "neck_radius_mm": 2.56,
+    "aspect_ratio": 1.9502,
+    "rim_points": 173.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "GfGaEQELI0_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 52.5548,
+   "height_mm": 3.4659,
+   "neck_radius_mm": 2.7187,
+   "aspect_ratio": 1.2748,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 66.5043,
+    "height_mm": 4.2011,
+    "neck_radius_mm": 2.8913,
+    "aspect_ratio": 1.453,
+    "rim_points": 126.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "GtJPG36fHo_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 15.2045,
+   "height_mm": 4.2025,
+   "neck_radius_mm": 1.5128,
+   "aspect_ratio": 2.778,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 16.346,
+    "height_mm": 4.4251,
+    "neck_radius_mm": 1.4551,
+    "aspect_ratio": 3.0411,
+    "rim_points": 218.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "H0ZO7MsTcK_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 60.1245,
+   "height_mm": 5.725,
+   "neck_radius_mm": 2.2698,
+   "aspect_ratio": 2.5223,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 61.1997,
+    "height_mm": 5.4453,
+    "neck_radius_mm": 2.2134,
+    "aspect_ratio": 2.4602,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "HUfWo4Tb22_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 87.6352,
+   "height_mm": 5.1471,
+   "neck_radius_mm": 2.7051,
+   "aspect_ratio": 1.9027,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 95.9567,
+    "height_mm": 5.1741,
+    "neck_radius_mm": 2.4894,
+    "aspect_ratio": 2.0784,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "HUfWo4Tb22_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 13.4618,
+   "height_mm": 3.2244,
+   "neck_radius_mm": 1.6538,
+   "aspect_ratio": 1.9496,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 18.5957,
+    "height_mm": 3.5429,
+    "neck_radius_mm": 1.9414,
+    "aspect_ratio": 1.825,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "HZTGU6EAEz_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 50.7279,
+   "height_mm": 4.1583,
+   "neck_radius_mm": 2.1103,
+   "aspect_ratio": 1.9705,
+   "rim_points": 178.0,
+   "vae": {
+    "volume_mm3": 59.2452,
+    "height_mm": 4.6036,
+    "neck_radius_mm": 2.1206,
+    "aspect_ratio": 2.1709,
+    "rim_points": 225.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "HjYE3vqBnn_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 31.256,
+   "height_mm": 3.4787,
+   "neck_radius_mm": 3.0694,
+   "aspect_ratio": 1.1333,
+   "rim_points": 171.0,
+   "vae": {
+    "volume_mm3": 35.0072,
+    "height_mm": 2.6565,
+    "neck_radius_mm": 2.7569,
+    "aspect_ratio": 0.9636,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "HkxQLQS02d_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 296.2502,
+   "height_mm": 7.4536,
+   "neck_radius_mm": 3.8286,
+   "aspect_ratio": 1.9468,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 303.5058,
+    "height_mm": 7.4508,
+    "neck_radius_mm": 3.7508,
+    "aspect_ratio": 1.9865,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "I4vL5p57t4_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 116.7535,
+   "height_mm": 5.4239,
+   "neck_radius_mm": 2.9355,
+   "aspect_ratio": 1.8477,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 135.7783,
+    "height_mm": 5.9296,
+    "neck_radius_mm": 3.076,
+    "aspect_ratio": 1.9277,
+    "rim_points": 154.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "I4vL5p57t4_mxf9_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 101.34,
+   "height_mm": 5.5793,
+   "neck_radius_mm": 2.7166,
+   "aspect_ratio": 2.0538,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 114.99,
+    "height_mm": 5.9165,
+    "neck_radius_mm": 2.8134,
+    "aspect_ratio": 2.103,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "I4vL5p57t4_z19o_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 98.9148,
+   "height_mm": 5.5533,
+   "neck_radius_mm": 2.6372,
+   "aspect_ratio": 2.1058,
+   "rim_points": 130.0,
+   "vae": {
+    "volume_mm3": 101.7825,
+    "height_mm": 5.7102,
+    "neck_radius_mm": 2.6454,
+    "aspect_ratio": 2.1585,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "J5ux89ZZKC_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 79.419,
+   "height_mm": 4.8097,
+   "neck_radius_mm": 2.5104,
+   "aspect_ratio": 1.9159,
+   "rim_points": 184.0,
+   "vae": {
+    "volume_mm3": 82.2566,
+    "height_mm": 4.8209,
+    "neck_radius_mm": 2.4197,
+    "aspect_ratio": 1.9924,
+    "rim_points": 165.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Jc0kx4I6ue_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 29.7057,
+   "height_mm": 3.9623,
+   "neck_radius_mm": 1.7411,
+   "aspect_ratio": 2.2758,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 32.9597,
+    "height_mm": 3.9229,
+    "neck_radius_mm": 1.7854,
+    "aspect_ratio": 2.1971,
+    "rim_points": 174.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Kq3x0YFqqG_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 26.3144,
+   "height_mm": 3.6935,
+   "neck_radius_mm": 1.5069,
+   "aspect_ratio": 2.451,
+   "rim_points": 165.0,
+   "vae": {
+    "volume_mm3": 30.3857,
+    "height_mm": 3.8547,
+    "neck_radius_mm": 1.5171,
+    "aspect_ratio": 2.5407,
+    "rim_points": 168.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "LDvVm8wwnZ_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 32.6772,
+   "height_mm": 3.5262,
+   "neck_radius_mm": 2.1719,
+   "aspect_ratio": 1.6235,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 28.0629,
+    "height_mm": 3.2785,
+    "neck_radius_mm": 2.1444,
+    "aspect_ratio": 1.5289,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "LKyKFYLRnu_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 92.5588,
+   "height_mm": 6.1266,
+   "neck_radius_mm": 2.0918,
+   "aspect_ratio": 2.9289,
+   "rim_points": 186.0,
+   "vae": {
+    "volume_mm3": 91.465,
+    "height_mm": 6.3278,
+    "neck_radius_mm": 2.0235,
+    "aspect_ratio": 3.1272,
+    "rim_points": 206.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "LpB12Yjn9j_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 15.4247,
+   "height_mm": 3.5388,
+   "neck_radius_mm": 1.5712,
+   "aspect_ratio": 2.2523,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 15.904,
+    "height_mm": 3.8648,
+    "neck_radius_mm": 1.5374,
+    "aspect_ratio": 2.5138,
+    "rim_points": 169.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "MKTVUV4PYh_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 55.5641,
+   "height_mm": 5.7183,
+   "neck_radius_mm": 2.2872,
+   "aspect_ratio": 2.5001,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 57.2064,
+    "height_mm": 5.1267,
+    "neck_radius_mm": 2.3134,
+    "aspect_ratio": 2.2161,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Mm988eVmYt_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 47.6587,
+   "height_mm": 4.7568,
+   "neck_radius_mm": 2.3421,
+   "aspect_ratio": 2.031,
+   "rim_points": 130.0,
+   "vae": {
+    "volume_mm3": 54.1641,
+    "height_mm": 4.9666,
+    "neck_radius_mm": 2.4514,
+    "aspect_ratio": 2.026,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "MsIF6SVJAb_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 35.1538,
+   "height_mm": 4.2135,
+   "neck_radius_mm": 1.9582,
+   "aspect_ratio": 2.1517,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 40.3941,
+    "height_mm": 4.2579,
+    "neck_radius_mm": 2.1625,
+    "aspect_ratio": 1.969,
+    "rim_points": 165.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "N1yi26a7ul_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 140.0039,
+   "height_mm": 8.3167,
+   "neck_radius_mm": 1.6157,
+   "aspect_ratio": 5.1476,
+   "rim_points": 111.0,
+   "vae": {
+    "volume_mm3": 128.0806,
+    "height_mm": 7.8717,
+    "neck_radius_mm": 1.7878,
+    "aspect_ratio": 4.4029,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "N2k0WrXF8P_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 94.4016,
+   "height_mm": 6.3863,
+   "neck_radius_mm": 2.1829,
+   "aspect_ratio": 2.9257,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 102.548,
+    "height_mm": 6.6725,
+    "neck_radius_mm": 2.1084,
+    "aspect_ratio": 3.1647,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "NnimNakgLG_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 68.0034,
+   "height_mm": 4.2206,
+   "neck_radius_mm": 2.0335,
+   "aspect_ratio": 2.0755,
+   "rim_points": 291.0,
+   "vae": {
+    "volume_mm3": 65.6724,
+    "height_mm": 4.3131,
+    "neck_radius_mm": 2.0222,
+    "aspect_ratio": 2.1329,
+    "rim_points": 271.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "NvBz7T8I5h_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 23.6451,
+   "height_mm": 4.0082,
+   "neck_radius_mm": 1.7154,
+   "aspect_ratio": 2.3366,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 21.2898,
+    "height_mm": 4.0128,
+    "neck_radius_mm": 1.6684,
+    "aspect_ratio": 2.4052,
+    "rim_points": 210.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "O391k17MTW_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 22.854,
+   "height_mm": 2.6473,
+   "neck_radius_mm": 2.2923,
+   "aspect_ratio": 1.1549,
+   "rim_points": 324.0,
+   "vae": {
+    "volume_mm3": 22.1654,
+    "height_mm": 2.9148,
+    "neck_radius_mm": 2.1624,
+    "aspect_ratio": 1.348,
+    "rim_points": 485.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "OT59KQMzHU_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 91.3996,
+   "height_mm": 5.3838,
+   "neck_radius_mm": 3.0084,
+   "aspect_ratio": 1.7896,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 86.0662,
+    "height_mm": 5.4304,
+    "neck_radius_mm": 2.5273,
+    "aspect_ratio": 2.1487,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "OWVb3sYh9i_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 68.5989,
+   "height_mm": 4.1258,
+   "neck_radius_mm": 3.1835,
+   "aspect_ratio": 1.296,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 49.4217,
+    "height_mm": 4.6615,
+    "neck_radius_mm": 2.268,
+    "aspect_ratio": 2.0554,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "P8zX0D9puy_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 60.4792,
+   "height_mm": 4.7157,
+   "neck_radius_mm": 2.6363,
+   "aspect_ratio": 1.7888,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 51.0425,
+    "height_mm": 4.0212,
+    "neck_radius_mm": 2.4276,
+    "aspect_ratio": 1.6564,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "P8zX0D9puy_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 14.3093,
+   "height_mm": 2.435,
+   "neck_radius_mm": 1.9844,
+   "aspect_ratio": 1.2271,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 12.6859,
+    "height_mm": 2.2753,
+    "neck_radius_mm": 1.8575,
+    "aspect_ratio": 1.2249,
+    "rim_points": 174.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "PWaEBPxO1x_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 86.7696,
+   "height_mm": 6.1126,
+   "neck_radius_mm": 2.0809,
+   "aspect_ratio": 2.9375,
+   "rim_points": 149.0,
+   "vae": {
+    "volume_mm3": 91.0177,
+    "height_mm": 6.1654,
+    "neck_radius_mm": 2.1005,
+    "aspect_ratio": 2.9352,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Pl7X2uNWem_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 62.8252,
+   "height_mm": 4.3726,
+   "neck_radius_mm": 2.3366,
+   "aspect_ratio": 1.8714,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 50.8712,
+    "height_mm": 5.0508,
+    "neck_radius_mm": 2.1213,
+    "aspect_ratio": 2.3809,
+    "rim_points": 186.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Pztke2rFUB_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 119.0185,
+   "height_mm": 5.9423,
+   "neck_radius_mm": 2.5507,
+   "aspect_ratio": 2.3297,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 118.4084,
+    "height_mm": 6.0848,
+    "neck_radius_mm": 2.4889,
+    "aspect_ratio": 2.4447,
+    "rim_points": 158.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "QEONoTMnF3_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 50.4615,
+   "height_mm": 4.3123,
+   "neck_radius_mm": 2.0987,
+   "aspect_ratio": 2.0547,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 48.8693,
+    "height_mm": 4.3439,
+    "neck_radius_mm": 1.9938,
+    "aspect_ratio": 2.1787,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "QIH3neKXZG_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 212.9193,
+   "height_mm": 8.3749,
+   "neck_radius_mm": 2.317,
+   "aspect_ratio": 3.6146,
+   "rim_points": 183.0,
+   "vae": {
+    "volume_mm3": 219.9753,
+    "height_mm": 8.5712,
+    "neck_radius_mm": 2.2081,
+    "aspect_ratio": 3.8818,
+    "rim_points": 190.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Qh3VMN5hFO_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 88.7923,
+   "height_mm": 5.3723,
+   "neck_radius_mm": 2.5588,
+   "aspect_ratio": 2.0996,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 89.2062,
+    "height_mm": 5.7813,
+    "neck_radius_mm": 2.4653,
+    "aspect_ratio": 2.3451,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "QsLUrELCDq_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 106.7282,
+   "height_mm": 5.6988,
+   "neck_radius_mm": 2.7283,
+   "aspect_ratio": 2.0888,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 115.6961,
+    "height_mm": 5.7376,
+    "neck_radius_mm": 2.8043,
+    "aspect_ratio": 2.046,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "QsLUrELCDq_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 54.1785,
+   "height_mm": 3.8913,
+   "neck_radius_mm": 2.5508,
+   "aspect_ratio": 1.5255,
+   "rim_points": 216.0,
+   "vae": {
+    "volume_mm3": 48.5755,
+    "height_mm": 3.786,
+    "neck_radius_mm": 2.3871,
+    "aspect_ratio": 1.586,
+    "rim_points": 207.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Qui9M1ncb0_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 57.4102,
+   "height_mm": 4.1597,
+   "neck_radius_mm": 2.2692,
+   "aspect_ratio": 1.8332,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 55.5646,
+    "height_mm": 4.1311,
+    "neck_radius_mm": 2.2347,
+    "aspect_ratio": 1.8486,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RLsnAHGQtx_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 38.3352,
+   "height_mm": 4.1681,
+   "neck_radius_mm": 2.0857,
+   "aspect_ratio": 1.9985,
+   "rim_points": 219.0,
+   "vae": {
+    "volume_mm3": 40.6077,
+    "height_mm": 4.2452,
+    "neck_radius_mm": 2.2014,
+    "aspect_ratio": 1.9284,
+    "rim_points": 186.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RcbTSbBFsL_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 192.9924,
+   "height_mm": 8.9004,
+   "neck_radius_mm": 2.2711,
+   "aspect_ratio": 3.9189,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 202.7167,
+    "height_mm": 9.7989,
+    "neck_radius_mm": 2.5382,
+    "aspect_ratio": 3.8606,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RcbTSbBFsL_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 31.0682,
+   "height_mm": 2.9614,
+   "neck_radius_mm": 2.5594,
+   "aspect_ratio": 1.1571,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 38.7202,
+    "height_mm": 3.3255,
+    "neck_radius_mm": 2.7171,
+    "aspect_ratio": 1.2239,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RcbTSbBFsL_aneurysm3",
+   "atype": 1,
+   "volume_mm3": 27.2895,
+   "height_mm": 2.9819,
+   "neck_radius_mm": 2.4793,
+   "aspect_ratio": 1.2027,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 36.0652,
+    "height_mm": 3.2945,
+    "neck_radius_mm": 2.6717,
+    "aspect_ratio": 1.2331,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ReCexteoIH_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 299.4034,
+   "height_mm": 7.391,
+   "neck_radius_mm": 3.8013,
+   "aspect_ratio": 1.9443,
+   "rim_points": 171.0,
+   "vae": {
+    "volume_mm3": 303.9854,
+    "height_mm": 7.6788,
+    "neck_radius_mm": 3.9716,
+    "aspect_ratio": 1.9334,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RkQXo2wzr7_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 124.0261,
+   "height_mm": 6.7529,
+   "neck_radius_mm": 2.6359,
+   "aspect_ratio": 2.5619,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 142.1661,
+    "height_mm": 7.1099,
+    "neck_radius_mm": 2.6777,
+    "aspect_ratio": 2.6552,
+    "rim_points": 165.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "RlJkB9JXCD_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 211.0836,
+   "height_mm": 6.2419,
+   "neck_radius_mm": 3.8757,
+   "aspect_ratio": 1.6105,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 256.282,
+    "height_mm": 8.1006,
+    "neck_radius_mm": 3.4059,
+    "aspect_ratio": 2.3784,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "S7bIbdCxFO_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 116.6116,
+   "height_mm": 4.8545,
+   "neck_radius_mm": 3.3714,
+   "aspect_ratio": 1.4399,
+   "rim_points": 235.0,
+   "vae": {
+    "volume_mm3": 120.2952,
+    "height_mm": 4.5252,
+    "neck_radius_mm": 3.5063,
+    "aspect_ratio": 1.2906,
+    "rim_points": 233.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "SURRrgDljJ_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 169.4826,
+   "height_mm": 6.3781,
+   "neck_radius_mm": 2.5833,
+   "aspect_ratio": 2.469,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 156.269,
+    "height_mm": 6.2485,
+    "neck_radius_mm": 2.8013,
+    "aspect_ratio": 2.2306,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "SUx0YKpq4K_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 76.3722,
+   "height_mm": 4.6911,
+   "neck_radius_mm": 2.5951,
+   "aspect_ratio": 1.8077,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 77.0924,
+    "height_mm": 4.5681,
+    "neck_radius_mm": 2.6461,
+    "aspect_ratio": 1.7263,
+    "rim_points": 119.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "Tf1AKPy0kY_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 117.5149,
+   "height_mm": 7.2179,
+   "neck_radius_mm": 2.3275,
+   "aspect_ratio": 3.1011,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 124.4904,
+    "height_mm": 7.3726,
+    "neck_radius_mm": 2.3658,
+    "aspect_ratio": 3.1163,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "TiF2teqOxw_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 27.2432,
+   "height_mm": 4.7995,
+   "neck_radius_mm": 1.7594,
+   "aspect_ratio": 2.7279,
+   "rim_points": 122.0,
+   "vae": {
+    "volume_mm3": 32.9222,
+    "height_mm": 5.5038,
+    "neck_radius_mm": 1.7495,
+    "aspect_ratio": 3.146,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "U8Pxm8MQSd_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 21.8856,
+   "height_mm": 3.0232,
+   "neck_radius_mm": 2.0477,
+   "aspect_ratio": 1.4764,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 20.1126,
+    "height_mm": 3.028,
+    "neck_radius_mm": 1.9984,
+    "aspect_ratio": 1.5152,
+    "rim_points": 161.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "UEuU7EVKjf_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 80.9667,
+   "height_mm": 6.3707,
+   "neck_radius_mm": 2.2655,
+   "aspect_ratio": 2.812,
+   "rim_points": 115.0,
+   "vae": {
+    "volume_mm3": 71.8537,
+    "height_mm": 5.5503,
+    "neck_radius_mm": 2.317,
+    "aspect_ratio": 2.3955,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "V0UeCxjtJc_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 23.062,
+   "height_mm": 4.3037,
+   "neck_radius_mm": 1.5581,
+   "aspect_ratio": 2.7621,
+   "rim_points": 117.0,
+   "vae": {
+    "volume_mm3": 32.4346,
+    "height_mm": 5.0968,
+    "neck_radius_mm": 1.6396,
+    "aspect_ratio": 3.1086,
+    "rim_points": 114.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "V6dLCCpAFd_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 29.1347,
+   "height_mm": 2.3026,
+   "neck_radius_mm": 2.5769,
+   "aspect_ratio": 0.8936,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 33.7843,
+    "height_mm": 3.1697,
+    "neck_radius_mm": 2.1271,
+    "aspect_ratio": 1.4902,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "VbMgxonVZy_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 39.072,
+   "height_mm": 4.6767,
+   "neck_radius_mm": 2.1873,
+   "aspect_ratio": 2.1381,
+   "rim_points": 114.0,
+   "vae": {
+    "volume_mm3": 37.791,
+    "height_mm": 4.5515,
+    "neck_radius_mm": 2.1931,
+    "aspect_ratio": 2.0754,
+    "rim_points": 116.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "VjSecjMW7L_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 29.6142,
+   "height_mm": 4.4022,
+   "neck_radius_mm": 1.8206,
+   "aspect_ratio": 2.418,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 29.3536,
+    "height_mm": 4.4415,
+    "neck_radius_mm": 1.7863,
+    "aspect_ratio": 2.4864,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "VyKbIURnoD_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 124.3473,
+   "height_mm": 6.5342,
+   "neck_radius_mm": 2.9682,
+   "aspect_ratio": 2.2014,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 131.0274,
+    "height_mm": 6.427,
+    "neck_radius_mm": 2.7977,
+    "aspect_ratio": 2.2972,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "W1GD4X6con_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 65.3916,
+   "height_mm": 4.675,
+   "neck_radius_mm": 2.4808,
+   "aspect_ratio": 1.8845,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 65.8675,
+    "height_mm": 4.8891,
+    "neck_radius_mm": 2.5149,
+    "aspect_ratio": 1.944,
+    "rim_points": 160.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "XkBm8Strus_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 65.0816,
+   "height_mm": 5.846,
+   "neck_radius_mm": 2.6035,
+   "aspect_ratio": 2.2454,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 65.203,
+    "height_mm": 5.6346,
+    "neck_radius_mm": 2.6104,
+    "aspect_ratio": 2.1585,
+    "rim_points": 159.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "XkBm8Strus_aneurysm3",
+   "atype": 2,
+   "volume_mm3": 22.2297,
+   "height_mm": 4.0425,
+   "neck_radius_mm": 1.8084,
+   "aspect_ratio": 2.2354,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 28.3798,
+    "height_mm": 4.7156,
+    "neck_radius_mm": 1.661,
+    "aspect_ratio": 2.8391,
+    "rim_points": 143.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "XxWinm78X4_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 35.4661,
+   "height_mm": 3.4208,
+   "neck_radius_mm": 2.1429,
+   "aspect_ratio": 1.5963,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 68.5814,
+    "height_mm": 4.6436,
+    "neck_radius_mm": 2.422,
+    "aspect_ratio": 1.9173,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ZjPWBHzE8Q_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 93.3732,
+   "height_mm": 3.7745,
+   "neck_radius_mm": 3.0946,
+   "aspect_ratio": 1.2197,
+   "rim_points": 215.0,
+   "vae": {
+    "volume_mm3": 98.1757,
+    "height_mm": 3.6027,
+    "neck_radius_mm": 2.9837,
+    "aspect_ratio": 1.2075,
+    "rim_points": 263.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "a0i4VV2kKG_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 18.4978,
+   "height_mm": 2.6064,
+   "neck_radius_mm": 1.9625,
+   "aspect_ratio": 1.3281,
+   "rim_points": 130.0,
+   "vae": {
+    "volume_mm3": 23.887,
+    "height_mm": 3.0732,
+    "neck_radius_mm": 2.1232,
+    "aspect_ratio": 1.4474,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "aaOmjpxYTZ_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 27.0594,
+   "height_mm": 4.9927,
+   "neck_radius_mm": 1.5065,
+   "aspect_ratio": 3.3141,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 29.7434,
+    "height_mm": 5.4664,
+    "neck_radius_mm": 1.4278,
+    "aspect_ratio": 3.8286,
+    "rim_points": 143.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "aqzkopeLuo_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 109.3832,
+   "height_mm": 7.6926,
+   "neck_radius_mm": 2.0116,
+   "aspect_ratio": 3.8241,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 112.7216,
+    "height_mm": 7.1747,
+    "neck_radius_mm": 2.6103,
+    "aspect_ratio": 2.7486,
+    "rim_points": 197.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "aucywHRA8H_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 43.6813,
+   "height_mm": 5.0355,
+   "neck_radius_mm": 1.569,
+   "aspect_ratio": 3.2094,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 50.3809,
+    "height_mm": 5.5469,
+    "neck_radius_mm": 1.6038,
+    "aspect_ratio": 3.4586,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "bPyKGh0SGQ_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 94.7856,
+   "height_mm": 4.8177,
+   "neck_radius_mm": 2.8154,
+   "aspect_ratio": 1.7112,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 115.0549,
+    "height_mm": 5.9275,
+    "neck_radius_mm": 2.6373,
+    "aspect_ratio": 2.2475,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "blXmg4ZQvI_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 189.9133,
+   "height_mm": 4.7982,
+   "neck_radius_mm": 4.2355,
+   "aspect_ratio": 1.1328,
+   "rim_points": 171.0,
+   "vae": {
+    "volume_mm3": 127.4387,
+    "height_mm": 4.2262,
+    "neck_radius_mm": 4.0652,
+    "aspect_ratio": 1.0396,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "bmkieogL9h_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 119.6046,
+   "height_mm": 6.3504,
+   "neck_radius_mm": 2.4631,
+   "aspect_ratio": 2.5782,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 130.7146,
+    "height_mm": 6.637,
+    "neck_radius_mm": 2.411,
+    "aspect_ratio": 2.7528,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ckNAGjVSzH_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 148.2622,
+   "height_mm": 5.5145,
+   "neck_radius_mm": 3.4756,
+   "aspect_ratio": 1.5866,
+   "rim_points": 191.0,
+   "vae": {
+    "volume_mm3": 137.1047,
+    "height_mm": 5.4932,
+    "neck_radius_mm": 3.4639,
+    "aspect_ratio": 1.5859,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "cqQUbCpNAd_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 41.5706,
+   "height_mm": 4.4193,
+   "neck_radius_mm": 1.9782,
+   "aspect_ratio": 2.234,
+   "rim_points": 153.0,
+   "vae": {
+    "volume_mm3": 34.2041,
+    "height_mm": 4.1211,
+    "neck_radius_mm": 1.8447,
+    "aspect_ratio": 2.2341,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "d1Zz8k1U5r_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 13.0296,
+   "height_mm": 2.9873,
+   "neck_radius_mm": 1.6842,
+   "aspect_ratio": 1.7737,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 10.682,
+    "height_mm": 2.6382,
+    "neck_radius_mm": 1.5308,
+    "aspect_ratio": 1.7235,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "dJrNvTqn2c_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 80.3699,
+   "height_mm": 4.5584,
+   "neck_radius_mm": 2.6751,
+   "aspect_ratio": 1.704,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 85.1255,
+    "height_mm": 5.0751,
+    "neck_radius_mm": 2.843,
+    "aspect_ratio": 1.7851,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "divtqcYefj_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 30.8794,
+   "height_mm": 4.0089,
+   "neck_radius_mm": 1.7655,
+   "aspect_ratio": 2.2707,
+   "rim_points": 119.0,
+   "vae": {
+    "volume_mm3": 31.4945,
+    "height_mm": 4.2994,
+    "neck_radius_mm": 1.8238,
+    "aspect_ratio": 2.3574,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "dkn3xg4stb_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 124.7159,
+   "height_mm": 7.0597,
+   "neck_radius_mm": 2.4328,
+   "aspect_ratio": 2.9019,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 133.7653,
+    "height_mm": 7.0859,
+    "neck_radius_mm": 2.4068,
+    "aspect_ratio": 2.9441,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "dnk9JaE2fV_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 68.5886,
+   "height_mm": 6.0037,
+   "neck_radius_mm": 1.6479,
+   "aspect_ratio": 3.6432,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 73.8786,
+    "height_mm": 5.7519,
+    "neck_radius_mm": 1.7151,
+    "aspect_ratio": 3.3536,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "eLNFbBQbJ0_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 60.5062,
+   "height_mm": 4.2837,
+   "neck_radius_mm": 2.3801,
+   "aspect_ratio": 1.7998,
+   "rim_points": 184.0,
+   "vae": {
+    "volume_mm3": 53.114,
+    "height_mm": 4.2971,
+    "neck_radius_mm": 2.3441,
+    "aspect_ratio": 1.8331,
+    "rim_points": 227.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "eM6xqoqoo1_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 702.8375,
+   "height_mm": 11.0411,
+   "neck_radius_mm": 3.5895,
+   "aspect_ratio": 3.0759,
+   "rim_points": 130.0,
+   "vae": {
+    "volume_mm3": 621.0696,
+    "height_mm": 10.6499,
+    "neck_radius_mm": 4.1683,
+    "aspect_ratio": 2.555,
+    "rim_points": 154.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ekAU1rnb85_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 96.8816,
+   "height_mm": 5.5756,
+   "neck_radius_mm": 2.6375,
+   "aspect_ratio": 2.114,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 105.844,
+    "height_mm": 6.039,
+    "neck_radius_mm": 2.5441,
+    "aspect_ratio": 2.3738,
+    "rim_points": 196.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ephJnDiiaz_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 47.6322,
+   "height_mm": 3.5486,
+   "neck_radius_mm": 2.6887,
+   "aspect_ratio": 1.3198,
+   "rim_points": 194.0,
+   "vae": {
+    "volume_mm3": 52.0944,
+    "height_mm": 3.7369,
+    "neck_radius_mm": 2.7424,
+    "aspect_ratio": 1.3626,
+    "rim_points": 179.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "euHpN3eKdM_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 145.196,
+   "height_mm": 5.7116,
+   "neck_radius_mm": 3.2472,
+   "aspect_ratio": 1.7589,
+   "rim_points": 191.0,
+   "vae": {
+    "volume_mm3": 145.5387,
+    "height_mm": 5.7522,
+    "neck_radius_mm": 3.3053,
+    "aspect_ratio": 1.7403,
+    "rim_points": 179.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "f9nPCr633w_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 197.6448,
+   "height_mm": 6.1701,
+   "neck_radius_mm": 2.9164,
+   "aspect_ratio": 2.1157,
+   "rim_points": 164.0,
+   "vae": {
+    "volume_mm3": 204.7805,
+    "height_mm": 7.3014,
+    "neck_radius_mm": 2.8581,
+    "aspect_ratio": 2.5547,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "fL8IO9dss5_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 96.2663,
+   "height_mm": 4.6233,
+   "neck_radius_mm": 3.1242,
+   "aspect_ratio": 1.4798,
+   "rim_points": 177.0,
+   "vae": {
+    "volume_mm3": 96.3693,
+    "height_mm": 4.8665,
+    "neck_radius_mm": 3.1109,
+    "aspect_ratio": 1.5644,
+    "rim_points": 195.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "fPl4CB4npr_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 54.9258,
+   "height_mm": 4.497,
+   "neck_radius_mm": 2.3773,
+   "aspect_ratio": 1.8917,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 61.9797,
+    "height_mm": 4.7062,
+    "neck_radius_mm": 2.3415,
+    "aspect_ratio": 2.0099,
+    "rim_points": 122.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "feRpFIokI2_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 137.1087,
+   "height_mm": 5.6687,
+   "neck_radius_mm": 2.4377,
+   "aspect_ratio": 2.3254,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 150.7865,
+    "height_mm": 6.0129,
+    "neck_radius_mm": 2.4551,
+    "aspect_ratio": 2.4491,
+    "rim_points": 158.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "feRpFIokI2_aneurysm2",
+   "atype": 2,
+   "volume_mm3": 23.441,
+   "height_mm": 2.3156,
+   "neck_radius_mm": 2.3626,
+   "aspect_ratio": 0.9801,
+   "rim_points": 195.0,
+   "vae": {
+    "volume_mm3": 40.023,
+    "height_mm": 3.0646,
+    "neck_radius_mm": 2.5017,
+    "aspect_ratio": 1.225,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "feRpFIokI2_aneurysm3",
+   "atype": 0,
+   "volume_mm3": 19.3468,
+   "height_mm": 3.0426,
+   "neck_radius_mm": 1.7281,
+   "aspect_ratio": 1.7606,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 21.5565,
+    "height_mm": 3.2027,
+    "neck_radius_mm": 1.7919,
+    "aspect_ratio": 1.7873,
+    "rim_points": 171.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "fjXCdEOEMh_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 68.5075,
+   "height_mm": 6.0069,
+   "neck_radius_mm": 2.0979,
+   "aspect_ratio": 2.8632,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 73.3608,
+    "height_mm": 6.1813,
+    "neck_radius_mm": 2.1695,
+    "aspect_ratio": 2.8492,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "gTfMyJqXQp_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 242.8339,
+   "height_mm": 7.8147,
+   "neck_radius_mm": 2.3404,
+   "aspect_ratio": 3.3391,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 277.1944,
+    "height_mm": 8.4935,
+    "neck_radius_mm": 2.2564,
+    "aspect_ratio": 3.7642,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "gjaVYZ6ifJ_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 121.8559,
+   "height_mm": 6.2463,
+   "neck_radius_mm": 2.3041,
+   "aspect_ratio": 2.711,
+   "rim_points": 195.0,
+   "vae": {
+    "volume_mm3": 134.7589,
+    "height_mm": 6.1909,
+    "neck_radius_mm": 2.4316,
+    "aspect_ratio": 2.546,
+    "rim_points": 192.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "hmAqxVq22B_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 30.3493,
+   "height_mm": 3.4356,
+   "neck_radius_mm": 2.2539,
+   "aspect_ratio": 1.5243,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 43.5839,
+    "height_mm": 3.9942,
+    "neck_radius_mm": 2.3883,
+    "aspect_ratio": 1.6724,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "htpUBQgrql_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 7.2978,
+   "height_mm": 2.0596,
+   "neck_radius_mm": 1.5329,
+   "aspect_ratio": 1.3437,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 6.2547,
+    "height_mm": 1.9146,
+    "neck_radius_mm": 1.4858,
+    "aspect_ratio": 1.2886,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "i69sYpgXky_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 17.7628,
+   "height_mm": 2.3551,
+   "neck_radius_mm": 1.9738,
+   "aspect_ratio": 1.1932,
+   "rim_points": 194.0,
+   "vae": {
+    "volume_mm3": 16.0306,
+    "height_mm": 2.4957,
+    "neck_radius_mm": 1.7786,
+    "aspect_ratio": 1.4032,
+    "rim_points": 181.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iEgZYkrR0y_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 78.5952,
+   "height_mm": 4.6945,
+   "neck_radius_mm": 2.8226,
+   "aspect_ratio": 1.6632,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 82.8884,
+    "height_mm": 4.7599,
+    "neck_radius_mm": 2.6604,
+    "aspect_ratio": 1.7891,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iQsrvhNKjH_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 232.0047,
+   "height_mm": 7.8455,
+   "neck_radius_mm": 2.9149,
+   "aspect_ratio": 2.6915,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 178.7501,
+    "height_mm": 7.058,
+    "neck_radius_mm": 3.0979,
+    "aspect_ratio": 2.2783,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iQsrvhNKjH_aneurysm2",
+   "atype": 2,
+   "volume_mm3": 155.3787,
+   "height_mm": 6.2512,
+   "neck_radius_mm": 3.1119,
+   "aspect_ratio": 2.0088,
+   "rim_points": 165.0,
+   "vae": {
+    "volume_mm3": 230.3364,
+    "height_mm": 7.2984,
+    "neck_radius_mm": 3.0392,
+    "aspect_ratio": 2.4014,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iQsrvhNKjH_aneurysm3",
+   "atype": 2,
+   "volume_mm3": 109.4814,
+   "height_mm": 5.8948,
+   "neck_radius_mm": 2.3188,
+   "aspect_ratio": 2.5422,
+   "rim_points": 171.0,
+   "vae": {
+    "volume_mm3": 145.2927,
+    "height_mm": 5.9518,
+    "neck_radius_mm": 2.4956,
+    "aspect_ratio": 2.385,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iw8NFvcAKs_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 54.9326,
+   "height_mm": 4.5263,
+   "neck_radius_mm": 2.3436,
+   "aspect_ratio": 1.9313,
+   "rim_points": 118.0,
+   "vae": {
+    "volume_mm3": 53.4419,
+    "height_mm": 4.3058,
+    "neck_radius_mm": 2.2911,
+    "aspect_ratio": 1.8793,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iw8NFvcAKs_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 23.8445,
+   "height_mm": 3.0116,
+   "neck_radius_mm": 2.1193,
+   "aspect_ratio": 1.4211,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 27.0138,
+    "height_mm": 3.1186,
+    "neck_radius_mm": 2.2959,
+    "aspect_ratio": 1.3583,
+    "rim_points": 145.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iy6PJTLKXk_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 80.7169,
+   "height_mm": 4.1534,
+   "neck_radius_mm": 3.0634,
+   "aspect_ratio": 1.3558,
+   "rim_points": 189.0,
+   "vae": {
+    "volume_mm3": 69.9128,
+    "height_mm": 3.909,
+    "neck_radius_mm": 3.0415,
+    "aspect_ratio": 1.2852,
+    "rim_points": 182.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iy6PJTLKXk_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 61.2997,
+   "height_mm": 6.3012,
+   "neck_radius_mm": 2.0897,
+   "aspect_ratio": 3.0154,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 69.2209,
+    "height_mm": 6.59,
+    "neck_radius_mm": 2.134,
+    "aspect_ratio": 3.0882,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "iy6PJTLKXk_aneurysm3",
+   "atype": 1,
+   "volume_mm3": 32.4834,
+   "height_mm": 4.8562,
+   "neck_radius_mm": 1.7303,
+   "aspect_ratio": 2.8066,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 35.3529,
+    "height_mm": 5.2546,
+    "neck_radius_mm": 1.7441,
+    "aspect_ratio": 3.0127,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "jX927SPGZL_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 106.3881,
+   "height_mm": 5.3593,
+   "neck_radius_mm": 2.4866,
+   "aspect_ratio": 2.1553,
+   "rim_points": 110.0,
+   "vae": {
+    "volume_mm3": 130.577,
+    "height_mm": 5.8769,
+    "neck_radius_mm": 2.4342,
+    "aspect_ratio": 2.4143,
+    "rim_points": 115.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "joCX3Lfukw_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 175.5053,
+   "height_mm": 5.9708,
+   "neck_radius_mm": 3.1308,
+   "aspect_ratio": 1.9071,
+   "rim_points": 210.0,
+   "vae": {
+    "volume_mm3": 168.431,
+    "height_mm": 5.5663,
+    "neck_radius_mm": 3.1058,
+    "aspect_ratio": 1.7922,
+    "rim_points": 196.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "jpg6q6ISEs_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 222.6771,
+   "height_mm": 8.4489,
+   "neck_radius_mm": 2.8645,
+   "aspect_ratio": 2.9495,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 230.9526,
+    "height_mm": 7.6177,
+    "neck_radius_mm": 2.7982,
+    "aspect_ratio": 2.7223,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "jylVkO8IUM_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 98.6822,
+   "height_mm": 6.1033,
+   "neck_radius_mm": 2.1678,
+   "aspect_ratio": 2.8154,
+   "rim_points": 117.0,
+   "vae": {
+    "volume_mm3": 105.0795,
+    "height_mm": 6.3826,
+    "neck_radius_mm": 2.0631,
+    "aspect_ratio": 3.0936,
+    "rim_points": 122.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "k8M8eBuy4l_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 87.8992,
+   "height_mm": 5.7358,
+   "neck_radius_mm": 2.4444,
+   "aspect_ratio": 2.3465,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 85.5032,
+    "height_mm": 5.7623,
+    "neck_radius_mm": 2.3786,
+    "aspect_ratio": 2.4225,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "k8QEik8XH2_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 21.0885,
+   "height_mm": 3.1451,
+   "neck_radius_mm": 1.8336,
+   "aspect_ratio": 1.7153,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 25.293,
+    "height_mm": 3.0942,
+    "neck_radius_mm": 1.9795,
+    "aspect_ratio": 1.5631,
+    "rim_points": 181.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "kZ1xSqn9iB_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 39.3054,
+   "height_mm": 4.7581,
+   "neck_radius_mm": 1.9805,
+   "aspect_ratio": 2.4024,
+   "rim_points": 149.0,
+   "vae": {
+    "volume_mm3": 40.6117,
+    "height_mm": 4.8088,
+    "neck_radius_mm": 1.9594,
+    "aspect_ratio": 2.4542,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "kZ1xSqn9iB_dsxf_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 43.8835,
+   "height_mm": 4.5534,
+   "neck_radius_mm": 1.9453,
+   "aspect_ratio": 2.3407,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 43.7626,
+    "height_mm": 4.6393,
+    "neck_radius_mm": 1.8612,
+    "aspect_ratio": 2.4926,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "kj9ygVbap7_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 36.6686,
+   "height_mm": 4.3086,
+   "neck_radius_mm": 2.1107,
+   "aspect_ratio": 2.0414,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 41.6956,
+    "height_mm": 4.5751,
+    "neck_radius_mm": 2.1202,
+    "aspect_ratio": 2.1578,
+    "rim_points": 175.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "lFnV0JnxJv_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 148.9901,
+   "height_mm": 5.5985,
+   "neck_radius_mm": 2.8599,
+   "aspect_ratio": 1.9576,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 160.3922,
+    "height_mm": 5.7728,
+    "neck_radius_mm": 2.8534,
+    "aspect_ratio": 2.0231,
+    "rim_points": 160.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "li6nKBMI9B_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 81.4883,
+   "height_mm": 4.6803,
+   "neck_radius_mm": 2.5477,
+   "aspect_ratio": 1.837,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 89.5233,
+    "height_mm": 5.0415,
+    "neck_radius_mm": 2.4335,
+    "aspect_ratio": 2.0717,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "lsdXovnVrM_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 304.3902,
+   "height_mm": 8.6364,
+   "neck_radius_mm": 2.3916,
+   "aspect_ratio": 3.6111,
+   "rim_points": 122.0,
+   "vae": {
+    "volume_mm3": 341.4825,
+    "height_mm": 9.7302,
+    "neck_radius_mm": 2.7407,
+    "aspect_ratio": 3.5502,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "lsdXovnVrM_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 18.3562,
+   "height_mm": 3.0421,
+   "neck_radius_mm": 1.8265,
+   "aspect_ratio": 1.6655,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 12.747,
+    "height_mm": 2.4895,
+    "neck_radius_mm": 1.656,
+    "aspect_ratio": 1.5033,
+    "rim_points": 163.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "lzW4AVuotE_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 64.7372,
+   "height_mm": 4.6192,
+   "neck_radius_mm": 2.3718,
+   "aspect_ratio": 1.9476,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 64.4081,
+    "height_mm": 4.328,
+    "neck_radius_mm": 2.35,
+    "aspect_ratio": 1.8417,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "m0z3ee3JP7_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 29.9501,
+   "height_mm": 3.1094,
+   "neck_radius_mm": 2.1224,
+   "aspect_ratio": 1.4651,
+   "rim_points": 171.0,
+   "vae": {
+    "volume_mm3": 40.1378,
+    "height_mm": 3.5472,
+    "neck_radius_mm": 2.1687,
+    "aspect_ratio": 1.6356,
+    "rim_points": 195.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "m9P7fSbqRL_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 54.2217,
+   "height_mm": 3.685,
+   "neck_radius_mm": 2.6436,
+   "aspect_ratio": 1.394,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 70.5145,
+    "height_mm": 4.4322,
+    "neck_radius_mm": 2.3861,
+    "aspect_ratio": 1.8575,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "mfWNIzdKlh_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 28.9205,
+   "height_mm": 3.4242,
+   "neck_radius_mm": 2.228,
+   "aspect_ratio": 1.5369,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 25.9553,
+    "height_mm": 3.3737,
+    "neck_radius_mm": 2.0755,
+    "aspect_ratio": 1.6255,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "nUbO1B2S1v_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 47.089,
+   "height_mm": 4.0628,
+   "neck_radius_mm": 1.9408,
+   "aspect_ratio": 2.0933,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 42.5843,
+    "height_mm": 4.0813,
+    "neck_radius_mm": 1.8036,
+    "aspect_ratio": 2.2629,
+    "rim_points": 130.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "nVl2UoKaxY_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 41.5128,
+   "height_mm": 3.215,
+   "neck_radius_mm": 2.3985,
+   "aspect_ratio": 1.3404,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 43.3825,
+    "height_mm": 3.4688,
+    "neck_radius_mm": 2.3977,
+    "aspect_ratio": 1.4467,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "nfiwuPvfPU_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 81.623,
+   "height_mm": 5.8004,
+   "neck_radius_mm": 2.1961,
+   "aspect_ratio": 2.6413,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 167.0322,
+    "height_mm": 5.6792,
+    "neck_radius_mm": 3.0919,
+    "aspect_ratio": 1.8368,
+    "rim_points": 208.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "nfiwuPvfPU_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 12.8893,
+   "height_mm": 2.8455,
+   "neck_radius_mm": 1.6328,
+   "aspect_ratio": 1.7427,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 19.4342,
+    "height_mm": 3.2115,
+    "neck_radius_mm": 1.9579,
+    "aspect_ratio": 1.6403,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "nszCwhJiNN_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 54.2153,
+   "height_mm": 4.4415,
+   "neck_radius_mm": 2.4992,
+   "aspect_ratio": 1.7771,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 58.5055,
+    "height_mm": 5.0795,
+    "neck_radius_mm": 1.9649,
+    "aspect_ratio": 2.5852,
+    "rim_points": 130.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "o7cb5hR1rV_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 182.258,
+   "height_mm": 6.5214,
+   "neck_radius_mm": 2.4468,
+   "aspect_ratio": 2.6652,
+   "rim_points": 191.0,
+   "vae": {
+    "volume_mm3": 198.6489,
+    "height_mm": 6.4464,
+    "neck_radius_mm": 2.7365,
+    "aspect_ratio": 2.3557,
+    "rim_points": 216.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "oKpIvgASUi_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 266.0678,
+   "height_mm": 7.4136,
+   "neck_radius_mm": 3.0013,
+   "aspect_ratio": 2.4701,
+   "rim_points": 194.0,
+   "vae": {
+    "volume_mm3": 334.046,
+    "height_mm": 7.7459,
+    "neck_radius_mm": 4.4363,
+    "aspect_ratio": 1.746,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "oaoQ29WgOs_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 152.0133,
+   "height_mm": 6.2879,
+   "neck_radius_mm": 3.1485,
+   "aspect_ratio": 1.9971,
+   "rim_points": 174.0,
+   "vae": {
+    "volume_mm3": 163.3623,
+    "height_mm": 6.5809,
+    "neck_radius_mm": 3.0454,
+    "aspect_ratio": 2.1609,
+    "rim_points": 158.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "pBlNGeQpPz_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 42.4059,
+   "height_mm": 4.1619,
+   "neck_radius_mm": 2.2195,
+   "aspect_ratio": 1.8751,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 35.1917,
+    "height_mm": 3.8143,
+    "neck_radius_mm": 2.1189,
+    "aspect_ratio": 1.8001,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "pNi4EfNLfi_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 120.5972,
+   "height_mm": 5.5057,
+   "neck_radius_mm": 2.6189,
+   "aspect_ratio": 2.1023,
+   "rim_points": 180.0,
+   "vae": {
+    "volume_mm3": 131.5084,
+    "height_mm": 5.9393,
+    "neck_radius_mm": 2.5781,
+    "aspect_ratio": 2.3037,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "pWij81BU6K_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 15.42,
+   "height_mm": 2.3551,
+   "neck_radius_mm": 1.8916,
+   "aspect_ratio": 1.245,
+   "rim_points": 279.0,
+   "vae": {
+    "volume_mm3": 14.2457,
+    "height_mm": 2.1625,
+    "neck_radius_mm": 1.8113,
+    "aspect_ratio": 1.1939,
+    "rim_points": 274.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "pe80lAnlPh_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 203.5406,
+   "height_mm": 8.5648,
+   "neck_radius_mm": 2.1633,
+   "aspect_ratio": 3.9592,
+   "rim_points": 263.0,
+   "vae": {
+    "volume_mm3": 280.1932,
+    "height_mm": 8.7707,
+    "neck_radius_mm": 2.6218,
+    "aspect_ratio": 3.3453,
+    "rim_points": 196.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "piPOQz5Qkr_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 99.8448,
+   "height_mm": 6.1662,
+   "neck_radius_mm": 2.3725,
+   "aspect_ratio": 2.599,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 120.955,
+    "height_mm": 6.3778,
+    "neck_radius_mm": 2.4224,
+    "aspect_ratio": 2.6328,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "psZtYn1Eg8_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 32.1752,
+   "height_mm": 3.2441,
+   "neck_radius_mm": 2.2301,
+   "aspect_ratio": 1.4547,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 42.0812,
+    "height_mm": 3.734,
+    "neck_radius_mm": 2.4749,
+    "aspect_ratio": 1.5088,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "q5aHWgC04b_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 52.3912,
+   "height_mm": 3.3925,
+   "neck_radius_mm": 2.8779,
+   "aspect_ratio": 1.1788,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 36.9372,
+    "height_mm": 3.0319,
+    "neck_radius_mm": 2.571,
+    "aspect_ratio": 1.1793,
+    "rim_points": 163.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qHBtIl5Ft4_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 21.9036,
+   "height_mm": 2.8071,
+   "neck_radius_mm": 2.2384,
+   "aspect_ratio": 1.2541,
+   "rim_points": 180.0,
+   "vae": {
+    "volume_mm3": 19.3454,
+    "height_mm": 2.8217,
+    "neck_radius_mm": 2.2782,
+    "aspect_ratio": 1.2386,
+    "rim_points": 207.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qXdeQXeju1_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 41.9517,
+   "height_mm": 4.0076,
+   "neck_radius_mm": 2.2985,
+   "aspect_ratio": 1.7436,
+   "rim_points": 174.0,
+   "vae": {
+    "volume_mm3": 39.7307,
+    "height_mm": 4.1397,
+    "neck_radius_mm": 2.0951,
+    "aspect_ratio": 1.9759,
+    "rim_points": 187.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qYs10dknc6_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 104.7997,
+   "height_mm": 6.3961,
+   "neck_radius_mm": 2.4063,
+   "aspect_ratio": 2.658,
+   "rim_points": 229.0,
+   "vae": {
+    "volume_mm3": 109.1226,
+    "height_mm": 6.5002,
+    "neck_radius_mm": 2.4513,
+    "aspect_ratio": 2.6517,
+    "rim_points": 214.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qZGjujyA9f_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 22.8608,
+   "height_mm": 2.8082,
+   "neck_radius_mm": 2.3411,
+   "aspect_ratio": 1.1996,
+   "rim_points": 238.0,
+   "vae": {
+    "volume_mm3": 27.3706,
+    "height_mm": 3.7971,
+    "neck_radius_mm": 2.2065,
+    "aspect_ratio": 1.7209,
+    "rim_points": 358.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qmcoiXe2Ze_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 297.6778,
+   "height_mm": 10.9439,
+   "neck_radius_mm": 3.5215,
+   "aspect_ratio": 3.1078,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 334.9182,
+    "height_mm": 10.6125,
+    "neck_radius_mm": 2.8227,
+    "aspect_ratio": 3.7596,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "qmcoiXe2Ze_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 50.533,
+   "height_mm": 4.8445,
+   "neck_radius_mm": 1.5575,
+   "aspect_ratio": 3.1103,
+   "rim_points": 164.0,
+   "vae": {
+    "volume_mm3": 67.8754,
+    "height_mm": 4.3266,
+    "neck_radius_mm": 1.8354,
+    "aspect_ratio": 2.3573,
+    "rim_points": 181.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "r2EVkwBdXy_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 582.0214,
+   "height_mm": 10.6093,
+   "neck_radius_mm": 3.7919,
+   "aspect_ratio": 2.7979,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 651.9382,
+    "height_mm": 11.4796,
+    "neck_radius_mm": 3.6707,
+    "aspect_ratio": 3.1274,
+    "rim_points": 171.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "r65LsG8iY4_aneurysm2",
+   "atype": 2,
+   "volume_mm3": 56.0945,
+   "height_mm": 5.0546,
+   "neck_radius_mm": 2.0372,
+   "aspect_ratio": 2.4812,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 92.1893,
+    "height_mm": 5.5387,
+    "neck_radius_mm": 2.4594,
+    "aspect_ratio": 2.252,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "rASk5uvMt2_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 30.8686,
+   "height_mm": 3.8395,
+   "neck_radius_mm": 2.4495,
+   "aspect_ratio": 1.5675,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 34.0461,
+    "height_mm": 3.8065,
+    "neck_radius_mm": 2.5203,
+    "aspect_ratio": 1.5103,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "rCHyvghmVr_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 395.589,
+   "height_mm": 8.7653,
+   "neck_radius_mm": 3.2508,
+   "aspect_ratio": 2.6963,
+   "rim_points": 232.0,
+   "vae": {
+    "volume_mm3": 416.0388,
+    "height_mm": 9.4608,
+    "neck_radius_mm": 2.9341,
+    "aspect_ratio": 3.2244,
+    "rim_points": 260.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "sAZ6eNswyc_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 51.0426,
+   "height_mm": 3.9736,
+   "neck_radius_mm": 2.2729,
+   "aspect_ratio": 1.7483,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 44.6515,
+    "height_mm": 3.8923,
+    "neck_radius_mm": 2.0585,
+    "aspect_ratio": 1.8908,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "sZoUSg9dKz_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 255.1933,
+   "height_mm": 8.2139,
+   "neck_radius_mm": 2.7723,
+   "aspect_ratio": 2.9628,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 275.1625,
+    "height_mm": 8.2313,
+    "neck_radius_mm": 2.8814,
+    "aspect_ratio": 2.8567,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "sdfgnnRzJL_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 84.8089,
+   "height_mm": 5.0969,
+   "neck_radius_mm": 2.8736,
+   "aspect_ratio": 1.7737,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 106.3487,
+    "height_mm": 5.9797,
+    "neck_radius_mm": 2.5106,
+    "aspect_ratio": 2.3817,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "sdfgnnRzJL_aneurysm2",
+   "atype": 1,
+   "volume_mm3": 16.65,
+   "height_mm": 2.5278,
+   "neck_radius_mm": 2.1985,
+   "aspect_ratio": 1.1498,
+   "rim_points": 119.0,
+   "vae": {
+    "volume_mm3": 20.1666,
+    "height_mm": 2.6255,
+    "neck_radius_mm": 2.3533,
+    "aspect_ratio": 1.1156,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "sjJsMVFx89_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 85.7307,
+   "height_mm": 5.1252,
+   "neck_radius_mm": 2.2179,
+   "aspect_ratio": 2.3108,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 78.3389,
+    "height_mm": 5.0863,
+    "neck_radius_mm": 2.156,
+    "aspect_ratio": 2.3592,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "tYZ0IT9avC_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 43.0838,
+   "height_mm": 3.238,
+   "neck_radius_mm": 2.4546,
+   "aspect_ratio": 1.3192,
+   "rim_points": 226.0,
+   "vae": {
+    "volume_mm3": 39.6176,
+    "height_mm": 3.2263,
+    "neck_radius_mm": 2.3786,
+    "aspect_ratio": 1.3564,
+    "rim_points": 236.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "tjXzxbGi8S_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 46.3866,
+   "height_mm": 3.7245,
+   "neck_radius_mm": 2.723,
+   "aspect_ratio": 1.3678,
+   "rim_points": 201.0,
+   "vae": {
+    "volume_mm3": 45.1589,
+    "height_mm": 3.7884,
+    "neck_radius_mm": 2.6325,
+    "aspect_ratio": 1.4391,
+    "rim_points": 202.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "v2hrDDjiip_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 69.3956,
+   "height_mm": 5.2137,
+   "neck_radius_mm": 2.2389,
+   "aspect_ratio": 2.3287,
+   "rim_points": 178.0,
+   "vae": {
+    "volume_mm3": 64.988,
+    "height_mm": 4.9079,
+    "neck_radius_mm": 2.1698,
+    "aspect_ratio": 2.2619,
+    "rim_points": 177.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "v2hrDDjiip_aneurysm2",
+   "atype": 0,
+   "volume_mm3": 20.1573,
+   "height_mm": 2.7516,
+   "neck_radius_mm": 2.0196,
+   "aspect_ratio": 1.3625,
+   "rim_points": 198.0,
+   "vae": {
+    "volume_mm3": 17.9993,
+    "height_mm": 2.6306,
+    "neck_radius_mm": 1.9105,
+    "aspect_ratio": 1.3769,
+    "rim_points": 203.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "v6TrlhwP7M_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 25.4327,
+   "height_mm": 3.2177,
+   "neck_radius_mm": 1.8064,
+   "aspect_ratio": 1.7813,
+   "rim_points": 168.0,
+   "vae": {
+    "volume_mm3": 25.2132,
+    "height_mm": 3.432,
+    "neck_radius_mm": 1.8417,
+    "aspect_ratio": 1.8635,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "vJS7ISxFri_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 185.4106,
+   "height_mm": 7.4561,
+   "neck_radius_mm": 2.7163,
+   "aspect_ratio": 2.7449,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 191.6602,
+    "height_mm": 7.5586,
+    "neck_radius_mm": 2.7396,
+    "aspect_ratio": 2.759,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "vbfoaHqAT8_aneurysm1",
+   "atype": 2,
+   "volume_mm3": 96.8484,
+   "height_mm": 6.2887,
+   "neck_radius_mm": 2.5367,
+   "aspect_ratio": 2.4791,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 125.175,
+    "height_mm": 6.4653,
+    "neck_radius_mm": 2.3373,
+    "aspect_ratio": 2.7661,
+    "rim_points": 121.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "vtDZkan8cF_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 42.5192,
+   "height_mm": 3.8437,
+   "neck_radius_mm": 2.1969,
+   "aspect_ratio": 1.7496,
+   "rim_points": 187.0,
+   "vae": {
+    "volume_mm3": 45.2992,
+    "height_mm": 4.1714,
+    "neck_radius_mm": 2.181,
+    "aspect_ratio": 1.9126,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "vudNr4Zebe_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 569.3406,
+   "height_mm": 11.0825,
+   "neck_radius_mm": 2.8473,
+   "aspect_ratio": 3.8924,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 589.0565,
+    "height_mm": 11.3321,
+    "neck_radius_mm": 2.5711,
+    "aspect_ratio": 4.4075,
+    "rim_points": 204.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "wFs1QbldbE_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 59.3658,
+   "height_mm": 4.8324,
+   "neck_radius_mm": 1.8351,
+   "aspect_ratio": 2.6333,
+   "rim_points": 199.0,
+   "vae": {
+    "volume_mm3": 52.3255,
+    "height_mm": 4.5487,
+    "neck_radius_mm": 2.0182,
+    "aspect_ratio": 2.2538,
+    "rim_points": 245.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "wqXrhCmudF_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 38.9545,
+   "height_mm": 4.0664,
+   "neck_radius_mm": 1.7347,
+   "aspect_ratio": 2.3442,
+   "rim_points": 183.0,
+   "vae": {
+    "volume_mm3": 40.7288,
+    "height_mm": 4.1459,
+    "neck_radius_mm": 1.7768,
+    "aspect_ratio": 2.3333,
+    "rim_points": 192.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "x0tZoieDWj_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 79.6615,
+   "height_mm": 5.8823,
+   "neck_radius_mm": 2.3691,
+   "aspect_ratio": 2.483,
+   "rim_points": 186.0,
+   "vae": {
+    "volume_mm3": 85.3073,
+    "height_mm": 5.9746,
+    "neck_radius_mm": 2.3871,
+    "aspect_ratio": 2.5029,
+    "rim_points": 186.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "y3GooHGaVq_aneurysm5",
+   "atype": 0,
+   "volume_mm3": 19.9877,
+   "height_mm": 2.6393,
+   "neck_radius_mm": 2.1022,
+   "aspect_ratio": 1.2555,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 17.7852,
+    "height_mm": 2.7917,
+    "neck_radius_mm": 1.9038,
+    "aspect_ratio": 1.4664,
+    "rim_points": 143.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "yFTGojohJ4_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 6.9804,
+   "height_mm": 2.0057,
+   "neck_radius_mm": 1.4798,
+   "aspect_ratio": 1.3554,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 6.9893,
+    "height_mm": 2.1235,
+    "neck_radius_mm": 1.4633,
+    "aspect_ratio": 1.4512,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "yUJN2uVA3D_aneurysm1",
+   "atype": 0,
+   "volume_mm3": 44.0906,
+   "height_mm": 4.2338,
+   "neck_radius_mm": 1.9924,
+   "aspect_ratio": 2.125,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 45.302,
+    "height_mm": 4.2862,
+    "neck_radius_mm": 1.9032,
+    "aspect_ratio": 2.2521,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "ImperialNHS",
+   "case": "ziSACL5Z7M_aneurysm1",
+   "atype": 1,
+   "volume_mm3": 15.7641,
+   "height_mm": 2.9396,
+   "neck_radius_mm": 1.8694,
+   "aspect_ratio": 1.5724,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 12.5507,
+    "height_mm": 2.8767,
+    "neck_radius_mm": 1.7219,
+    "aspect_ratio": 1.6706,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "ANSYS_UNIGE_09_cut1",
+   "atype": 0,
+   "volume_mm3": 9.4372,
+   "height_mm": 2.6597,
+   "neck_radius_mm": 1.2151,
+   "aspect_ratio": 2.1889,
+   "rim_points": 175.0,
+   "vae": {
+    "volume_mm3": 8.6146,
+    "height_mm": 2.5781,
+    "neck_radius_mm": 1.2051,
+    "aspect_ratio": 2.1394,
+    "rim_points": 166.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "ANSYS_UNIGE_30_614_cut1",
+   "atype": 0,
+   "volume_mm3": 25.0858,
+   "height_mm": 3.444,
+   "neck_radius_mm": 1.5945,
+   "aspect_ratio": 2.1599,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 26.385,
+    "height_mm": 3.5386,
+    "neck_radius_mm": 1.5509,
+    "aspect_ratio": 2.2816,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0002_cut2",
+   "atype": 2,
+   "volume_mm3": 120.7415,
+   "height_mm": 6.9974,
+   "neck_radius_mm": 2.3852,
+   "aspect_ratio": 2.9337,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 195.2629,
+    "height_mm": 7.821,
+    "neck_radius_mm": 2.6783,
+    "aspect_ratio": 2.9201,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0003_cut2",
+   "atype": 0,
+   "volume_mm3": 13.7862,
+   "height_mm": 2.5971,
+   "neck_radius_mm": 1.4675,
+   "aspect_ratio": 1.7697,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 15.4891,
+    "height_mm": 2.98,
+    "neck_radius_mm": 1.4724,
+    "aspect_ratio": 2.0239,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0005_cut2",
+   "atype": 2,
+   "volume_mm3": 43.0701,
+   "height_mm": 5.5777,
+   "neck_radius_mm": 1.7211,
+   "aspect_ratio": 3.2408,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 47.1007,
+    "height_mm": 5.8727,
+    "neck_radius_mm": 1.4276,
+    "aspect_ratio": 4.1137,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0006_cut2",
+   "atype": 1,
+   "volume_mm3": 187.3872,
+   "height_mm": 6.8057,
+   "neck_radius_mm": 3.4471,
+   "aspect_ratio": 1.9743,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 207.3094,
+    "height_mm": 7.0423,
+    "neck_radius_mm": 3.4868,
+    "aspect_ratio": 2.0197,
+    "rim_points": 172.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0011_cut2",
+   "atype": 0,
+   "volume_mm3": 26.6339,
+   "height_mm": 3.0242,
+   "neck_radius_mm": 1.9793,
+   "aspect_ratio": 1.5279,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 27.3675,
+    "height_mm": 3.1987,
+    "neck_radius_mm": 1.9223,
+    "aspect_ratio": 1.664,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0013_cut2",
+   "atype": 2,
+   "volume_mm3": 346.1162,
+   "height_mm": 9.872,
+   "neck_radius_mm": 4.0723,
+   "aspect_ratio": 2.4242,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 467.8859,
+    "height_mm": 9.7884,
+    "neck_radius_mm": 3.8774,
+    "aspect_ratio": 2.5245,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0014_cut2",
+   "atype": 1,
+   "volume_mm3": 275.147,
+   "height_mm": 6.1619,
+   "neck_radius_mm": 4.1778,
+   "aspect_ratio": 1.4749,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 324.1863,
+    "height_mm": 7.048,
+    "neck_radius_mm": 4.0494,
+    "aspect_ratio": 1.7405,
+    "rim_points": 166.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0015_cut2",
+   "atype": 0,
+   "volume_mm3": 19.7971,
+   "height_mm": 3.43,
+   "neck_radius_mm": 1.5245,
+   "aspect_ratio": 2.2499,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 30.0294,
+    "height_mm": 3.9842,
+    "neck_radius_mm": 2.0551,
+    "aspect_ratio": 1.9386,
+    "rim_points": 188.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0018_cut2",
+   "atype": 1,
+   "volume_mm3": 25.0634,
+   "height_mm": 4.5946,
+   "neck_radius_mm": 1.9438,
+   "aspect_ratio": 2.3637,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 25.4626,
+    "height_mm": 4.4127,
+    "neck_radius_mm": 1.8531,
+    "aspect_ratio": 2.3813,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0019_cut2",
+   "atype": 0,
+   "volume_mm3": 31.5292,
+   "height_mm": 3.1854,
+   "neck_radius_mm": 1.7726,
+   "aspect_ratio": 1.797,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 36.5059,
+    "height_mm": 3.5276,
+    "neck_radius_mm": 1.8045,
+    "aspect_ratio": 1.9549,
+    "rim_points": 176.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0020_cut2",
+   "atype": 0,
+   "volume_mm3": 72.1739,
+   "height_mm": 4.5326,
+   "neck_radius_mm": 2.1376,
+   "aspect_ratio": 2.1204,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 76.3827,
+    "height_mm": 4.5829,
+    "neck_radius_mm": 2.1209,
+    "aspect_ratio": 2.1609,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0021_cut2",
+   "atype": 0,
+   "volume_mm3": 29.2341,
+   "height_mm": 2.824,
+   "neck_radius_mm": 2.0898,
+   "aspect_ratio": 1.3513,
+   "rim_points": 149.0,
+   "vae": {
+    "volume_mm3": 29.6064,
+    "height_mm": 2.6376,
+    "neck_radius_mm": 2.184,
+    "aspect_ratio": 1.2077,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0023_cut2",
+   "atype": 0,
+   "volume_mm3": 27.7607,
+   "height_mm": 3.0124,
+   "neck_radius_mm": 1.6211,
+   "aspect_ratio": 1.8583,
+   "rim_points": 124.0,
+   "vae": {
+    "volume_mm3": 30.8833,
+    "height_mm": 3.2144,
+    "neck_radius_mm": 1.6812,
+    "aspect_ratio": 1.912,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0024_cut2",
+   "atype": 1,
+   "volume_mm3": 188.6506,
+   "height_mm": 6.0231,
+   "neck_radius_mm": 3.1245,
+   "aspect_ratio": 1.9277,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 210.2164,
+    "height_mm": 6.7247,
+    "neck_radius_mm": 3.1687,
+    "aspect_ratio": 2.1222,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0026_cut2",
+   "atype": 1,
+   "volume_mm3": 338.5285,
+   "height_mm": 9.6806,
+   "neck_radius_mm": 3.4524,
+   "aspect_ratio": 2.804,
+   "rim_points": 117.0,
+   "vae": {
+    "volume_mm3": 414.1774,
+    "height_mm": 9.7405,
+    "neck_radius_mm": 3.5644,
+    "aspect_ratio": 2.7327,
+    "rim_points": 115.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0028b_cut2",
+   "atype": 0,
+   "volume_mm3": 87.1849,
+   "height_mm": 5.1529,
+   "neck_radius_mm": 2.206,
+   "aspect_ratio": 2.3358,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 85.0713,
+    "height_mm": 5.5033,
+    "neck_radius_mm": 2.1961,
+    "aspect_ratio": 2.5059,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0034_cut2",
+   "atype": 2,
+   "volume_mm3": 262.7301,
+   "height_mm": 6.6069,
+   "neck_radius_mm": 3.7749,
+   "aspect_ratio": 1.7502,
+   "rim_points": 219.0,
+   "vae": {
+    "volume_mm3": 300.4102,
+    "height_mm": 7.4261,
+    "neck_radius_mm": 3.7043,
+    "aspect_ratio": 2.0047,
+    "rim_points": 222.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0037_cut2",
+   "atype": 0,
+   "volume_mm3": 44.0965,
+   "height_mm": 6.094,
+   "neck_radius_mm": 1.6519,
+   "aspect_ratio": 3.6892,
+   "rim_points": 172.0,
+   "vae": {
+    "volume_mm3": 47.8622,
+    "height_mm": 6.1015,
+    "neck_radius_mm": 1.5314,
+    "aspect_ratio": 3.9843,
+    "rim_points": 165.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0045_cut2",
+   "atype": 0,
+   "volume_mm3": 119.8298,
+   "height_mm": 6.7711,
+   "neck_radius_mm": 2.5256,
+   "aspect_ratio": 2.681,
+   "rim_points": 207.0,
+   "vae": {
+    "volume_mm3": 109.811,
+    "height_mm": 6.916,
+    "neck_radius_mm": 2.3917,
+    "aspect_ratio": 2.8917,
+    "rim_points": 204.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0050_cut2",
+   "atype": 0,
+   "volume_mm3": 16.4897,
+   "height_mm": 3.0498,
+   "neck_radius_mm": 1.6108,
+   "aspect_ratio": 1.8933,
+   "rim_points": 281.0,
+   "vae": {
+    "volume_mm3": 15.3829,
+    "height_mm": 3.0464,
+    "neck_radius_mm": 1.4891,
+    "aspect_ratio": 2.0458,
+    "rim_points": 260.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0051_cut2",
+   "atype": 0,
+   "volume_mm3": 94.9868,
+   "height_mm": 5.7874,
+   "neck_radius_mm": 2.1033,
+   "aspect_ratio": 2.7516,
+   "rim_points": 149.0,
+   "vae": {
+    "volume_mm3": 94.7996,
+    "height_mm": 5.9484,
+    "neck_radius_mm": 2.1225,
+    "aspect_ratio": 2.8025,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0061_cut2",
+   "atype": 0,
+   "volume_mm3": 40.7998,
+   "height_mm": 3.9643,
+   "neck_radius_mm": 1.3668,
+   "aspect_ratio": 2.9004,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 48.3245,
+    "height_mm": 4.5361,
+    "neck_radius_mm": 1.4764,
+    "aspect_ratio": 3.0724,
+    "rim_points": 171.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0066_cut2",
+   "atype": 0,
+   "volume_mm3": 102.3818,
+   "height_mm": 5.9109,
+   "neck_radius_mm": 2.175,
+   "aspect_ratio": 2.7177,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 107.5115,
+    "height_mm": 5.7159,
+    "neck_radius_mm": 2.1655,
+    "aspect_ratio": 2.6395,
+    "rim_points": 122.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0069_cut2",
+   "atype": 0,
+   "volume_mm3": 34.2603,
+   "height_mm": 4.5575,
+   "neck_radius_mm": 1.5155,
+   "aspect_ratio": 3.0072,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 36.8251,
+    "height_mm": 4.6896,
+    "neck_radius_mm": 1.5827,
+    "aspect_ratio": 2.963,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0071_cut2",
+   "atype": 0,
+   "volume_mm3": 118.0236,
+   "height_mm": 7.3904,
+   "neck_radius_mm": 2.4187,
+   "aspect_ratio": 3.0555,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 120.1927,
+    "height_mm": 6.8792,
+    "neck_radius_mm": 2.4296,
+    "aspect_ratio": 2.8315,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0073_cut2",
+   "atype": 0,
+   "volume_mm3": 18.871,
+   "height_mm": 2.5294,
+   "neck_radius_mm": 1.8581,
+   "aspect_ratio": 1.3613,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 22.5579,
+    "height_mm": 2.9145,
+    "neck_radius_mm": 1.8953,
+    "aspect_ratio": 1.5377,
+    "rim_points": 194.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0077_cut2",
+   "atype": 0,
+   "volume_mm3": 19.3035,
+   "height_mm": 2.1989,
+   "neck_radius_mm": 2.1292,
+   "aspect_ratio": 1.0327,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 16.8278,
+    "height_mm": 2.2457,
+    "neck_radius_mm": 2.005,
+    "aspect_ratio": 1.1201,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0078_cut2",
+   "atype": 0,
+   "volume_mm3": 44.9874,
+   "height_mm": 4.4473,
+   "neck_radius_mm": 2.2211,
+   "aspect_ratio": 2.0023,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 50.9175,
+    "height_mm": 4.6061,
+    "neck_radius_mm": 2.2173,
+    "aspect_ratio": 2.0773,
+    "rim_points": 158.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0079_cut2",
+   "atype": 0,
+   "volume_mm3": 44.9402,
+   "height_mm": 4.3947,
+   "neck_radius_mm": 1.9818,
+   "aspect_ratio": 2.2175,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 48.4285,
+    "height_mm": 4.5288,
+    "neck_radius_mm": 2.0515,
+    "aspect_ratio": 2.2076,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0081_cut2",
+   "atype": 0,
+   "volume_mm3": 21.1417,
+   "height_mm": 2.6969,
+   "neck_radius_mm": 1.5048,
+   "aspect_ratio": 1.7921,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 23.4876,
+    "height_mm": 2.7564,
+    "neck_radius_mm": 1.4894,
+    "aspect_ratio": 1.8507,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0084_cut2",
+   "atype": 0,
+   "volume_mm3": 48.5478,
+   "height_mm": 4.8562,
+   "neck_radius_mm": 2.0079,
+   "aspect_ratio": 2.4186,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 49.3712,
+    "height_mm": 5.0245,
+    "neck_radius_mm": 1.9598,
+    "aspect_ratio": 2.5638,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "C0099_cut2",
+   "atype": 0,
+   "volume_mm3": 30.0217,
+   "height_mm": 3.8919,
+   "neck_radius_mm": 1.7796,
+   "aspect_ratio": 2.1869,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 38.8801,
+    "height_mm": 4.1889,
+    "neck_radius_mm": 1.7952,
+    "aspect_ratio": 2.3334,
+    "rim_points": 200.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000036_02_2_cut2",
+   "atype": 1,
+   "volume_mm3": 14.5401,
+   "height_mm": 2.8987,
+   "neck_radius_mm": 1.1852,
+   "aspect_ratio": 2.4457,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 14.4064,
+    "height_mm": 2.8844,
+    "neck_radius_mm": 1.1601,
+    "aspect_ratio": 2.4862,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000048_cut2",
+   "atype": 1,
+   "volume_mm3": 19.3158,
+   "height_mm": 3.433,
+   "neck_radius_mm": 1.5357,
+   "aspect_ratio": 2.2355,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 17.7063,
+    "height_mm": 3.3953,
+    "neck_radius_mm": 1.5715,
+    "aspect_ratio": 2.1605,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000054_01_1_cut2",
+   "atype": 0,
+   "volume_mm3": 29.6873,
+   "height_mm": 3.6535,
+   "neck_radius_mm": 1.734,
+   "aspect_ratio": 2.107,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 36.6856,
+    "height_mm": 4.1178,
+    "neck_radius_mm": 1.6611,
+    "aspect_ratio": 2.479,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000055_cut2",
+   "atype": 2,
+   "volume_mm3": 16.4588,
+   "height_mm": 2.6827,
+   "neck_radius_mm": 2.1054,
+   "aspect_ratio": 1.2742,
+   "rim_points": 209.0,
+   "vae": {
+    "volume_mm3": 28.8178,
+    "height_mm": 4.0269,
+    "neck_radius_mm": 1.7335,
+    "aspect_ratio": 2.3229,
+    "rim_points": 275.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000059_cut2",
+   "atype": 2,
+   "volume_mm3": 46.4454,
+   "height_mm": 4.3354,
+   "neck_radius_mm": 1.7446,
+   "aspect_ratio": 2.485,
+   "rim_points": 155.0,
+   "vae": {
+    "volume_mm3": 47.3153,
+    "height_mm": 4.471,
+    "neck_radius_mm": 1.8151,
+    "aspect_ratio": 2.4632,
+    "rim_points": 148.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000063_cut2",
+   "atype": 0,
+   "volume_mm3": 63.9735,
+   "height_mm": 5.8238,
+   "neck_radius_mm": 1.642,
+   "aspect_ratio": 3.5467,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 60.0705,
+    "height_mm": 5.8222,
+    "neck_radius_mm": 1.6993,
+    "aspect_ratio": 3.4262,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000071_cut2",
+   "atype": 2,
+   "volume_mm3": 52.7214,
+   "height_mm": 5.2216,
+   "neck_radius_mm": 1.5817,
+   "aspect_ratio": 3.3012,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 32.2894,
+    "height_mm": 5.0831,
+    "neck_radius_mm": 1.7187,
+    "aspect_ratio": 2.9575,
+    "rim_points": 176.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000077_01_1_cut2",
+   "atype": 0,
+   "volume_mm3": 22.5393,
+   "height_mm": 2.5011,
+   "neck_radius_mm": 1.8436,
+   "aspect_ratio": 1.3567,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 23.6624,
+    "height_mm": 2.5679,
+    "neck_radius_mm": 1.846,
+    "aspect_ratio": 1.3911,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000082_cut2",
+   "atype": 0,
+   "volume_mm3": 59.1625,
+   "height_mm": 4.2107,
+   "neck_radius_mm": 2.0698,
+   "aspect_ratio": 2.0344,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 62.3413,
+    "height_mm": 4.3195,
+    "neck_radius_mm": 2.0209,
+    "aspect_ratio": 2.1374,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000100_cut2",
+   "atype": 1,
+   "volume_mm3": 141.8056,
+   "height_mm": 6.7516,
+   "neck_radius_mm": 2.4555,
+   "aspect_ratio": 2.7496,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 196.1461,
+    "height_mm": 7.7958,
+    "neck_radius_mm": 2.4147,
+    "aspect_ratio": 3.2285,
+    "rim_points": 174.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000127_cut2",
+   "atype": 2,
+   "volume_mm3": 93.9377,
+   "height_mm": 4.9733,
+   "neck_radius_mm": 2.2512,
+   "aspect_ratio": 2.2092,
+   "rim_points": 154.0,
+   "vae": {
+    "volume_mm3": 124.1469,
+    "height_mm": 5.6086,
+    "neck_radius_mm": 2.732,
+    "aspect_ratio": 2.0529,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000130_01_1sib_cut2",
+   "atype": 2,
+   "volume_mm3": 88.8615,
+   "height_mm": 4.9801,
+   "neck_radius_mm": 1.9059,
+   "aspect_ratio": 2.613,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 83.4768,
+    "height_mm": 5.6639,
+    "neck_radius_mm": 1.8392,
+    "aspect_ratio": 3.0794,
+    "rim_points": 119.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000135_cut2",
+   "atype": 1,
+   "volume_mm3": 56.8517,
+   "height_mm": 4.2227,
+   "neck_radius_mm": 1.9586,
+   "aspect_ratio": 2.1559,
+   "rim_points": 168.0,
+   "vae": {
+    "volume_mm3": 63.4197,
+    "height_mm": 4.4268,
+    "neck_radius_mm": 2.0112,
+    "aspect_ratio": 2.2011,
+    "rim_points": 193.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000137_01_1_cut2",
+   "atype": 1,
+   "volume_mm3": 14.4167,
+   "height_mm": 2.3469,
+   "neck_radius_mm": 1.7669,
+   "aspect_ratio": 1.3282,
+   "rim_points": 130.0,
+   "vae": {
+    "volume_mm3": 17.1101,
+    "height_mm": 2.7291,
+    "neck_radius_mm": 1.7397,
+    "aspect_ratio": 1.5687,
+    "rim_points": 121.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000142_01_1sib_cut2",
+   "atype": 1,
+   "volume_mm3": 33.8226,
+   "height_mm": 3.4445,
+   "neck_radius_mm": 2.1226,
+   "aspect_ratio": 1.6228,
+   "rim_points": 111.0,
+   "vae": {
+    "volume_mm3": 36.8103,
+    "height_mm": 3.5514,
+    "neck_radius_mm": 2.1423,
+    "aspect_ratio": 1.6578,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000143_01_1_cut2",
+   "atype": 1,
+   "volume_mm3": 22.0314,
+   "height_mm": 3.0875,
+   "neck_radius_mm": 1.8731,
+   "aspect_ratio": 1.6484,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 24.2131,
+    "height_mm": 3.2436,
+    "neck_radius_mm": 1.9397,
+    "aspect_ratio": 1.6722,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000148_cut2",
+   "atype": 1,
+   "volume_mm3": 1130.5632,
+   "height_mm": 13.525,
+   "neck_radius_mm": 2.8542,
+   "aspect_ratio": 4.7386,
+   "rim_points": 116.0,
+   "vae": {
+    "volume_mm3": 1086.5483,
+    "height_mm": 14.4225,
+    "neck_radius_mm": 2.8239,
+    "aspect_ratio": 5.1072,
+    "rim_points": 126.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000152_cut2",
+   "atype": 2,
+   "volume_mm3": 186.0403,
+   "height_mm": 7.5973,
+   "neck_radius_mm": 2.3677,
+   "aspect_ratio": 3.2087,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 248.1901,
+    "height_mm": 8.2355,
+    "neck_radius_mm": 2.4838,
+    "aspect_ratio": 3.3157,
+    "rim_points": 121.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000155_cut2",
+   "atype": 1,
+   "volume_mm3": 9.9723,
+   "height_mm": 2.054,
+   "neck_radius_mm": 1.9004,
+   "aspect_ratio": 1.0808,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 11.3225,
+    "height_mm": 2.2992,
+    "neck_radius_mm": 1.8545,
+    "aspect_ratio": 1.2398,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000175_cut2",
+   "atype": 0,
+   "volume_mm3": 363.9341,
+   "height_mm": 9.2216,
+   "neck_radius_mm": 3.3514,
+   "aspect_ratio": 2.7516,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 354.7134,
+    "height_mm": 9.2173,
+    "neck_radius_mm": 3.3254,
+    "aspect_ratio": 2.7718,
+    "rim_points": 145.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000185_cut2",
+   "atype": 0,
+   "volume_mm3": 111.42,
+   "height_mm": 5.6664,
+   "neck_radius_mm": 2.4789,
+   "aspect_ratio": 2.2858,
+   "rim_points": 179.0,
+   "vae": {
+    "volume_mm3": 121.2422,
+    "height_mm": 5.8128,
+    "neck_radius_mm": 2.4319,
+    "aspect_ratio": 2.3903,
+    "rim_points": 182.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000186_cut2",
+   "atype": 0,
+   "volume_mm3": 57.2892,
+   "height_mm": 4.3973,
+   "neck_radius_mm": 1.9135,
+   "aspect_ratio": 2.298,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 57.2561,
+    "height_mm": 4.6679,
+    "neck_radius_mm": 1.9064,
+    "aspect_ratio": 2.4485,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000227_cut2",
+   "atype": 1,
+   "volume_mm3": 75.249,
+   "height_mm": 5.375,
+   "neck_radius_mm": 1.6306,
+   "aspect_ratio": 3.2963,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 82.0805,
+    "height_mm": 5.2329,
+    "neck_radius_mm": 1.5431,
+    "aspect_ratio": 3.3913,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000228_01_1_cut2",
+   "atype": 1,
+   "volume_mm3": 5.6053,
+   "height_mm": 2.1846,
+   "neck_radius_mm": 1.1458,
+   "aspect_ratio": 1.9065,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 6.1364,
+    "height_mm": 2.3902,
+    "neck_radius_mm": 1.1587,
+    "aspect_ratio": 2.0627,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000244_cut2",
+   "atype": 1,
+   "volume_mm3": 12.8702,
+   "height_mm": 2.2412,
+   "neck_radius_mm": 1.6011,
+   "aspect_ratio": 1.3998,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 14.4892,
+    "height_mm": 2.7237,
+    "neck_radius_mm": 1.6879,
+    "aspect_ratio": 1.6137,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000261_cut2",
+   "atype": 0,
+   "volume_mm3": 35.8253,
+   "height_mm": 3.4325,
+   "neck_radius_mm": 1.7094,
+   "aspect_ratio": 2.008,
+   "rim_points": 232.0,
+   "vae": {
+    "volume_mm3": 38.1455,
+    "height_mm": 3.5333,
+    "neck_radius_mm": 1.7604,
+    "aspect_ratio": 2.0071,
+    "rim_points": 211.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000270_cut2",
+   "atype": 0,
+   "volume_mm3": 10.7923,
+   "height_mm": 2.7535,
+   "neck_radius_mm": 1.3044,
+   "aspect_ratio": 2.1108,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 10.8303,
+    "height_mm": 2.7743,
+    "neck_radius_mm": 1.3101,
+    "aspect_ratio": 2.1175,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000294_01_1_cut2",
+   "atype": 1,
+   "volume_mm3": 158.6555,
+   "height_mm": 8.7002,
+   "neck_radius_mm": 2.0127,
+   "aspect_ratio": 4.3226,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 191.6254,
+    "height_mm": 9.7304,
+    "neck_radius_mm": 2.3944,
+    "aspect_ratio": 4.0638,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000316_cut2",
+   "atype": 0,
+   "volume_mm3": 35.3929,
+   "height_mm": 3.042,
+   "neck_radius_mm": 1.6955,
+   "aspect_ratio": 1.7942,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 34.4329,
+    "height_mm": 3.2082,
+    "neck_radius_mm": 1.7247,
+    "aspect_ratio": 1.8601,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000335_cut2",
+   "atype": 1,
+   "volume_mm3": 119.1983,
+   "height_mm": 5.0374,
+   "neck_radius_mm": 2.6072,
+   "aspect_ratio": 1.9321,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 132.2927,
+    "height_mm": 5.6121,
+    "neck_radius_mm": 2.8025,
+    "aspect_ratio": 2.0025,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000344_cut2",
+   "atype": 2,
+   "volume_mm3": 80.4239,
+   "height_mm": 4.914,
+   "neck_radius_mm": 1.8078,
+   "aspect_ratio": 2.7182,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 59.8589,
+    "height_mm": 4.7436,
+    "neck_radius_mm": 2.056,
+    "aspect_ratio": 2.3072,
+    "rim_points": 179.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000357_cut2",
+   "atype": 2,
+   "volume_mm3": 146.872,
+   "height_mm": 7.1284,
+   "neck_radius_mm": 2.4462,
+   "aspect_ratio": 2.9141,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 218.9285,
+    "height_mm": 8.7667,
+    "neck_radius_mm": 2.7272,
+    "aspect_ratio": 3.2145,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000365_01_1_cut2",
+   "atype": 2,
+   "volume_mm3": 33.8292,
+   "height_mm": 5.2961,
+   "neck_radius_mm": 1.714,
+   "aspect_ratio": 3.09,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 62.2507,
+    "height_mm": 5.4196,
+    "neck_radius_mm": 2.3738,
+    "aspect_ratio": 2.2831,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000365_02_1_cut2",
+   "atype": 0,
+   "volume_mm3": 125.9158,
+   "height_mm": 5.416,
+   "neck_radius_mm": 2.3196,
+   "aspect_ratio": 2.3348,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 128.8099,
+    "height_mm": 5.5426,
+    "neck_radius_mm": 2.3325,
+    "aspect_ratio": 2.3763,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000415_cut2",
+   "atype": 2,
+   "volume_mm3": 23.5608,
+   "height_mm": 3.1494,
+   "neck_radius_mm": 1.5535,
+   "aspect_ratio": 2.0273,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 25.9417,
+    "height_mm": 3.8708,
+    "neck_radius_mm": 1.4363,
+    "aspect_ratio": 2.6951,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000419_cut2",
+   "atype": 2,
+   "volume_mm3": 82.2784,
+   "height_mm": 4.9022,
+   "neck_radius_mm": 2.1137,
+   "aspect_ratio": 2.3192,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 72.4903,
+    "height_mm": 4.929,
+    "neck_radius_mm": 1.9736,
+    "aspect_ratio": 2.4975,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000426_02_2_cut2",
+   "atype": 0,
+   "volume_mm3": 22.0528,
+   "height_mm": 3.3937,
+   "neck_radius_mm": 1.5502,
+   "aspect_ratio": 2.1892,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 23.5404,
+    "height_mm": 3.3335,
+    "neck_radius_mm": 1.5157,
+    "aspect_ratio": 2.1993,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000427_03_3_cut2",
+   "atype": 0,
+   "volume_mm3": 83.0356,
+   "height_mm": 4.6148,
+   "neck_radius_mm": 2.0446,
+   "aspect_ratio": 2.2571,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 100.1094,
+    "height_mm": 4.9193,
+    "neck_radius_mm": 2.1084,
+    "aspect_ratio": 2.3332,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000442_cut2",
+   "atype": 1,
+   "volume_mm3": 65.4428,
+   "height_mm": 4.0557,
+   "neck_radius_mm": 2.4799,
+   "aspect_ratio": 1.6354,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 73.412,
+    "height_mm": 4.2552,
+    "neck_radius_mm": 2.364,
+    "aspect_ratio": 1.8,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000466_cut2",
+   "atype": 1,
+   "volume_mm3": 28.0171,
+   "height_mm": 4.3455,
+   "neck_radius_mm": 1.6829,
+   "aspect_ratio": 2.5822,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 26.6126,
+    "height_mm": 4.536,
+    "neck_radius_mm": 1.6617,
+    "aspect_ratio": 2.7298,
+    "rim_points": 145.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000472_01_1_cut2",
+   "atype": 2,
+   "volume_mm3": 10.8132,
+   "height_mm": 2.3584,
+   "neck_radius_mm": 1.3793,
+   "aspect_ratio": 1.7099,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 23.4583,
+    "height_mm": 3.2141,
+    "neck_radius_mm": 1.5962,
+    "aspect_ratio": 2.0136,
+    "rim_points": 118.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000481_cut2",
+   "atype": 0,
+   "volume_mm3": 11.9654,
+   "height_mm": 2.2668,
+   "neck_radius_mm": 1.2254,
+   "aspect_ratio": 1.8498,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 12.8973,
+    "height_mm": 2.4121,
+    "neck_radius_mm": 1.2532,
+    "aspect_ratio": 1.9247,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000497_02_2_cut2",
+   "atype": 0,
+   "volume_mm3": 86.5406,
+   "height_mm": 5.1738,
+   "neck_radius_mm": 2.7251,
+   "aspect_ratio": 1.8986,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 93.9953,
+    "height_mm": 4.6224,
+    "neck_radius_mm": 2.8375,
+    "aspect_ratio": 1.629,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000527_cut2",
+   "atype": 0,
+   "volume_mm3": 63.4128,
+   "height_mm": 4.4945,
+   "neck_radius_mm": 2.0501,
+   "aspect_ratio": 2.1923,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 60.5466,
+    "height_mm": 4.529,
+    "neck_radius_mm": 2.027,
+    "aspect_ratio": 2.2344,
+    "rim_points": 130.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000529_cut2",
+   "atype": 0,
+   "volume_mm3": 58.4106,
+   "height_mm": 3.4943,
+   "neck_radius_mm": 2.523,
+   "aspect_ratio": 1.385,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 63.43,
+    "height_mm": 3.7409,
+    "neck_radius_mm": 2.5043,
+    "aspect_ratio": 1.4938,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000532_cut2",
+   "atype": 0,
+   "volume_mm3": 65.8404,
+   "height_mm": 4.9851,
+   "neck_radius_mm": 2.1736,
+   "aspect_ratio": 2.2935,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 69.5276,
+    "height_mm": 5.0934,
+    "neck_radius_mm": 2.1953,
+    "aspect_ratio": 2.3201,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000535_cut2",
+   "atype": 0,
+   "volume_mm3": 98.4341,
+   "height_mm": 6.254,
+   "neck_radius_mm": 2.4752,
+   "aspect_ratio": 2.5267,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 96.1877,
+    "height_mm": 6.184,
+    "neck_radius_mm": 2.4769,
+    "aspect_ratio": 2.4967,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000553_02_2_cut2",
+   "atype": 0,
+   "volume_mm3": 82.3822,
+   "height_mm": 4.7579,
+   "neck_radius_mm": 2.0951,
+   "aspect_ratio": 2.2709,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 75.4627,
+    "height_mm": 4.9577,
+    "neck_radius_mm": 2.1373,
+    "aspect_ratio": 2.3196,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000554_01_1_cut2",
+   "atype": 0,
+   "volume_mm3": 58.3261,
+   "height_mm": 4.3428,
+   "neck_radius_mm": 1.7301,
+   "aspect_ratio": 2.5101,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 64.0626,
+    "height_mm": 4.5127,
+    "neck_radius_mm": 1.8205,
+    "aspect_ratio": 2.4789,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000581_cut2",
+   "atype": 2,
+   "volume_mm3": 854.1815,
+   "height_mm": 10.986,
+   "neck_radius_mm": 3.8869,
+   "aspect_ratio": 2.8264,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 725.8775,
+    "height_mm": 11.5705,
+    "neck_radius_mm": 4.2453,
+    "aspect_ratio": 2.7255,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000591_cut2",
+   "atype": 1,
+   "volume_mm3": 183.2762,
+   "height_mm": 6.3107,
+   "neck_radius_mm": 2.4183,
+   "aspect_ratio": 2.6095,
+   "rim_points": 110.0,
+   "vae": {
+    "volume_mm3": 192.8396,
+    "height_mm": 6.5731,
+    "neck_radius_mm": 2.4148,
+    "aspect_ratio": 2.722,
+    "rim_points": 114.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000592_01_1_cut2",
+   "atype": 0,
+   "volume_mm3": 3.9051,
+   "height_mm": 1.4284,
+   "neck_radius_mm": 1.1516,
+   "aspect_ratio": 1.2404,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 3.65,
+    "height_mm": 1.4943,
+    "neck_radius_mm": 1.1249,
+    "aspect_ratio": 1.3284,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000593_03_3_cut2",
+   "atype": 0,
+   "volume_mm3": 19.7745,
+   "height_mm": 2.4337,
+   "neck_radius_mm": 1.7085,
+   "aspect_ratio": 1.4245,
+   "rim_points": 153.0,
+   "vae": {
+    "volume_mm3": 18.588,
+    "height_mm": 2.4812,
+    "neck_radius_mm": 1.743,
+    "aspect_ratio": 1.4235,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000606_cut2",
+   "atype": 1,
+   "volume_mm3": 41.5438,
+   "height_mm": 3.5711,
+   "neck_radius_mm": 1.5821,
+   "aspect_ratio": 2.2572,
+   "rim_points": 155.0,
+   "vae": {
+    "volume_mm3": 49.5169,
+    "height_mm": 4.0093,
+    "neck_radius_mm": 1.6442,
+    "aspect_ratio": 2.4385,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000607_01_1_cut2",
+   "atype": 0,
+   "volume_mm3": 21.4936,
+   "height_mm": 2.5657,
+   "neck_radius_mm": 1.3358,
+   "aspect_ratio": 1.9207,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 26.0405,
+    "height_mm": 2.9216,
+    "neck_radius_mm": 1.3482,
+    "aspect_ratio": 2.167,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000614_cut2",
+   "atype": 0,
+   "volume_mm3": 31.9628,
+   "height_mm": 4.7179,
+   "neck_radius_mm": 1.5452,
+   "aspect_ratio": 3.0533,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 27.0359,
+    "height_mm": 4.4271,
+    "neck_radius_mm": 1.5568,
+    "aspect_ratio": 2.8437,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "SNF00000617_cut2",
+   "atype": 0,
+   "volume_mm3": 37.8067,
+   "height_mm": 4.1439,
+   "neck_radius_mm": 2.1634,
+   "aspect_ratio": 1.9155,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 40.147,
+    "height_mm": 3.881,
+    "neck_radius_mm": 2.105,
+    "aspect_ratio": 1.8437,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0001.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 108.8269,
+   "height_mm": 7.2985,
+   "neck_radius_mm": 2.3293,
+   "aspect_ratio": 3.1334,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 155.8572,
+    "height_mm": 7.2277,
+    "neck_radius_mm": 2.3946,
+    "aspect_ratio": 3.0183,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0012.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 123.3399,
+   "height_mm": 5.2595,
+   "neck_radius_mm": 2.6123,
+   "aspect_ratio": 2.0134,
+   "rim_points": 186.0,
+   "vae": {
+    "volume_mm3": 156.5776,
+    "height_mm": 5.9275,
+    "neck_radius_mm": 2.7279,
+    "aspect_ratio": 2.1729,
+    "rim_points": 213.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0029.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 195.9363,
+   "height_mm": 6.4214,
+   "neck_radius_mm": 2.6485,
+   "aspect_ratio": 2.4246,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 204.8053,
+    "height_mm": 6.982,
+    "neck_radius_mm": 2.7733,
+    "aspect_ratio": 2.5176,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0031.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 53.0102,
+   "height_mm": 3.6159,
+   "neck_radius_mm": 2.5165,
+   "aspect_ratio": 1.4369,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 55.8621,
+    "height_mm": 3.968,
+    "neck_radius_mm": 2.6965,
+    "aspect_ratio": 1.4715,
+    "rim_points": 159.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0034.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 193.1869,
+   "height_mm": 6.2075,
+   "neck_radius_mm": 2.679,
+   "aspect_ratio": 2.3171,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 185.088,
+    "height_mm": 6.5275,
+    "neck_radius_mm": 2.8346,
+    "aspect_ratio": 2.3028,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0038.00_ID2_cut1",
+   "atype": 0,
+   "volume_mm3": 110.6608,
+   "height_mm": 6.2089,
+   "neck_radius_mm": 2.3409,
+   "aspect_ratio": 2.6524,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 123.3604,
+    "height_mm": 6.4278,
+    "neck_radius_mm": 2.3746,
+    "aspect_ratio": 2.7069,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0042.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 717.1747,
+   "height_mm": 9.3733,
+   "neck_radius_mm": 4.1497,
+   "aspect_ratio": 2.2588,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 580.1877,
+    "height_mm": 9.2187,
+    "neck_radius_mm": 3.6061,
+    "aspect_ratio": 2.5564,
+    "rim_points": 179.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0043.00_ID2_cut1",
+   "atype": 1,
+   "volume_mm3": 31.6394,
+   "height_mm": 2.4768,
+   "neck_radius_mm": 2.6439,
+   "aspect_ratio": 0.9368,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 36.2165,
+    "height_mm": 3.1272,
+    "neck_radius_mm": 2.6886,
+    "aspect_ratio": 1.1631,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0044.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 18.0122,
+   "height_mm": 2.3825,
+   "neck_radius_mm": 2.0801,
+   "aspect_ratio": 1.1454,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 47.5939,
+    "height_mm": 3.4623,
+    "neck_radius_mm": 2.5,
+    "aspect_ratio": 1.3849,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0053.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 10.3019,
+   "height_mm": 2.6065,
+   "neck_radius_mm": 1.416,
+   "aspect_ratio": 1.8407,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 25.1725,
+    "height_mm": 2.6757,
+    "neck_radius_mm": 1.9768,
+    "aspect_ratio": 1.3535,
+    "rim_points": 126.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0058.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 98.8272,
+   "height_mm": 6.208,
+   "neck_radius_mm": 1.8274,
+   "aspect_ratio": 3.3972,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 109.1236,
+    "height_mm": 6.5014,
+    "neck_radius_mm": 2.0229,
+    "aspect_ratio": 3.214,
+    "rim_points": 154.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0060.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 686.9013,
+   "height_mm": 12.1041,
+   "neck_radius_mm": 3.2621,
+   "aspect_ratio": 3.7105,
+   "rim_points": 188.0,
+   "vae": {
+    "volume_mm3": 751.1617,
+    "height_mm": 12.4736,
+    "neck_radius_mm": 3.305,
+    "aspect_ratio": 3.7742,
+    "rim_points": 169.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0067.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 13.4416,
+   "height_mm": 3.0284,
+   "neck_radius_mm": 1.4539,
+   "aspect_ratio": 2.083,
+   "rim_points": 119.0,
+   "vae": {
+    "volume_mm3": 14.3211,
+    "height_mm": 2.9597,
+    "neck_radius_mm": 1.4638,
+    "aspect_ratio": 2.0219,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0070.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 8.1722,
+   "height_mm": 2.2345,
+   "neck_radius_mm": 1.3712,
+   "aspect_ratio": 1.6296,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 8.0047,
+    "height_mm": 2.1893,
+    "neck_radius_mm": 1.3117,
+    "aspect_ratio": 1.6691,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0076.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 56.5302,
+   "height_mm": 4.9229,
+   "neck_radius_mm": 1.974,
+   "aspect_ratio": 2.4939,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 49.1601,
+    "height_mm": 4.6653,
+    "neck_radius_mm": 1.8999,
+    "aspect_ratio": 2.4555,
+    "rim_points": 130.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0078.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 64.8758,
+   "height_mm": 6.2947,
+   "neck_radius_mm": 2.0244,
+   "aspect_ratio": 3.1095,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 88.5381,
+    "height_mm": 7.0214,
+    "neck_radius_mm": 2.6024,
+    "aspect_ratio": 2.6981,
+    "rim_points": 182.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0082.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 46.3753,
+   "height_mm": 6.5141,
+   "neck_radius_mm": 1.9865,
+   "aspect_ratio": 3.2791,
+   "rim_points": 160.0,
+   "vae": {
+    "volume_mm3": 59.275,
+    "height_mm": 6.7763,
+    "neck_radius_mm": 1.8937,
+    "aspect_ratio": 3.5784,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0090.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 15.8971,
+   "height_mm": 3.0618,
+   "neck_radius_mm": 1.9308,
+   "aspect_ratio": 1.5858,
+   "rim_points": 104.0,
+   "vae": {
+    "volume_mm3": 11.2696,
+    "height_mm": 2.0726,
+    "neck_radius_mm": 1.8797,
+    "aspect_ratio": 1.1026,
+    "rim_points": 105.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0092.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 21.1076,
+   "height_mm": 3.7041,
+   "neck_radius_mm": 1.8535,
+   "aspect_ratio": 1.9985,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 19.3622,
+    "height_mm": 3.108,
+    "neck_radius_mm": 1.7161,
+    "aspect_ratio": 1.811,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0098.00_ID2_cut1",
+   "atype": 0,
+   "volume_mm3": 23.7383,
+   "height_mm": 2.1189,
+   "neck_radius_mm": 2.4252,
+   "aspect_ratio": 0.8737,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 24.881,
+    "height_mm": 2.217,
+    "neck_radius_mm": 2.4718,
+    "aspect_ratio": 0.8969,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0099.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 121.2373,
+   "height_mm": 4.7416,
+   "neck_radius_mm": 3.0398,
+   "aspect_ratio": 1.5598,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 117.3455,
+    "height_mm": 4.9161,
+    "neck_radius_mm": 2.9746,
+    "aspect_ratio": 1.6527,
+    "rim_points": 164.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0103.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 248.3139,
+   "height_mm": 7.1141,
+   "neck_radius_mm": 2.7994,
+   "aspect_ratio": 2.5413,
+   "rim_points": 184.0,
+   "vae": {
+    "volume_mm3": 248.7679,
+    "height_mm": 7.4071,
+    "neck_radius_mm": 2.7554,
+    "aspect_ratio": 2.6882,
+    "rim_points": 183.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0106.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 11.7364,
+   "height_mm": 2.5738,
+   "neck_radius_mm": 1.5486,
+   "aspect_ratio": 1.6621,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 10.8875,
+    "height_mm": 2.4314,
+    "neck_radius_mm": 1.5322,
+    "aspect_ratio": 1.5869,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0108.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 173.8398,
+   "height_mm": 5.7989,
+   "neck_radius_mm": 2.9879,
+   "aspect_ratio": 1.9408,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 165.015,
+    "height_mm": 5.5478,
+    "neck_radius_mm": 3.0296,
+    "aspect_ratio": 1.8312,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0117.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 72.7753,
+   "height_mm": 6.1566,
+   "neck_radius_mm": 1.4167,
+   "aspect_ratio": 4.3457,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 80.6868,
+    "height_mm": 6.0303,
+    "neck_radius_mm": 1.3866,
+    "aspect_ratio": 4.3492,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0120.00_ID2_cut1",
+   "atype": 0,
+   "volume_mm3": 25.9257,
+   "height_mm": 3.1537,
+   "neck_radius_mm": 2.0802,
+   "aspect_ratio": 1.5161,
+   "rim_points": 172.0,
+   "vae": {
+    "volume_mm3": 28.1858,
+    "height_mm": 3.3777,
+    "neck_radius_mm": 2.0585,
+    "aspect_ratio": 1.6408,
+    "rim_points": 157.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0129.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 34.7536,
+   "height_mm": 5.6016,
+   "neck_radius_mm": 1.5906,
+   "aspect_ratio": 3.5218,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 36.5807,
+    "height_mm": 6.3931,
+    "neck_radius_mm": 1.7757,
+    "aspect_ratio": 3.6004,
+    "rim_points": 239.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0134.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 13.5921,
+   "height_mm": 4.3801,
+   "neck_radius_mm": 1.3512,
+   "aspect_ratio": 3.2416,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 41.0263,
+    "height_mm": 4.9537,
+    "neck_radius_mm": 1.9967,
+    "aspect_ratio": 2.4809,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0135.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 38.2656,
+   "height_mm": 4.6155,
+   "neck_radius_mm": 1.5673,
+   "aspect_ratio": 2.945,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 41.9642,
+    "height_mm": 4.6707,
+    "neck_radius_mm": 1.5482,
+    "aspect_ratio": 3.0168,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0140.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 85.4336,
+   "height_mm": 5.7761,
+   "neck_radius_mm": 1.9086,
+   "aspect_ratio": 3.0263,
+   "rim_points": 111.0,
+   "vae": {
+    "volume_mm3": 116.7323,
+    "height_mm": 6.446,
+    "neck_radius_mm": 2.1742,
+    "aspect_ratio": 2.9648,
+    "rim_points": 124.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0142.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 167.0586,
+   "height_mm": 7.3063,
+   "neck_radius_mm": 2.3481,
+   "aspect_ratio": 3.1116,
+   "rim_points": 170.0,
+   "vae": {
+    "volume_mm3": 227.5096,
+    "height_mm": 8.3445,
+    "neck_radius_mm": 2.2004,
+    "aspect_ratio": 3.7923,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0143.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 279.0123,
+   "height_mm": 8.3197,
+   "neck_radius_mm": 2.362,
+   "aspect_ratio": 3.5224,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 282.3655,
+    "height_mm": 8.4271,
+    "neck_radius_mm": 2.5283,
+    "aspect_ratio": 3.3331,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0153.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 5.734,
+   "height_mm": 2.4171,
+   "neck_radius_mm": 1.2076,
+   "aspect_ratio": 2.0016,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 5.8067,
+    "height_mm": 2.4829,
+    "neck_radius_mm": 1.3499,
+    "aspect_ratio": 1.8394,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0156.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 325.6138,
+   "height_mm": 9.8506,
+   "neck_radius_mm": 2.3107,
+   "aspect_ratio": 4.263,
+   "rim_points": 118.0,
+   "vae": {
+    "volume_mm3": 397.0061,
+    "height_mm": 10.6983,
+    "neck_radius_mm": 2.4274,
+    "aspect_ratio": 4.4073,
+    "rim_points": 119.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0165.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 39.8234,
+   "height_mm": 7.0249,
+   "neck_radius_mm": 1.7188,
+   "aspect_ratio": 4.087,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 64.3697,
+    "height_mm": 7.395,
+    "neck_radius_mm": 2.1581,
+    "aspect_ratio": 3.4266,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0172.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 63.461,
+   "height_mm": 6.0255,
+   "neck_radius_mm": 1.592,
+   "aspect_ratio": 3.785,
+   "rim_points": 113.0,
+   "vae": {
+    "volume_mm3": 82.2971,
+    "height_mm": 6.7786,
+    "neck_radius_mm": 1.7904,
+    "aspect_ratio": 3.7861,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0177.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 46.5619,
+   "height_mm": 6.3685,
+   "neck_radius_mm": 1.8661,
+   "aspect_ratio": 3.4128,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 66.8491,
+    "height_mm": 7.2876,
+    "neck_radius_mm": 2.1866,
+    "aspect_ratio": 3.3328,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0178.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 30.1507,
+   "height_mm": 6.3517,
+   "neck_radius_mm": 1.4651,
+   "aspect_ratio": 4.3353,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 37.2606,
+    "height_mm": 6.1445,
+    "neck_radius_mm": 1.8711,
+    "aspect_ratio": 3.2838,
+    "rim_points": 157.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0179.00_ID1_cut1",
+   "atype": 1,
+   "volume_mm3": 54.715,
+   "height_mm": 6.3723,
+   "neck_radius_mm": 1.6116,
+   "aspect_ratio": 3.954,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 62.054,
+    "height_mm": 6.6912,
+    "neck_radius_mm": 1.6153,
+    "aspect_ratio": 4.1425,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0180.00_ID2_cut1",
+   "atype": 2,
+   "volume_mm3": 9.0151,
+   "height_mm": 2.7974,
+   "neck_radius_mm": 1.2566,
+   "aspect_ratio": 2.2261,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 12.3814,
+    "height_mm": 3.307,
+    "neck_radius_mm": 1.2002,
+    "aspect_ratio": 2.7555,
+    "rim_points": 118.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0181.00_ID1_cut1",
+   "atype": 2,
+   "volume_mm3": 11.4692,
+   "height_mm": 1.8708,
+   "neck_radius_mm": 1.7986,
+   "aspect_ratio": 1.0401,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 48.7392,
+    "height_mm": 4.1921,
+    "neck_radius_mm": 2.5072,
+    "aspect_ratio": 1.672,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0182.00_ID2_cut1",
+   "atype": 2,
+   "volume_mm3": 11.4524,
+   "height_mm": 1.8158,
+   "neck_radius_mm": 1.7837,
+   "aspect_ratio": 1.018,
+   "rim_points": 153.0,
+   "vae": {
+    "volume_mm3": 44.1519,
+    "height_mm": 3.8126,
+    "neck_radius_mm": 2.475,
+    "aspect_ratio": 1.5405,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0194.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 280.506,
+   "height_mm": 8.2951,
+   "neck_radius_mm": 3.4799,
+   "aspect_ratio": 2.3837,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 286.9035,
+    "height_mm": 7.6742,
+    "neck_radius_mm": 3.5252,
+    "aspect_ratio": 2.1769,
+    "rim_points": 142.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0204.01_ID3_cut1",
+   "atype": 0,
+   "volume_mm3": 84.6464,
+   "height_mm": 4.7309,
+   "neck_radius_mm": 2.0404,
+   "aspect_ratio": 2.3187,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 85.4157,
+    "height_mm": 4.9359,
+    "neck_radius_mm": 2.008,
+    "aspect_ratio": 2.4582,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0206.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 46.9203,
+   "height_mm": 5.6366,
+   "neck_radius_mm": 1.7664,
+   "aspect_ratio": 3.191,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 42.5318,
+    "height_mm": 5.4033,
+    "neck_radius_mm": 1.7185,
+    "aspect_ratio": 3.1442,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0211.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 23.6412,
+   "height_mm": 4.9581,
+   "neck_radius_mm": 1.4357,
+   "aspect_ratio": 3.4534,
+   "rim_points": 191.0,
+   "vae": {
+    "volume_mm3": 26.3078,
+    "height_mm": 5.2403,
+    "neck_radius_mm": 1.3783,
+    "aspect_ratio": 3.8021,
+    "rim_points": 209.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0224.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 24.516,
+   "height_mm": 2.6338,
+   "neck_radius_mm": 1.6534,
+   "aspect_ratio": 1.593,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 23.4385,
+    "height_mm": 2.61,
+    "neck_radius_mm": 1.6538,
+    "aspect_ratio": 1.5782,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0261.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 42.8766,
+   "height_mm": 4.3575,
+   "neck_radius_mm": 2.0861,
+   "aspect_ratio": 2.0889,
+   "rim_points": 191.0,
+   "vae": {
+    "volume_mm3": 47.8696,
+    "height_mm": 4.892,
+    "neck_radius_mm": 2.1973,
+    "aspect_ratio": 2.2264,
+    "rim_points": 195.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0284.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 13.4663,
+   "height_mm": 2.4615,
+   "neck_radius_mm": 1.6604,
+   "aspect_ratio": 1.4825,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 13.7948,
+    "height_mm": 2.5044,
+    "neck_radius_mm": 1.5655,
+    "aspect_ratio": 1.5997,
+    "rim_points": 161.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "UPF_P0290.00_ID1_cut1",
+   "atype": 0,
+   "volume_mm3": 193.7563,
+   "height_mm": 7.3372,
+   "neck_radius_mm": 3.3551,
+   "aspect_ratio": 2.1869,
+   "rim_points": 178.0,
+   "vae": {
+    "volume_mm3": 197.8913,
+    "height_mm": 7.0642,
+    "neck_radius_mm": 3.2927,
+    "aspect_ratio": 2.1454,
+    "rim_points": 167.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0005_cut1",
+   "atype": 0,
+   "volume_mm3": 66.395,
+   "height_mm": 4.2256,
+   "neck_radius_mm": 1.8141,
+   "aspect_ratio": 2.3294,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 69.2865,
+    "height_mm": 4.2628,
+    "neck_radius_mm": 1.9098,
+    "aspect_ratio": 2.2321,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0012_cut1",
+   "atype": 0,
+   "volume_mm3": 87.5715,
+   "height_mm": 4.8052,
+   "neck_radius_mm": 2.0243,
+   "aspect_ratio": 2.3737,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 94.7645,
+    "height_mm": 5.3815,
+    "neck_radius_mm": 2.0342,
+    "aspect_ratio": 2.6454,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0013_cut1",
+   "atype": 0,
+   "volume_mm3": 48.5541,
+   "height_mm": 4.2393,
+   "neck_radius_mm": 2.0661,
+   "aspect_ratio": 2.0518,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 53.7888,
+    "height_mm": 4.1739,
+    "neck_radius_mm": 2.1935,
+    "aspect_ratio": 1.9028,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0030_cut1",
+   "atype": 0,
+   "volume_mm3": 36.8786,
+   "height_mm": 4.1761,
+   "neck_radius_mm": 1.6814,
+   "aspect_ratio": 2.4837,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 39.0133,
+    "height_mm": 4.2866,
+    "neck_radius_mm": 1.7183,
+    "aspect_ratio": 2.4947,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0031_cut1",
+   "atype": 0,
+   "volume_mm3": 108.2886,
+   "height_mm": 5.9498,
+   "neck_radius_mm": 2.214,
+   "aspect_ratio": 2.6873,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 127.1959,
+    "height_mm": 6.2986,
+    "neck_radius_mm": 2.1679,
+    "aspect_ratio": 2.9054,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_0033_cut1",
+   "atype": 0,
+   "volume_mm3": 39.3409,
+   "height_mm": 4.9842,
+   "neck_radius_mm": 1.6879,
+   "aspect_ratio": 2.9529,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 35.0558,
+    "height_mm": 4.419,
+    "neck_radius_mm": 1.6664,
+    "aspect_ratio": 2.6519,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_U034",
+   "atype": 1,
+   "volume_mm3": 35.5432,
+   "height_mm": 4.8384,
+   "neck_radius_mm": 1.6017,
+   "aspect_ratio": 3.0208,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 38.9513,
+    "height_mm": 4.9917,
+    "neck_radius_mm": 1.6539,
+    "aspect_ratio": 3.0181,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_U038",
+   "atype": 1,
+   "volume_mm3": 88.7875,
+   "height_mm": 5.0704,
+   "neck_radius_mm": 1.787,
+   "aspect_ratio": 2.8374,
+   "rim_points": 124.0,
+   "vae": {
+    "volume_mm3": 88.4745,
+    "height_mm": 4.9885,
+    "neck_radius_mm": 1.7827,
+    "aspect_ratio": 2.7984,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_UNIGE_0023_cut1",
+   "atype": 0,
+   "volume_mm3": 29.828,
+   "height_mm": 4.2546,
+   "neck_radius_mm": 1.6727,
+   "aspect_ratio": 2.5436,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 32.7532,
+    "height_mm": 4.5362,
+    "neck_radius_mm": 1.7009,
+    "aspect_ratio": 2.6669,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "USFD_UNIGE_0027_cut1",
+   "atype": 0,
+   "volume_mm3": 13.4752,
+   "height_mm": 3.2047,
+   "neck_radius_mm": 1.2362,
+   "aspect_ratio": 2.5923,
+   "rim_points": 164.0,
+   "vae": {
+    "volume_mm3": 15.5364,
+    "height_mm": 3.3685,
+    "neck_radius_mm": 1.214,
+    "aspect_ratio": 2.7747,
+    "rim_points": 166.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p043_HAARCREcDAAQDQcbHgANDRQM_cut2",
+   "atype": 2,
+   "volume_mm3": 74.0295,
+   "height_mm": 4.5204,
+   "neck_radius_mm": 2.4591,
+   "aspect_ratio": 1.8382,
+   "rim_points": 124.0,
+   "vae": {
+    "volume_mm3": 67.038,
+    "height_mm": 4.2451,
+    "neck_radius_mm": 2.1903,
+    "aspect_ratio": 1.9381,
+    "rim_points": 115.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p044_BBMdFxESDBMcEwcVBhMBExQC_cut2",
+   "atype": 1,
+   "volume_mm3": 75.6442,
+   "height_mm": 4.7182,
+   "neck_radius_mm": 2.2107,
+   "aspect_ratio": 2.1342,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 81.2253,
+    "height_mm": 5.1373,
+    "neck_radius_mm": 2.1479,
+    "aspect_ratio": 2.3918,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p092_ABMXCAMBFT4eAAgABwUQFxAR_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 58.6904,
+   "height_mm": 5.5068,
+   "neck_radius_mm": 1.7909,
+   "aspect_ratio": 3.0749,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 61.3721,
+    "height_mm": 5.7559,
+    "neck_radius_mm": 1.9297,
+    "aspect_ratio": 2.9828,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p094_ERUeAB4WBg0SCwcbHgAABAEU_cut2",
+   "atype": 1,
+   "volume_mm3": 567.4069,
+   "height_mm": 9.2629,
+   "neck_radius_mm": 3.6569,
+   "aspect_ratio": 2.533,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 583.6045,
+    "height_mm": 9.0456,
+    "neck_radius_mm": 3.6026,
+    "aspect_ratio": 2.5108,
+    "rim_points": 119.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p095_EhMHDx4NAB8BEAgBFxMMFwAW_LICA_1_cut2",
+   "atype": 0,
+   "volume_mm3": 72.3222,
+   "height_mm": 4.5339,
+   "neck_radius_mm": 2.011,
+   "aspect_ratio": 2.2545,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 72.4972,
+    "height_mm": 4.5572,
+    "neck_radius_mm": 2.1423,
+    "aspect_ratio": 2.1272,
+    "rim_points": 152.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p097_Eg4HEwEdGw8NChMdAxQHCxcX_cut2",
+   "atype": 1,
+   "volume_mm3": 26.1238,
+   "height_mm": 2.7567,
+   "neck_radius_mm": 2.0107,
+   "aspect_ratio": 1.371,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 35.1052,
+    "height_mm": 3.2617,
+    "neck_radius_mm": 2.2341,
+    "aspect_ratio": 1.46,
+    "rim_points": 126.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p099_FxMbBAMBHAYWFxgdGwQdDBsf_cut2",
+   "atype": 1,
+   "volume_mm3": 105.3887,
+   "height_mm": 4.9125,
+   "neck_radius_mm": 1.9286,
+   "aspect_ratio": 2.5472,
+   "rim_points": 117.0,
+   "vae": {
+    "volume_mm3": 124.6631,
+    "height_mm": 5.7684,
+    "neck_radius_mm": 1.9902,
+    "aspect_ratio": 2.8985,
+    "rim_points": 116.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p109_ARQbDwQJHAANEA8BBgAABAQN_cut2",
+   "atype": 1,
+   "volume_mm3": 21.7437,
+   "height_mm": 3.1759,
+   "neck_radius_mm": 1.533,
+   "aspect_ratio": 2.0717,
+   "rim_points": 118.0,
+   "vae": {
+    "volume_mm3": 21.2573,
+    "height_mm": 3.1471,
+    "neck_radius_mm": 1.5364,
+    "aspect_ratio": 2.0484,
+    "rim_points": 116.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p120_HA4ABB4SHR8cFwMBCA4CCgcd_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 61.0449,
+   "height_mm": 4.2663,
+   "neck_radius_mm": 2.0257,
+   "aspect_ratio": 2.106,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 66.3589,
+    "height_mm": 4.5335,
+    "neck_radius_mm": 2.0396,
+    "aspect_ratio": 2.2228,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p124_FAQeFBMJDAQfEAUOFgQCEBYZ_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 10.262,
+   "height_mm": 2.6754,
+   "neck_radius_mm": 1.5322,
+   "aspect_ratio": 1.7461,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 12.2731,
+    "height_mm": 2.7139,
+    "neck_radius_mm": 1.6445,
+    "aspect_ratio": 1.6503,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p128_EggcChUaBh8aCw0KABUMDBsT_LICA_cut2",
+   "atype": 1,
+   "volume_mm3": 42.5483,
+   "height_mm": 2.7581,
+   "neck_radius_mm": 2.4326,
+   "aspect_ratio": 1.1338,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 46.758,
+    "height_mm": 3.1182,
+    "neck_radius_mm": 2.6122,
+    "aspect_ratio": 1.1937,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p129_ERUeAB4WBg0SCwcbHgAABAEU_LICA_cut2",
+   "atype": 1,
+   "volume_mm3": 252.1438,
+   "height_mm": 7.5567,
+   "neck_radius_mm": 3.4365,
+   "aspect_ratio": 2.1989,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 266.9968,
+    "height_mm": 6.9283,
+    "neck_radius_mm": 3.224,
+    "aspect_ratio": 2.149,
+    "rim_points": 111.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p133_AxUADhgAFwoWFxgbAA4GDRAT_cut2",
+   "atype": 1,
+   "volume_mm3": 1249.4501,
+   "height_mm": 11.4226,
+   "neck_radius_mm": 5.6066,
+   "aspect_ratio": 2.0373,
+   "rim_points": 178.0,
+   "vae": {
+    "volume_mm3": 1355.9558,
+    "height_mm": 11.963,
+    "neck_radius_mm": 4.9725,
+    "aspect_ratio": 2.4058,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p135_FAQtEh8dAQANADkcHRQdBBEd_cut2",
+   "atype": 2,
+   "volume_mm3": 10.8662,
+   "height_mm": 3.4278,
+   "neck_radius_mm": 1.1584,
+   "aspect_ratio": 2.959,
+   "rim_points": 116.0,
+   "vae": {
+    "volume_mm3": 18.3999,
+    "height_mm": 3.7329,
+    "neck_radius_mm": 1.4094,
+    "aspect_ratio": 2.6486,
+    "rim_points": 115.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p137_Bg4eDRUaGw8NCgoDFxMHCwMX_cut2",
+   "atype": 1,
+   "volume_mm3": 143.7637,
+   "height_mm": 5.3965,
+   "neck_radius_mm": 2.8311,
+   "aspect_ratio": 1.9061,
+   "rim_points": 122.0,
+   "vae": {
+    "volume_mm3": 155.137,
+    "height_mm": 5.7222,
+    "neck_radius_mm": 2.8036,
+    "aspect_ratio": 2.041,
+    "rim_points": 122.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p144_GgAREAUBFxMNBAUeBwgLFx8Z_cut2",
+   "atype": 2,
+   "volume_mm3": 19.4784,
+   "height_mm": 3.2018,
+   "neck_radius_mm": 1.8411,
+   "aspect_ratio": 1.7391,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 36.4021,
+    "height_mm": 4.3611,
+    "neck_radius_mm": 1.8375,
+    "aspect_ratio": 2.3735,
+    "rim_points": 118.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p147_Eg4cDxUeGwQNCggBFxcHABcX_cut2",
+   "atype": 1,
+   "volume_mm3": 18.4121,
+   "height_mm": 2.5893,
+   "neck_radius_mm": 1.892,
+   "aspect_ratio": 1.3685,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 18.6176,
+    "height_mm": 2.7348,
+    "neck_radius_mm": 1.9437,
+    "aspect_ratio": 1.407,
+    "rim_points": 121.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p149_HQQGFQIJBxkNABIbAAAbHRgd_cut2",
+   "atype": 2,
+   "volume_mm3": 62.1174,
+   "height_mm": 5.1967,
+   "neck_radius_mm": 1.4494,
+   "aspect_ratio": 3.5853,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 65.4655,
+    "height_mm": 5.8257,
+    "neck_radius_mm": 1.855,
+    "aspect_ratio": 3.1405,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p154_HRQeDRUaDBQfCQMdHxQCCRAK_1_cut2",
+   "atype": 0,
+   "volume_mm3": 63.8577,
+   "height_mm": 4.8778,
+   "neck_radius_mm": 2.1571,
+   "aspect_ratio": 2.2613,
+   "rim_points": 151.0,
+   "vae": {
+    "volume_mm3": 62.5866,
+    "height_mm": 5.1182,
+    "neck_radius_mm": 2.0411,
+    "aspect_ratio": 2.5076,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p157_EgAYExEFGx8SDxQOHwgMBB8K_cut2",
+   "atype": 1,
+   "volume_mm3": 129.7455,
+   "height_mm": 4.94,
+   "neck_radius_mm": 2.7053,
+   "aspect_ratio": 1.8261,
+   "rim_points": 125.0,
+   "vae": {
+    "volume_mm3": 145.2473,
+    "height_mm": 5.5764,
+    "neck_radius_mm": 2.7269,
+    "aspect_ratio": 2.0449,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p159_FRIGExEMEx8AERQOFgALFgEK_cut2",
+   "atype": 1,
+   "volume_mm3": 67.7366,
+   "height_mm": 4.7162,
+   "neck_radius_mm": 2.2119,
+   "aspect_ratio": 2.1322,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 82.5398,
+    "height_mm": 5.7227,
+    "neck_radius_mm": 2.1258,
+    "aspect_ratio": 2.6921,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p160_GhQGGxUcDBQHHwMbGBQaHxAM_cut2",
+   "atype": 2,
+   "volume_mm3": 58.0842,
+   "height_mm": 4.1686,
+   "neck_radius_mm": 2.1587,
+   "aspect_ratio": 1.9311,
+   "rim_points": 146.0,
+   "vae": {
+    "volume_mm3": 75.3374,
+    "height_mm": 5.8026,
+    "neck_radius_mm": 2.2443,
+    "aspect_ratio": 2.5855,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p167_FxMTDxQCFwAdGxQOHAUEABQW_cut2",
+   "atype": 1,
+   "volume_mm3": 285.0928,
+   "height_mm": 7.0931,
+   "neck_radius_mm": 2.9519,
+   "aspect_ratio": 2.4029,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 296.0223,
+    "height_mm": 7.6895,
+    "neck_radius_mm": 2.965,
+    "aspect_ratio": 2.5934,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p168_EgQVCAMAHQ0fDBgKFQgdDRoU_cut2",
+   "atype": 1,
+   "volume_mm3": 54.6902,
+   "height_mm": 4.3829,
+   "neck_radius_mm": 2.2303,
+   "aspect_ratio": 1.9651,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 64.0757,
+    "height_mm": 4.6355,
+    "neck_radius_mm": 2.2993,
+    "aspect_ratio": 2.0161,
+    "rim_points": 157.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p169_FgAeAhkGFw0fDBgOHgIHCxAU_b_cut2",
+   "atype": 2,
+   "volume_mm3": 47.5955,
+   "height_mm": 4.4817,
+   "neck_radius_mm": 1.7744,
+   "aspect_ratio": 2.5258,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 68.6808,
+    "height_mm": 5.1611,
+    "neck_radius_mm": 1.9052,
+    "aspect_ratio": 2.709,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p172_AAAeAAoSHQ8aGwcDExsUChsR_cut2",
+   "atype": 1,
+   "volume_mm3": 521.1006,
+   "height_mm": 8.3995,
+   "neck_radius_mm": 4.455,
+   "aspect_ratio": 1.8854,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 588.7697,
+    "height_mm": 9.2953,
+    "neck_radius_mm": 4.5244,
+    "aspect_ratio": 2.0545,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p174_FAQtDhwBBAQaFwcRFz4BCRwO_cut2",
+   "atype": 1,
+   "volume_mm3": 312.6011,
+   "height_mm": 8.494,
+   "neck_radius_mm": 2.2037,
+   "aspect_ratio": 3.8545,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 338.1679,
+    "height_mm": 8.6305,
+    "neck_radius_mm": 2.3896,
+    "aspect_ratio": 3.6117,
+    "rim_points": 151.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p306_HQIbDwQHAQkNBg8BBg4dDRgb_cut2",
+   "atype": 2,
+   "volume_mm3": 22.4741,
+   "height_mm": 3.1651,
+   "neck_radius_mm": 1.4506,
+   "aspect_ratio": 2.1819,
+   "rim_points": 133.0,
+   "vae": {
+    "volume_mm3": 27.5679,
+    "height_mm": 4.1181,
+    "neck_radius_mm": 1.3734,
+    "aspect_ratio": 2.9985,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p309_BggTAhMHCB8aBAUMHRsYDBQb_cut2",
+   "atype": 0,
+   "volume_mm3": 24.2857,
+   "height_mm": 2.495,
+   "neck_radius_mm": 2.0469,
+   "aspect_ratio": 1.2189,
+   "rim_points": 160.0,
+   "vae": {
+    "volume_mm3": 25.8245,
+    "height_mm": 2.6753,
+    "neck_radius_mm": 2.0148,
+    "aspect_ratio": 1.3278,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p314_Fw0TEgMNCx8fBBUcFxgJCRQL_cut2",
+   "atype": 0,
+   "volume_mm3": 21.651,
+   "height_mm": 2.76,
+   "neck_radius_mm": 1.4318,
+   "aspect_ratio": 1.9276,
+   "rim_points": 161.0,
+   "vae": {
+    "volume_mm3": 22.8972,
+    "height_mm": 3.0844,
+    "neck_radius_mm": 1.4241,
+    "aspect_ratio": 2.1659,
+    "rim_points": 156.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p316_Ag4WExkPBwQJGwkLAAgJEBAC_cut2",
+   "atype": 0,
+   "volume_mm3": 46.7112,
+   "height_mm": 4.2064,
+   "neck_radius_mm": 2.3656,
+   "aspect_ratio": 1.7781,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 49.3978,
+    "height_mm": 4.1427,
+    "neck_radius_mm": 2.2441,
+    "aspect_ratio": 1.846,
+    "rim_points": 135.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p317_HRQeDRUaDBQfCQMdHxQCCRAK_cut2",
+   "atype": 0,
+   "volume_mm3": 11.4346,
+   "height_mm": 1.6777,
+   "neck_radius_mm": 1.8908,
+   "aspect_ratio": 0.8873,
+   "rim_points": 173.0,
+   "vae": {
+    "volume_mm3": 12.9533,
+    "height_mm": 1.9862,
+    "neck_radius_mm": 1.8179,
+    "aspect_ratio": 1.0926,
+    "rim_points": 184.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p322_BA4ACBEGGz4jLCUuDA4cDBQW_cut2",
+   "atype": 0,
+   "volume_mm3": 20.8869,
+   "height_mm": 3.5703,
+   "neck_radius_mm": 1.4668,
+   "aspect_ratio": 2.4341,
+   "rim_points": 135.0,
+   "vae": {
+    "volume_mm3": 20.4757,
+    "height_mm": 3.5799,
+    "neck_radius_mm": 1.4108,
+    "aspect_ratio": 2.5374,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p323_HggVBhUEGx8aAgEKHggADBIf_cut2",
+   "atype": 0,
+   "volume_mm3": 79.3433,
+   "height_mm": 3.6112,
+   "neck_radius_mm": 3.2377,
+   "aspect_ratio": 1.1154,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 97.0704,
+    "height_mm": 3.8463,
+    "neck_radius_mm": 3.3055,
+    "aspect_ratio": 1.1636,
+    "rim_points": 203.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p324_GgARAhEaFh8SBgUOAAUEBBYb_cut2",
+   "atype": 1,
+   "volume_mm3": 9.0151,
+   "height_mm": 2.3985,
+   "neck_radius_mm": 1.2384,
+   "aspect_ratio": 1.9368,
+   "rim_points": 107.0,
+   "vae": {
+    "volume_mm3": 10.2285,
+    "height_mm": 2.3852,
+    "neck_radius_mm": 1.3133,
+    "aspect_ratio": 1.8162,
+    "rim_points": 105.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p326_HA4HDR8dDA4GCQkaHg4bCRoN_1_cut2",
+   "atype": 1,
+   "volume_mm3": 44.9801,
+   "height_mm": 3.8367,
+   "neck_radius_mm": 1.317,
+   "aspect_ratio": 2.9131,
+   "rim_points": 189.0,
+   "vae": {
+    "volume_mm3": 49.8301,
+    "height_mm": 4.5998,
+    "neck_radius_mm": 1.2923,
+    "aspect_ratio": 3.5595,
+    "rim_points": 113.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p329_HQ4ADBkEHgQNChQCGw0CABgX_cut2",
+   "atype": 2,
+   "volume_mm3": 89.2442,
+   "height_mm": 4.9687,
+   "neck_radius_mm": 1.9121,
+   "aspect_ratio": 2.5985,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 82.2315,
+    "height_mm": 5.6594,
+    "neck_radius_mm": 1.9916,
+    "aspect_ratio": 2.8415,
+    "rim_points": 121.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p333_AhQdDQMWBw4fFhQaHQ0dFwAX_cut2",
+   "atype": 0,
+   "volume_mm3": 64.7192,
+   "height_mm": 4.5186,
+   "neck_radius_mm": 1.9878,
+   "aspect_ratio": 2.2731,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 71.1698,
+    "height_mm": 4.961,
+    "neck_radius_mm": 2.0986,
+    "aspect_ratio": 2.3639,
+    "rim_points": 125.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p334_FwAHBRkGDAAGAQ8BFQAbARwW_cut2",
+   "atype": 0,
+   "volume_mm3": 28.7473,
+   "height_mm": 3.1427,
+   "neck_radius_mm": 2.0199,
+   "aspect_ratio": 1.5559,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 22.486,
+    "height_mm": 3.0898,
+    "neck_radius_mm": 1.8402,
+    "aspect_ratio": 1.6791,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p338_FwQdExcNAR8WChQIFxIJABoK_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 92.134,
+   "height_mm": 5.3052,
+   "neck_radius_mm": 2.6753,
+   "aspect_ratio": 1.983,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 90.5342,
+    "height_mm": 4.981,
+    "neck_radius_mm": 2.6435,
+    "aspect_ratio": 1.8843,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p343_AgARBB4NBh8SBgMBFxUcBBYd_cut2",
+   "atype": 0,
+   "volume_mm3": 109.5181,
+   "height_mm": 6.0075,
+   "neck_radius_mm": 2.3059,
+   "aspect_ratio": 2.6052,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 114.4173,
+    "height_mm": 6.0128,
+    "neck_radius_mm": 2.2757,
+    "aspect_ratio": 2.6422,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p344_AA4UBxUcDA4VAwMbAg4IAxAM_cut2",
+   "atype": 0,
+   "volume_mm3": 67.1177,
+   "height_mm": 4.1677,
+   "neck_radius_mm": 2.4321,
+   "aspect_ratio": 1.7136,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 72.1288,
+    "height_mm": 4.153,
+    "neck_radius_mm": 2.5124,
+    "aspect_ratio": 1.653,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p345_HRQeDRUaDBQfCQMdHxQCCRAK_cut2",
+   "atype": 0,
+   "volume_mm3": 48.1907,
+   "height_mm": 6.2801,
+   "neck_radius_mm": 1.3662,
+   "aspect_ratio": 4.5966,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 51.8458,
+    "height_mm": 6.409,
+    "neck_radius_mm": 1.366,
+    "aspect_ratio": 4.6918,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p348_Eg4VDwUMEx8cAggaFgAMChIW_cut2",
+   "atype": 0,
+   "volume_mm3": 85.965,
+   "height_mm": 5.401,
+   "neck_radius_mm": 1.9172,
+   "aspect_ratio": 2.8172,
+   "rim_points": 166.0,
+   "vae": {
+    "volume_mm3": 88.6839,
+    "height_mm": 5.3705,
+    "neck_radius_mm": 1.9627,
+    "aspect_ratio": 2.7362,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p351_HQQaCA4NGggeAA4GHwQGDBgd_cut2",
+   "atype": 2,
+   "volume_mm3": 134.04,
+   "height_mm": 8.7715,
+   "neck_radius_mm": 2.1491,
+   "aspect_ratio": 4.0815,
+   "rim_points": 128.0,
+   "vae": {
+    "volume_mm3": 139.541,
+    "height_mm": 7.3913,
+    "neck_radius_mm": 2.1116,
+    "aspect_ratio": 3.5004,
+    "rim_points": 161.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p352_FggEAAoWGxcSHwAGBAAUAxwO_cut2",
+   "atype": 0,
+   "volume_mm3": 25.5344,
+   "height_mm": 3.3565,
+   "neck_radius_mm": 1.5984,
+   "aspect_ratio": 2.1,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 25.2218,
+    "height_mm": 3.5441,
+    "neck_radius_mm": 1.5899,
+    "aspect_ratio": 2.2292,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p353_EggcChUaBh8aCw0KABUMDBsT_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 26.6301,
+   "height_mm": 3.398,
+   "neck_radius_mm": 1.535,
+   "aspect_ratio": 2.2136,
+   "rim_points": 163.0,
+   "vae": {
+    "volume_mm3": 27.5057,
+    "height_mm": 3.5797,
+    "neck_radius_mm": 1.3951,
+    "aspect_ratio": 2.5658,
+    "rim_points": 164.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p355_EhMXFQ4aFxURFwMbEBMLERcK_cut2",
+   "atype": 0,
+   "volume_mm3": 40.6046,
+   "height_mm": 3.9648,
+   "neck_radius_mm": 1.9648,
+   "aspect_ratio": 2.0179,
+   "rim_points": 160.0,
+   "vae": {
+    "volume_mm3": 42.3651,
+    "height_mm": 4.0489,
+    "neck_radius_mm": 2.0341,
+    "aspect_ratio": 1.9905,
+    "rim_points": 170.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p356_EwAcCAYNCB8SCw8ZFxsNBBsR_cut2",
+   "atype": 0,
+   "volume_mm3": 339.9939,
+   "height_mm": 8.9331,
+   "neck_radius_mm": 3.1092,
+   "aspect_ratio": 2.8731,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 374.399,
+    "height_mm": 9.4103,
+    "neck_radius_mm": 2.8345,
+    "aspect_ratio": 3.3199,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p357_EhMTDxQHHB8BBAgLHQ8MFxQW_cut2",
+   "atype": 0,
+   "volume_mm3": 67.422,
+   "height_mm": 5.667,
+   "neck_radius_mm": 1.7035,
+   "aspect_ratio": 3.3267,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 67.4755,
+    "height_mm": 5.6797,
+    "neck_radius_mm": 1.6959,
+    "aspect_ratio": 3.3491,
+    "rim_points": 157.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p358_HAQaDxgNABMNAA4BGgQcFxkd_cut2",
+   "atype": 0,
+   "volume_mm3": 41.7136,
+   "height_mm": 4.5532,
+   "neck_radius_mm": 1.7231,
+   "aspect_ratio": 2.6424,
+   "rim_points": 158.0,
+   "vae": {
+    "volume_mm3": 43.3956,
+    "height_mm": 4.7401,
+    "neck_radius_mm": 1.7832,
+    "aspect_ratio": 2.6582,
+    "rim_points": 163.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p359_ExMXGA4aFxgQFwMWERMLHBYK_cut2",
+   "atype": 0,
+   "volume_mm3": 56.966,
+   "height_mm": 3.6661,
+   "neck_radius_mm": 2.1547,
+   "aspect_ratio": 1.7014,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 59.0537,
+    "height_mm": 3.9974,
+    "neck_radius_mm": 2.1623,
+    "aspect_ratio": 1.8487,
+    "rim_points": 126.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p360_AA4RCR8GDA4QDQkBAg4NDRoW_1_cut2",
+   "atype": 0,
+   "volume_mm3": 52.4898,
+   "height_mm": 3.1101,
+   "neck_radius_mm": 2.6675,
+   "aspect_ratio": 1.166,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 51.7579,
+    "height_mm": 3.3842,
+    "neck_radius_mm": 2.6728,
+    "aspect_ratio": 1.2661,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p365_FxQGHwUcFRQHAhMbFRQaAgAM_cut2",
+   "atype": 0,
+   "volume_mm3": 83.9328,
+   "height_mm": 6.6611,
+   "neck_radius_mm": 1.9611,
+   "aspect_ratio": 3.3966,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 84.1009,
+    "height_mm": 6.8447,
+    "neck_radius_mm": 1.887,
+    "aspect_ratio": 3.6273,
+    "rim_points": 161.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p367_Eg0TDxMHDA0SCwUAEA0PCxYX_cut2",
+   "atype": 1,
+   "volume_mm3": 14.5966,
+   "height_mm": 2.8338,
+   "neck_radius_mm": 1.497,
+   "aspect_ratio": 1.893,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 15.6153,
+    "height_mm": 2.9493,
+    "neck_radius_mm": 1.5786,
+    "aspect_ratio": 1.8683,
+    "rim_points": 149.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p368_HA4CBAMWHREWFgoAAgQdCRoI_1_cut2",
+   "atype": 0,
+   "volume_mm3": 23.9173,
+   "height_mm": 2.5589,
+   "neck_radius_mm": 1.8683,
+   "aspect_ratio": 1.3696,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 25.984,
+    "height_mm": 2.6326,
+    "neck_radius_mm": 1.9121,
+    "aspect_ratio": 1.3768,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p370_HxcXEx4NCx8FABQBFxgBExAK_cut2",
+   "atype": 0,
+   "volume_mm3": 35.1433,
+   "height_mm": 3.7848,
+   "neck_radius_mm": 1.6106,
+   "aspect_ratio": 2.3499,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 36.0365,
+    "height_mm": 3.8372,
+    "neck_radius_mm": 1.6075,
+    "aspect_ratio": 2.387,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p373_EwAWAB4WEwUSCwUOFgAABhQc_cut2",
+   "atype": 0,
+   "volume_mm3": 321.1617,
+   "height_mm": 7.4355,
+   "neck_radius_mm": 2.9939,
+   "aspect_ratio": 2.4835,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 312.6621,
+    "height_mm": 7.638,
+    "neck_radius_mm": 2.9962,
+    "aspect_ratio": 2.5492,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p374_EwkXDxEeGwQBGw4KHAAYDBAK_cut2",
+   "atype": 0,
+   "volume_mm3": 45.1012,
+   "height_mm": 4.2446,
+   "neck_radius_mm": 1.313,
+   "aspect_ratio": 3.2328,
+   "rim_points": 162.0,
+   "vae": {
+    "volume_mm3": 59.7138,
+    "height_mm": 4.5877,
+    "neck_radius_mm": 1.4084,
+    "aspect_ratio": 3.2574,
+    "rim_points": 239.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p375_AwIaBB4DFw0NBg4KHAoLCQYb_1_cut2",
+   "atype": 0,
+   "volume_mm3": 136.5705,
+   "height_mm": 7.1883,
+   "neck_radius_mm": 1.9347,
+   "aspect_ratio": 3.7154,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 133.277,
+    "height_mm": 6.9648,
+    "neck_radius_mm": 1.9121,
+    "aspect_ratio": 3.6426,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p377_AA0TDwQBBAQSEBgDEw8aDAMd_LMCA_cut2",
+   "atype": 0,
+   "volume_mm3": 24.9679,
+   "height_mm": 3.4683,
+   "neck_radius_mm": 1.5621,
+   "aspect_ratio": 2.2203,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 27.805,
+    "height_mm": 3.674,
+    "neck_radius_mm": 1.5501,
+    "aspect_ratio": 2.3703,
+    "rim_points": 143.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p378_HA4ABB4SHR8cFwMBCA4CCgcd_LICA_cut2",
+   "atype": 0,
+   "volume_mm3": 24.159,
+   "height_mm": 3.288,
+   "neck_radius_mm": 1.4256,
+   "aspect_ratio": 2.3064,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 23.6014,
+    "height_mm": 3.1774,
+    "neck_radius_mm": 1.487,
+    "aspect_ratio": 2.1368,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p380_FwgeDRkHCB8aCQoGHRsJDBkU_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 16.5409,
+   "height_mm": 3.1759,
+   "neck_radius_mm": 1.2392,
+   "aspect_ratio": 2.5627,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 18.8231,
+    "height_mm": 3.3161,
+    "neck_radius_mm": 1.4097,
+    "aspect_ratio": 2.3523,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p381_EQ0eBBcaHR8fCQMIAA4PCRkd_cut2",
+   "atype": 0,
+   "volume_mm3": 33.82,
+   "height_mm": 3.4104,
+   "neck_radius_mm": 1.8531,
+   "aspect_ratio": 1.8404,
+   "rim_points": 165.0,
+   "vae": {
+    "volume_mm3": 34.0491,
+    "height_mm": 3.612,
+    "neck_radius_mm": 1.8529,
+    "aspect_ratio": 1.9494,
+    "rim_points": 178.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p383_HQ4ABB4HDA4BAAgAHw4cABsX_1_cut2",
+   "atype": 0,
+   "volume_mm3": 25.2987,
+   "height_mm": 3.4518,
+   "neck_radius_mm": 1.6719,
+   "aspect_ratio": 2.0646,
+   "rim_points": 148.0,
+   "vae": {
+    "volume_mm3": 23.854,
+    "height_mm": 3.3912,
+    "neck_radius_mm": 1.6856,
+    "aspect_ratio": 2.0119,
+    "rim_points": 153.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p386_BAQLEgMBFxMNAB8cAQgLFwEd_cut2",
+   "atype": 1,
+   "volume_mm3": 90.7873,
+   "height_mm": 4.8874,
+   "neck_radius_mm": 1.7903,
+   "aspect_ratio": 2.7299,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 114.7352,
+    "height_mm": 5.6984,
+    "neck_radius_mm": 1.7848,
+    "aspect_ratio": 3.1928,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p388_Ag4BEhUcDA4AFgMbAA4dFhAM_cut2",
+   "atype": 0,
+   "volume_mm3": 24.0989,
+   "height_mm": 3.168,
+   "neck_radius_mm": 1.6317,
+   "aspect_ratio": 1.9416,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 23.2293,
+    "height_mm": 3.3755,
+    "neck_radius_mm": 1.5328,
+    "aspect_ratio": 2.2021,
+    "rim_points": 155.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p389_HQAAFRkWExMHDAsOABUHCBQK_1_cut2",
+   "atype": 2,
+   "volume_mm3": 434.333,
+   "height_mm": 10.9007,
+   "neck_radius_mm": 2.3178,
+   "aspect_ratio": 4.703,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 349.9199,
+    "height_mm": 9.1166,
+    "neck_radius_mm": 3.4807,
+    "aspect_ratio": 2.6192,
+    "rim_points": 209.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p392_FBQGEwUNHh8GERQaFw0KEAEK_1_cut2",
+   "atype": 2,
+   "volume_mm3": 106.0056,
+   "height_mm": 5.8533,
+   "neck_radius_mm": 2.1357,
+   "aspect_ratio": 2.7407,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 139.7198,
+    "height_mm": 6.8968,
+    "neck_radius_mm": 2.2082,
+    "aspect_ratio": 3.1232,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p393_HQgeDRUcDAgfCQMbHwgCCRAM_cut2",
+   "atype": 0,
+   "volume_mm3": 13.6198,
+   "height_mm": 2.84,
+   "neck_radius_mm": 1.3138,
+   "aspect_ratio": 2.1617,
+   "rim_points": 122.0,
+   "vae": {
+    "volume_mm3": 14.9828,
+    "height_mm": 2.858,
+    "neck_radius_mm": 1.3024,
+    "aspect_ratio": 2.1944,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p396_EQIRDgIMGw8cGwUMHRMKDBsX_cut2",
+   "atype": 0,
+   "volume_mm3": 8.2287,
+   "height_mm": 2.1177,
+   "neck_radius_mm": 1.3933,
+   "aspect_ratio": 1.5199,
+   "rim_points": 145.0,
+   "vae": {
+    "volume_mm3": 7.9142,
+    "height_mm": 2.1178,
+    "neck_radius_mm": 1.3667,
+    "aspect_ratio": 1.5496,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p400_AgAWDgYJHA4FDAUREwUBExQW_cut2",
+   "atype": 2,
+   "volume_mm3": 232.6664,
+   "height_mm": 6.4027,
+   "neck_radius_mm": 2.6298,
+   "aspect_ratio": 2.4347,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 246.7691,
+    "height_mm": 7.1313,
+    "neck_radius_mm": 2.9438,
+    "aspect_ratio": 2.4225,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p403_BAkXCB4cCB8bAA8BBhsaDRAR_cut2",
+   "atype": 0,
+   "volume_mm3": 13.6428,
+   "height_mm": 2.3853,
+   "neck_radius_mm": 1.5137,
+   "aspect_ratio": 1.5758,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 13.5788,
+    "height_mm": 2.5103,
+    "neck_radius_mm": 1.4182,
+    "aspect_ratio": 1.7701,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p404_EgAAAxUSExUNBBQNFxsPERcZ_1_cut2",
+   "atype": 0,
+   "volume_mm3": 12.0028,
+   "height_mm": 1.8975,
+   "neck_radius_mm": 1.6689,
+   "aspect_ratio": 1.137,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 11.1324,
+    "height_mm": 1.8084,
+    "neck_radius_mm": 1.5776,
+    "aspect_ratio": 1.1463,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p410_EwAAExkHDAABFw8AEQAcFxwX_cut2",
+   "atype": 0,
+   "volume_mm3": 26.1088,
+   "height_mm": 3.9472,
+   "neck_radius_mm": 1.6052,
+   "aspect_ratio": 2.459,
+   "rim_points": 156.0,
+   "vae": {
+    "volume_mm3": 24.3139,
+    "height_mm": 3.6392,
+    "neck_radius_mm": 1.6365,
+    "aspect_ratio": 2.2237,
+    "rim_points": 158.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p413_GgAREAUBFxMNBAUeBwgLFx8Z_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 31.6002,
+   "height_mm": 4.5157,
+   "neck_radius_mm": 1.6764,
+   "aspect_ratio": 2.6937,
+   "rim_points": 139.0,
+   "vae": {
+    "volume_mm3": 32.3071,
+    "height_mm": 4.6059,
+    "neck_radius_mm": 1.6777,
+    "aspect_ratio": 2.7453,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p415_FhMTBh4BFxMWGxQOFQ8HAAcd_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 28.1202,
+   "height_mm": 3.6646,
+   "neck_radius_mm": 1.4859,
+   "aspect_ratio": 2.4663,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 28.7184,
+    "height_mm": 3.4096,
+    "neck_radius_mm": 1.5602,
+    "aspect_ratio": 2.1853,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p417_EgAeBRkGDAAfAQ8BEAACARwW_cut2",
+   "atype": 1,
+   "volume_mm3": 30.4713,
+   "height_mm": 3.5698,
+   "neck_radius_mm": 1.7113,
+   "aspect_ratio": 2.0861,
+   "rim_points": 113.0,
+   "vae": {
+    "volume_mm3": 38.5374,
+    "height_mm": 3.8887,
+    "neck_radius_mm": 1.8234,
+    "aspect_ratio": 2.1327,
+    "rim_points": 114.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p420_Bg4cPhUaHgAQDRgAHD4LFxkZ_a_cut2",
+   "atype": 1,
+   "volume_mm3": 50.4207,
+   "height_mm": 3.5386,
+   "neck_radius_mm": 2.5699,
+   "aspect_ratio": 1.377,
+   "rim_points": 126.0,
+   "vae": {
+    "volume_mm3": 58.2119,
+    "height_mm": 4.0674,
+    "neck_radius_mm": 2.6509,
+    "aspect_ratio": 1.5343,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p421_FwQADBEGGwQBGwMdHwAADBAK_asib_cut2",
+   "atype": 0,
+   "volume_mm3": 52.6897,
+   "height_mm": 5.8161,
+   "neck_radius_mm": 1.6729,
+   "aspect_ratio": 3.4768,
+   "rim_points": 167.0,
+   "vae": {
+    "volume_mm3": 60.8304,
+    "height_mm": 6.361,
+    "neck_radius_mm": 1.8822,
+    "aspect_ratio": 3.3796,
+    "rim_points": 238.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p425_FwQbEhUaDAQaFgMdFQQHFhAK_cut2",
+   "atype": 0,
+   "volume_mm3": 98.4563,
+   "height_mm": 4.9271,
+   "neck_radius_mm": 2.5209,
+   "aspect_ratio": 1.9544,
+   "rim_points": 152.0,
+   "vae": {
+    "volume_mm3": 101.8934,
+    "height_mm": 5.0141,
+    "neck_radius_mm": 2.5676,
+    "aspect_ratio": 1.9528,
+    "rim_points": 162.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p430_AwAeCA4JHggABAoGAQACDAYZ_cut2",
+   "atype": 0,
+   "volume_mm3": 17.1263,
+   "height_mm": 3.4189,
+   "neck_radius_mm": 1.4096,
+   "aspect_ratio": 2.4254,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 16.8239,
+    "height_mm": 3.2194,
+    "neck_radius_mm": 1.416,
+    "aspect_ratio": 2.2736,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p436_FwQeBBIJABUNAAoKEAAcERId_cut2",
+   "atype": 2,
+   "volume_mm3": 190.69,
+   "height_mm": 7.8247,
+   "neck_radius_mm": 1.9104,
+   "aspect_ratio": 4.0959,
+   "rim_points": 111.0,
+   "vae": {
+    "volume_mm3": 217.0013,
+    "height_mm": 8.8281,
+    "neck_radius_mm": 2.1888,
+    "aspect_ratio": 4.0333,
+    "rim_points": 131.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p438_AggQAAUQDAgRBBMXAAgMBAAA_1_cut2",
+   "atype": 2,
+   "volume_mm3": 29.1124,
+   "height_mm": 4.8566,
+   "neck_radius_mm": 1.2622,
+   "aspect_ratio": 3.8478,
+   "rim_points": 117.0,
+   "vae": {
+    "volume_mm3": 52.3113,
+    "height_mm": 6.5108,
+    "neck_radius_mm": 1.9416,
+    "aspect_ratio": 3.3534,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p439_HwYbBAIWFQgWFwkIGwQcChIR_RICA_1_cut2",
+   "atype": 2,
+   "volume_mm3": 331.4366,
+   "height_mm": 11.3733,
+   "neck_radius_mm": 2.468,
+   "aspect_ratio": 4.6084,
+   "rim_points": 123.0,
+   "vae": {
+    "volume_mm3": 302.9451,
+    "height_mm": 10.1184,
+    "neck_radius_mm": 2.5656,
+    "aspect_ratio": 3.9439,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p440_HwYbBAIWFQgWFwkIGwQcChIR_LICA_cut2",
+   "atype": 2,
+   "volume_mm3": 13.7316,
+   "height_mm": 2.2178,
+   "neck_radius_mm": 1.6629,
+   "aspect_ratio": 1.3337,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 25.9759,
+    "height_mm": 3.2507,
+    "neck_radius_mm": 1.7952,
+    "aspect_ratio": 1.8108,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p446_Ag4WExkPBwQJGwkLAAgJEBAC_RICA_1_cut2",
+   "atype": 2,
+   "volume_mm3": 38.5871,
+   "height_mm": 4.7141,
+   "neck_radius_mm": 1.4883,
+   "aspect_ratio": 3.1673,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 27.7656,
+    "height_mm": 4.046,
+    "neck_radius_mm": 1.6768,
+    "aspect_ratio": 2.4129,
+    "rim_points": 137.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p447_GBQfAxUaBh8GCAQKABUGEBga_1sib_cut2",
+   "atype": 2,
+   "volume_mm3": 112.6466,
+   "height_mm": 5.4213,
+   "neck_radius_mm": 2.2711,
+   "aspect_ratio": 2.3871,
+   "rim_points": 112.0,
+   "vae": {
+    "volume_mm3": 148.6762,
+    "height_mm": 7.1609,
+    "neck_radius_mm": 2.3986,
+    "aspect_ratio": 2.9855,
+    "rim_points": 140.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p448_Ew0TFBQNDA0SEAIKEQ0PEBEd_b_cut2",
+   "atype": 2,
+   "volume_mm3": 21.6918,
+   "height_mm": 3.8899,
+   "neck_radius_mm": 1.6054,
+   "aspect_ratio": 2.423,
+   "rim_points": 119.0,
+   "vae": {
+    "volume_mm3": 39.5389,
+    "height_mm": 4.8734,
+    "neck_radius_mm": 2.1589,
+    "aspect_ratio": 2.2574,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p449_AxUHAhsRDBUGBg0WARUbBh4B_cut2",
+   "atype": 0,
+   "volume_mm3": 216.1099,
+   "height_mm": 7.8091,
+   "neck_radius_mm": 2.3194,
+   "aspect_ratio": 3.3669,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 246.6931,
+    "height_mm": 7.9997,
+    "neck_radius_mm": 2.4723,
+    "aspect_ratio": 3.2357,
+    "rim_points": 141.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p450_FAQtDhwBBAQaFwcRFz4BCRwO_cut2",
+   "atype": 0,
+   "volume_mm3": 104.9563,
+   "height_mm": 6.1773,
+   "neck_radius_mm": 2.4401,
+   "aspect_ratio": 2.5316,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 109.7645,
+    "height_mm": 5.9162,
+    "neck_radius_mm": 2.4014,
+    "aspect_ratio": 2.4636,
+    "rim_points": 134.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p452_EQITDAAHAAANBgcCAg4cBBQb_1_cut2",
+   "atype": 0,
+   "volume_mm3": 51.0454,
+   "height_mm": 3.8672,
+   "neck_radius_mm": 2.4148,
+   "aspect_ratio": 1.6015,
+   "rim_points": 153.0,
+   "vae": {
+    "volume_mm3": 55.684,
+    "height_mm": 4.0982,
+    "neck_radius_mm": 2.3075,
+    "aspect_ratio": 1.7761,
+    "rim_points": 144.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p453_FAQQDh4GFxcaCQoKDAQMChsW_cut2",
+   "atype": 0,
+   "volume_mm3": 24.0236,
+   "height_mm": 4.5883,
+   "neck_radius_mm": 1.3739,
+   "aspect_ratio": 3.3396,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 24.3986,
+    "height_mm": 4.5954,
+    "neck_radius_mm": 1.4491,
+    "aspect_ratio": 3.1712,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p455_HQAACB8cBggNBBQGHRUaDBgZ_1_cut2",
+   "atype": 0,
+   "volume_mm3": 29.1878,
+   "height_mm": 2.8417,
+   "neck_radius_mm": 2.1015,
+   "aspect_ratio": 1.3522,
+   "rim_points": 136.0,
+   "vae": {
+    "volume_mm3": 32.5763,
+    "height_mm": 3.0186,
+    "neck_radius_mm": 2.1347,
+    "aspect_ratio": 1.414,
+    "rim_points": 143.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p457_BA4ADxERDA4BCwcWBg4cCxQB_cut2",
+   "atype": 0,
+   "volume_mm3": 369.8641,
+   "height_mm": 9.6071,
+   "neck_radius_mm": 3.3413,
+   "aspect_ratio": 2.8753,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 385.8755,
+    "height_mm": 9.5677,
+    "neck_radius_mm": 3.3423,
+    "aspect_ratio": 2.8626,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p459_FBQRExUcDBQQFwMbFhQNFxAM_cut2",
+   "atype": 0,
+   "volume_mm3": 250.4627,
+   "height_mm": 6.3494,
+   "neck_radius_mm": 2.6893,
+   "aspect_ratio": 2.361,
+   "rim_points": 129.0,
+   "vae": {
+    "volume_mm3": 252.5678,
+    "height_mm": 6.4591,
+    "neck_radius_mm": 2.5395,
+    "aspect_ratio": 2.5435,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p462_EwAADxURDAABCwMWEQAcCxAB_cut2",
+   "atype": 0,
+   "volume_mm3": 109.9388,
+   "height_mm": 5.641,
+   "neck_radius_mm": 2.485,
+   "aspect_ratio": 2.2701,
+   "rim_points": 187.0,
+   "vae": {
+    "volume_mm3": 127.3235,
+    "height_mm": 5.9142,
+    "neck_radius_mm": 2.4144,
+    "aspect_ratio": 2.4495,
+    "rim_points": 187.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p463_AwAQCB8WEwMaChUOEAgBFhQa_1_cut2",
+   "atype": 0,
+   "volume_mm3": 17.9759,
+   "height_mm": 2.1895,
+   "neck_radius_mm": 1.4138,
+   "aspect_ratio": 1.5486,
+   "rim_points": 169.0,
+   "vae": {
+    "volume_mm3": 17.874,
+    "height_mm": 2.0877,
+    "neck_radius_mm": 1.3428,
+    "aspect_ratio": 1.5547,
+    "rim_points": 164.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p464_ARQABAMAGx8GFwMcGggfEAcd_cut2",
+   "atype": 0,
+   "volume_mm3": 63.2057,
+   "height_mm": 4.866,
+   "neck_radius_mm": 2.5404,
+   "aspect_ratio": 1.9154,
+   "rim_points": 143.0,
+   "vae": {
+    "volume_mm3": 69.6153,
+    "height_mm": 4.4577,
+    "neck_radius_mm": 2.4667,
+    "aspect_ratio": 1.8071,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p466_AAgeDRUcDAgfCQMbAggCCRAM_cut2",
+   "atype": 0,
+   "volume_mm3": 18.7546,
+   "height_mm": 3.6467,
+   "neck_radius_mm": 1.1427,
+   "aspect_ratio": 3.1913,
+   "rim_points": 168.0,
+   "vae": {
+    "volume_mm3": 19.3101,
+    "height_mm": 3.6217,
+    "neck_radius_mm": 1.1416,
+    "aspect_ratio": 3.1725,
+    "rim_points": 175.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p468_BgQAAAMcFwYGDBgKAAAdERAf_cut2",
+   "atype": 1,
+   "volume_mm3": 39.9116,
+   "height_mm": 3.6141,
+   "neck_radius_mm": 2.3593,
+   "aspect_ratio": 1.5319,
+   "rim_points": 121.0,
+   "vae": {
+    "volume_mm3": 44.3956,
+    "height_mm": 3.9365,
+    "neck_radius_mm": 2.4648,
+    "aspect_ratio": 1.5971,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p469_EQ8WExURDA8XFwMWEw8KFxAB_1_cut2",
+   "atype": 0,
+   "volume_mm3": 96.1702,
+   "height_mm": 4.7137,
+   "neck_radius_mm": 2.1508,
+   "aspect_ratio": 2.1916,
+   "rim_points": 159.0,
+   "vae": {
+    "volume_mm3": 99.8513,
+    "height_mm": 4.801,
+    "neck_radius_mm": 2.09,
+    "aspect_ratio": 2.2971,
+    "rim_points": 164.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p470_Gw4EABMNBAgQGwkZEwILExwb_cut2",
+   "atype": 1,
+   "volume_mm3": 43.7155,
+   "height_mm": 4.1604,
+   "neck_radius_mm": 1.7327,
+   "aspect_ratio": 2.4011,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 49.4805,
+    "height_mm": 4.2664,
+    "neck_radius_mm": 1.9736,
+    "aspect_ratio": 2.1617,
+    "rim_points": 118.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p471_EhMXEhMBEx8BABUMGwAMFxAL_b_cut2",
+   "atype": 0,
+   "volume_mm3": 39.813,
+   "height_mm": 4.2538,
+   "neck_radius_mm": 1.7142,
+   "aspect_ratio": 2.4814,
+   "rim_points": 137.0,
+   "vae": {
+    "volume_mm3": 38.1569,
+    "height_mm": 4.1566,
+    "neck_radius_mm": 1.7024,
+    "aspect_ratio": 2.4416,
+    "rim_points": 138.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p474_FAgdFBYWGw4GAwIGHRQIARwX_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 14.4212,
+   "height_mm": 2.5161,
+   "neck_radius_mm": 1.6331,
+   "aspect_ratio": 1.5406,
+   "rim_points": 181.0,
+   "vae": {
+    "volume_mm3": 17.8226,
+    "height_mm": 2.6712,
+    "neck_radius_mm": 1.7819,
+    "aspect_ratio": 1.499,
+    "rim_points": 171.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p475_FAgdFBYWGw4GAwIGHRQIARwX_LICA_b_cut2",
+   "atype": 1,
+   "volume_mm3": 31.9587,
+   "height_mm": 3.1131,
+   "neck_radius_mm": 2.2223,
+   "aspect_ratio": 1.4008,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 34.2904,
+    "height_mm": 3.4766,
+    "neck_radius_mm": 2.27,
+    "aspect_ratio": 1.5315,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p477_EgAIDgYNABMKGwcVHRcLFwcB_cut2",
+   "atype": 1,
+   "volume_mm3": 48.3459,
+   "height_mm": 3.8335,
+   "neck_radius_mm": 2.2569,
+   "aspect_ratio": 1.6986,
+   "rim_points": 132.0,
+   "vae": {
+    "volume_mm3": 44.2383,
+    "height_mm": 3.7829,
+    "neck_radius_mm": 2.0693,
+    "aspect_ratio": 1.8281,
+    "rim_points": 123.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p478_FhMdEgMJAAUNFwkcAQAcARMK_cut2",
+   "atype": 0,
+   "volume_mm3": 49.7798,
+   "height_mm": 5.3364,
+   "neck_radius_mm": 1.8109,
+   "aspect_ratio": 2.9467,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 52.8196,
+    "height_mm": 5.3208,
+    "neck_radius_mm": 1.7881,
+    "aspect_ratio": 2.9756,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p479_FBMdGw4aHRsXFwkVFhMBHxEK_cut2",
+   "atype": 0,
+   "volume_mm3": 37.5753,
+   "height_mm": 3.3563,
+   "neck_radius_mm": 1.6127,
+   "aspect_ratio": 2.0812,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 39.5825,
+    "height_mm": 3.5698,
+    "neck_radius_mm": 1.6761,
+    "aspect_ratio": 2.1298,
+    "rim_points": 136.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p480_GRIXDxkWAQQdDA8cFw8HDAYd_LICA_cut2",
+   "atype": 1,
+   "volume_mm3": 21.5424,
+   "height_mm": 3.7723,
+   "neck_radius_mm": 1.4173,
+   "aspect_ratio": 2.6616,
+   "rim_points": 120.0,
+   "vae": {
+    "volume_mm3": 20.2591,
+    "height_mm": 3.661,
+    "neck_radius_mm": 1.498,
+    "aspect_ratio": 2.444,
+    "rim_points": 120.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p481_GRIXDxkWAQQdDA8cFw8HDAYd_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 67.7727,
+   "height_mm": 4.7391,
+   "neck_radius_mm": 2.14,
+   "aspect_ratio": 2.2145,
+   "rim_points": 119.0,
+   "vae": {
+    "volume_mm3": 62.8067,
+    "height_mm": 4.438,
+    "neck_radius_mm": 2.1397,
+    "aspect_ratio": 2.0742,
+    "rim_points": 127.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p482_AwAaCAQBDAAbDBIGAQAGDAER_cut2",
+   "atype": 0,
+   "volume_mm3": 49.1656,
+   "height_mm": 4.2316,
+   "neck_radius_mm": 2.4058,
+   "aspect_ratio": 1.7589,
+   "rim_points": 157.0,
+   "vae": {
+    "volume_mm3": 50.6671,
+    "height_mm": 4.1544,
+    "neck_radius_mm": 2.4139,
+    "aspect_ratio": 1.721,
+    "rim_points": 147.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p486_AwQAFxEBAR8WFxAOGxIdAAcO_cut2",
+   "atype": 0,
+   "volume_mm3": 6.2464,
+   "height_mm": 1.5901,
+   "neck_radius_mm": 1.4649,
+   "aspect_ratio": 1.0855,
+   "rim_points": 147.0,
+   "vae": {
+    "volume_mm3": 6.4618,
+    "height_mm": 1.7013,
+    "neck_radius_mm": 1.44,
+    "aspect_ratio": 1.1815,
+    "rim_points": 157.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p489_BAkbBAIRDAkaABQWBgkHAAcB_LICA_cut2",
+   "atype": 2,
+   "volume_mm3": 22.0107,
+   "height_mm": 3.5963,
+   "neck_radius_mm": 1.4547,
+   "aspect_ratio": 2.4722,
+   "rim_points": 116.0,
+   "vae": {
+    "volume_mm3": 15.8654,
+    "height_mm": 3.3728,
+    "neck_radius_mm": 1.2138,
+    "aspect_ratio": 2.7786,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p492_EgQcFxUGBxUaGwMBBAQAEAER_LICA_cut2",
+   "atype": 1,
+   "volume_mm3": 20.5531,
+   "height_mm": 2.9377,
+   "neck_radius_mm": 1.9324,
+   "aspect_ratio": 1.5202,
+   "rim_points": 122.0,
+   "vae": {
+    "volume_mm3": 18.145,
+    "height_mm": 2.6412,
+    "neck_radius_mm": 1.9723,
+    "aspect_ratio": 1.3392,
+    "rim_points": 128.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p495_AAQAExkGDAQBFw8BAgQcFxwW_1_cut2",
+   "atype": 0,
+   "volume_mm3": 40.596,
+   "height_mm": 4.2209,
+   "neck_radius_mm": 1.7276,
+   "aspect_ratio": 2.4432,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 43.3687,
+    "height_mm": 4.0818,
+    "neck_radius_mm": 1.8579,
+    "aspect_ratio": 2.197,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p497_AwIaCBUbAR8QDQ8KARIdBh0R_cut2",
+   "atype": 0,
+   "volume_mm3": 68.215,
+   "height_mm": 3.9766,
+   "neck_radius_mm": 2.6081,
+   "aspect_ratio": 1.5247,
+   "rim_points": 141.0,
+   "vae": {
+    "volume_mm3": 66.794,
+    "height_mm": 3.8429,
+    "neck_radius_mm": 2.6078,
+    "aspect_ratio": 1.4736,
+    "rim_points": 146.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p501_GAQWCBcNAB8WAQ8IFxMGABER_cut2",
+   "atype": 0,
+   "volume_mm3": 23.8961,
+   "height_mm": 3.97,
+   "neck_radius_mm": 1.6027,
+   "aspect_ratio": 2.4771,
+   "rim_points": 138.0,
+   "vae": {
+    "volume_mm3": 22.1336,
+    "height_mm": 3.7696,
+    "neck_radius_mm": 1.7055,
+    "aspect_ratio": 2.2103,
+    "rim_points": 170.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p502_Ag4LHx8RAA4KFwkWAA4XFxoB_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 25.7129,
+   "height_mm": 4.1329,
+   "neck_radius_mm": 1.3779,
+   "aspect_ratio": 2.9995,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 25.4724,
+    "height_mm": 4.215,
+    "neck_radius_mm": 1.346,
+    "aspect_ratio": 3.1314,
+    "rim_points": 148.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p504_Gw4dHx8HGQ4cDgkAGQ4BDhoX_cut2",
+   "atype": 1,
+   "volume_mm3": 551.3888,
+   "height_mm": 10.0291,
+   "neck_radius_mm": 3.2658,
+   "aspect_ratio": 3.0709,
+   "rim_points": 134.0,
+   "vae": {
+    "volume_mm3": 559.5184,
+    "height_mm": 9.6231,
+    "neck_radius_mm": 3.4505,
+    "aspect_ratio": 2.7889,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p506_BgAeAhUbEQkaCw8REw0NAAYb_cut2",
+   "atype": 0,
+   "volume_mm3": 34.6873,
+   "height_mm": 3.5156,
+   "neck_radius_mm": 1.9089,
+   "aspect_ratio": 1.8417,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 33.4321,
+    "height_mm": 3.437,
+    "neck_radius_mm": 1.9664,
+    "aspect_ratio": 1.7478,
+    "rim_points": 139.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p509_EhMdAhgBFxMNFwkMGggLFxcK_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 12.6783,
+   "height_mm": 3.2046,
+   "neck_radius_mm": 1.2736,
+   "aspect_ratio": 2.5163,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 12.9215,
+    "height_mm": 3.2908,
+    "neck_radius_mm": 1.2093,
+    "aspect_ratio": 2.7212,
+    "rim_points": 129.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p518_ERUeAB4WBg0SCwcbHgAABAEU_RICA_1_cut2",
+   "atype": 1,
+   "volume_mm3": 565.5146,
+   "height_mm": 8.7492,
+   "neck_radius_mm": 3.7409,
+   "aspect_ratio": 2.3388,
+   "rim_points": 131.0,
+   "vae": {
+    "volume_mm3": 597.6871,
+    "height_mm": 9.2251,
+    "neck_radius_mm": 3.6221,
+    "aspect_ratio": 2.5469,
+    "rim_points": 117.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p530_AAgcCR83HgQaEQMRGw8GCioU_LICA_cut2",
+   "atype": 0,
+   "volume_mm3": 7.0415,
+   "height_mm": 1.824,
+   "neck_radius_mm": 1.4148,
+   "aspect_ratio": 1.2892,
+   "rim_points": 127.0,
+   "vae": {
+    "volume_mm3": 7.304,
+    "height_mm": 1.9602,
+    "neck_radius_mm": 1.3773,
+    "aspect_ratio": 1.4232,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p531_AAgcCR83HgQaEQMRGw8GCioU_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 21.6498,
+   "height_mm": 3.2571,
+   "neck_radius_mm": 1.7547,
+   "aspect_ratio": 1.8562,
+   "rim_points": 140.0,
+   "vae": {
+    "volume_mm3": 24.5709,
+    "height_mm": 3.4901,
+    "neck_radius_mm": 1.7597,
+    "aspect_ratio": 1.9834,
+    "rim_points": 132.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p532_EwAcCAYNCB8SCw8ZFxsNBBsR_RICA_cut2",
+   "atype": 2,
+   "volume_mm3": 32.8421,
+   "height_mm": 3.2962,
+   "neck_radius_mm": 2.5607,
+   "aspect_ratio": 1.2873,
+   "rim_points": 142.0,
+   "vae": {
+    "volume_mm3": 129.6429,
+    "height_mm": 5.4968,
+    "neck_radius_mm": 3.1949,
+    "aspect_ratio": 1.7205,
+    "rim_points": 133.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p534_Ag4BEhUcDA4AFgMbAA4dFhAM_RICA_cut2",
+   "atype": 0,
+   "volume_mm3": 126.3418,
+   "height_mm": 7.8767,
+   "neck_radius_mm": 2.3032,
+   "aspect_ratio": 3.4198,
+   "rim_points": 144.0,
+   "vae": {
+    "volume_mm3": 137.4981,
+    "height_mm": 8.0349,
+    "neck_radius_mm": 2.1109,
+    "aspect_ratio": 3.8064,
+    "rim_points": 150.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p548_FAAtDQUSDAAsCRMVFgAxCQAC_LICA_cut2",
+   "atype": 1,
+   "volume_mm3": 4.393,
+   "height_mm": 2.152,
+   "neck_radius_mm": 1.086,
+   "aspect_ratio": 1.9815,
+   "rim_points": 80.0,
+   "vae": {
+    "volume_mm3": 4.2011,
+    "height_mm": 1.7721,
+    "neck_radius_mm": 1.2164,
+    "aspect_ratio": 1.4569,
+    "rim_points": 81.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p552_AwkTAxEGGx8bBAQOHAgdDRQa_RICA_1_cut2",
+   "atype": 1,
+   "volume_mm3": 53.9068,
+   "height_mm": 4.635,
+   "neck_radius_mm": 1.9203,
+   "aspect_ratio": 2.4137,
+   "rim_points": 124.0,
+   "vae": {
+    "volume_mm3": 66.2493,
+    "height_mm": 4.5757,
+    "neck_radius_mm": 2.4757,
+    "aspect_ratio": 1.8482,
+    "rim_points": 145.0
+   }
+  },
+  {
+   "ds": "AneuX",
+   "case": "p554_AwQAFxEBAR8WFxAOGxIdAAcO_RICA_cut2",
+   "atype": 1,
+   "volume_mm3": 15.0807,
+   "height_mm": 2.0389,
+   "neck_radius_mm": 1.5688,
+   "aspect_ratio": 1.2996,
+   "rim_points": 150.0,
+   "vae": {
+    "volume_mm3": 11.0309,
+    "height_mm": 2.5104,
+    "neck_radius_mm": 1.4356,
+    "aspect_ratio": 1.7487,
+    "rim_points": 147.0
+   }
+  }
+ ]
+}

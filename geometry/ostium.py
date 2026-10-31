@@ -354,11 +354,16 @@ def closed_dome(verts, faces, dome):
     fd = faces[clean_dome_faces(faces, dome)]
     loops = rim_loops(faces, dome)
     V = np.asarray(verts, float)
+    # each fan triangle runs its rim edge against the patch's direction for that edge (the loop
+    # walk's own direction is arbitrary), so the closed mesh is consistently oriented
+    patch_dir = set(map(tuple, np.concatenate([fd[:, [0, 1]], fd[:, [1, 2]], fd[:, [2, 0]]]).tolist()))
     caps, extra = [], []
     for l in loops:
         c_id = len(V) + len(extra)
         extra.append(V[l].mean(0))
-        caps.append(np.stack([l, np.roll(l, -1), np.full(len(l), c_id)], 1))
+        a, b = np.asarray(l), np.roll(l, -1)
+        same = np.array([(int(i), int(j)) in patch_dir for i, j in zip(a, b)])
+        caps.append(np.stack([np.where(same, b, a), np.where(same, a, b), np.full(len(l), c_id)], 1))
     V2 = np.vstack([V, np.asarray(extra)]) if extra else V
     F2 = np.vstack([fd] + caps) if caps else fd
     m = trimesh.Trimesh(V2, F2, process=False)

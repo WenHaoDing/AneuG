@@ -179,7 +179,7 @@ class OstiumModel(nn.Module):
     """Encoder + site head + ostium head + complex head."""
 
     def __init__(self, d=128, mode="flow", H=5, gps_layers=(2, 2), heads=4, n_graph_tokens=32,
-                 cx_layers=2, with_complex=True, y_dim=33, x_dim=26, norm_tokens=False):
+                 cx_layers=2, with_complex=True, y_dim=33, x_dim=26, norm_tokens=False, flow_h=256, flow_blocks=4):
         super().__init__()
         self.H, self.n_graph_tokens, self.with_complex = H, n_graph_tokens, with_complex
         # norm_tokens: graph-token positions as [direction, log(1 + distance)] instead of raw rel
@@ -188,7 +188,9 @@ class OstiumModel(nn.Module):
         self.enc = GraphEncoder(d=d, gps_layers=gps_layers, heads=heads)
         self.site = mlp(2 * d, d, 1, n=3)
         self.ost_cond = mlp(2 * d + 4, d, d)
-        self.ost = VelocityMLP(y_dim, d, mode=mode)
+        # flow_h / flow_blocks: width and depth of the ostium and complex heads (VelocityMLP); the
+        # defaults are the size every earlier checkpoint was trained with
+        self.ost = VelocityMLP(y_dim, d, h=flow_h, n_blocks=flow_blocks, mode=mode)
         if with_complex:
             self.ring_tok = mlp(3 + 2, d, d)
             self.code_tok = mlp(y_dim, d, d)
@@ -200,7 +202,7 @@ class OstiumModel(nn.Module):
             self.cx_cond = mlp(2 * d, d, d)
             self.type_head = mlp(d, d, 3)            # p(type | graph, site, ostium), from c2
             self.type_emb = nn.Embedding(3, d)       # the complex flow is conditioned on the type
-            self.cx = VelocityMLP(x_dim, d, mode=mode)
+            self.cx = VelocityMLP(x_dim, d, h=flow_h, n_blocks=flow_blocks, mode=mode)
 
     # ---- conditions (sampling order: site -> ostium -> type -> complex)
     def site_logits(self, enc, b):
@@ -214,8 +216,11 @@ class OstiumModel(nn.Module):
             log_s = (log_s - LOG_S_MEAN) / LOG_S_STD
         return self.ost_cond(torch.cat([enc["H"][site_idx], enc["g"], tangent, log_s], 1))
 
-    def complex_condition(self, enc, b, y_std, y_raw, site_idx):
-        """y_std: standardised code (token); y_raw: destandardised code (geometry)."""
+    def complex_condition(self, enc, b, y_std, y_raw, site_idx, tangent=None, scale=None):
+        """y_std: standardised code (token); y_raw: destandardised code (geometry). tangent/scale
+        default to the batch's (at the true site); pass them for another site."""
+        tangent = b.tangent if tangent is None else tangent
+        scale = b.scale if scale is None else scale
         B, dev = y_raw.size(0), y_raw.device
         ring = ring_from_code(y_raw, self.H, 32)                                    # (B, 32, 3), local
         u = torch.arange(32, device=dev) / 32.0
@@ -223,10 +228,10 @@ class OstiumModel(nn.Module):
         rt = self.ring_tok(torch.cat([ring, ue], 2)) + self.kind.weight[1]
         ct = (self.code_tok(y_std) + self.kind.weight[2])[:, None]
         # graph tokens: level-1 tokens nearest the ostium centre, positions in the ostium frame
-        Rf = frame_from_code(y_raw[:, :3], b.tangent)                              # (B, 3, 3)
-        C = b.pos[site_idx] + y_raw[:, :3] * b.scale
+        Rf = frame_from_code(y_raw[:, :3], tangent)                                # (B, 3, 3)
+        C = b.pos[site_idx] + y_raw[:, :3] * scale
         F1, P1, B1 = enc["F1"], enc["pos1"], enc["batch1"]
-        rel = torch.einsum("nij,nj->ni", Rf[B1], P1 - C[B1]) / b.scale[B1]
+        rel = torch.einsum("nij,nj->ni", Rf[B1], P1 - C[B1]) / scale[B1]
         gt = []
         for i in range(B):
             m = torch.nonzero(B1 == i).squeeze(1)
@@ -248,3 +253,31 @@ class OstiumModel(nn.Module):
         """Complex-flow condition: c2 plus the aneurysm type (true type in training, a sample from
         type_head(c2) at inference). The type head itself sees c2 only."""
         return c2 + self.type_emb(atype)
+
+
+class MorphOstiumModel(OstiumModel):
+    """OstiumModel conditioned on the dome's morphology: m = [log volume (mm3), aspect ratio]
+    (models/dome_markers.py; labels from scripts/ostium/morph_reference.py). The standardised m is
+    embedded and added to the ostium condition (so the neck can follow the requested size) and to
+    the complex condition (so the type and the dome follow it). m defaults to the batch's own
+    (b.morph, the case's real markers); pass morph= for a requested one (raw units)."""
+
+    def __init__(self, morph_mean=(0.0, 0.0), morph_std=(1.0, 1.0), **kw):
+        super().__init__(**kw)
+        d = self.ost_cond[-1].out_features
+        self.register_buffer("morph_mean", torch.tensor(morph_mean, dtype=torch.float32))
+        self.register_buffer("morph_std", torch.tensor(morph_std, dtype=torch.float32))
+        self.morph_ost = mlp(2, d, d)
+        if self.with_complex:
+            self.morph_cx = mlp(2, d, d)
+
+    def morph_std_(self, b, morph):
+        m = b.morph if morph is None else morph
+        return (m - self.morph_mean) / self.morph_std
+
+    def ostium_condition(self, enc, b, site_idx, tangent=None, scale=None, morph=None):
+        return super().ostium_condition(enc, b, site_idx, tangent, scale) + self.morph_ost(self.morph_std_(b, morph))
+
+    def complex_condition(self, enc, b, y_std, y_raw, site_idx, tangent=None, scale=None, morph=None):
+        c = super().complex_condition(enc, b, y_std, y_raw, site_idx, tangent, scale)
+        return c + self.morph_cx(self.morph_std_(b, morph))

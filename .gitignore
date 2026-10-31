@@ -16,10 +16,11 @@ wandb/
 #   runtime_train/    model checkpoints and eval renders
 runtime_dataset/
 runtime_fitting/
-runtime_train/
+runtime_train
 runtime_debug/
 runtime_skeleton/
 runtime_scouting/
 runtime_vessel_graph_work/
 cfd_data_factory/
 place_cfd_in_scan/
+runtime_infer/

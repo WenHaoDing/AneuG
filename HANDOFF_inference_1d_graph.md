@@ -63,14 +63,49 @@ reproduce:
    | `aneurysm`, `is_junction`, `is_end`, `extracted` | (N,) | masks |
    | `meta` | | point and branch counts, root point, smoothing scales, units, frame |
 
-   Load it with `from geometry import load_point_graph`.
+   Load it with `from geometry import load_point_graph`; write it with `save_point_graph`.
 
 Speed: about 1 s for a 10k-face mesh (VMTK centerlines 0.7 s).
 
-Examples on 9 ImperialNHS cases: `AneuG/runtime_skeleton/<case>/`.
-- `skeleton_graph_points.npz`: the graph.
-- `graph_1d.png`: the graph coloured by radius, with close-ups of every bifurcation.
-- `input/`: the case's `label.nrrd`, meshes and `endpoints_manual.npy`.
+**Training graphs, 522 cases:** `AneuG/runtime_dataset/assembled/<dataset>/<case>/vessel_graph/`
+(`dataset` = `ImperialNHS` or `AneuX`), written by `dataset/preprocess_vessel_graph.py`.
+- `vessel_graph.npz`: the table above, plus training-only targets (`rim`, `site_point`,
+  `geo_dist_from_site`, `ostium_*`). Inference does not produce these.
+- `skeleton_sanity.png`: the graph coloured by radius, with close-ups of the bifurcations.
+- `patch.png`: the patched vessel.
+- `meta.json`: includes `geometry_dir`, the case's source folder in the geometry dataset
+  (`label.nrrd`, meshes, `endpoints_manual.npy`; read-only, see §9).
+
+### 2.1 What the ostium model actually reads (the contract)
+
+Of the keys above, the model uses only three. The others can be written for inspection, but
+must not be needed:
+
+| key | requirement |
+|---|---|
+| `pos` (N, 3) float | **mm**, in the frame `origin + ijk * spacing` (no direction matrix; §5.4). Points about **0.1 mm apart** along each centerline, as `extract_skeleton` resamples them. |
+| `radius` (N,) float | **mm**, VMTK's maximum inscribed sphere radius, smoothed over the graph (σ = 1 mm). |
+| `edge_index` (2, E) int | undirected: every edge stored in both directions; one connected component, no cycles, no self-loops. |
+
+The model derives everything else itself from these three:
+- node degree: junctions are degree ≥ 3, ends are degree 1;
+- sign-free tangents from the edges;
+- the signed tangent at a site, oriented away from the first degree-1 point;
+- the coarse levels (farthest-point sampling at about 1 mm and 4 mm) and their positional
+  encodings;
+- the centring (positions are centred on their mean, so absolute translation does not matter).
+
+Not used by the model: `branch`, `branch_id`, `branch_onehot`, `aneurysm`, `extracted`, `meta`.
+
+**Output side, for reference:** the model returns, in the same mm frame as `pos`:
+- a site on the graph;
+- an ostium ring (64 points);
+- a placed GHD complex mesh;
+- the sensor's dome patch.
+
+The dome patch is what gets voxelised and merged (union) into the patch mask. So the graph's
+frame must map back to the image patch's voxels exactly: keep `origin` and `spacing` with
+the graph.
 
 **AneuSeg** (`/media/yaplab2/HDD Storage/wenhao/AneuSeg`) made the training meshes, and
 two of its parts are useful here:
@@ -87,15 +122,26 @@ two of its parts are useful here:
 
 ## 3. How the training graphs are made (what inference must match)
 
-Per real aneurysm case (`vessel_edit/skeleton_pipeline.py`):
-1. **Surface:** `reconstruction4clipping.ply`, a local mesh region-grown **from the sac**
-   into the arteries (about 5k voxels), marching cubes as above. It covers the sac and the
-   parent vessels up to about the nearest bifurcations.
+Per real aneurysm case (`dataset/preprocess_vessel_graph.py`, both datasets):
+1. **Surface:** `reconstruction.ply`, the case's full artery mesh. It is the mesh the manual
+   endpoints were picked on. AneuX meshes with a mean edge below 0.25 mm are decimated
+   first.
 2. **Endpoints:** `endpoints_manual.npy`, proposed by skeleton leaves and **checked by
-   hand**. The source is endpoint 0.
-3. **Patch:** the sac (label 2) plus a 1 mm collar are removed and the vessel is patched,
-   so VMTK's line is not pulled into the sac.
-4. `extract_skeleton(patched mesh, endpoints, zone_pts=sac)`.
+   hand**. The source is endpoint 0. Any endpoint that would seed on the sac is dropped.
+3. **Patch:** the sac (taken from the case's placed GHD fit, its dome faces) is removed and the
+   vessel is patched, so VMTK's line is not pulled into the sac.
+4. `extract_skeleton(patched mesh, endpoints, zone_pts=sac)`. The radius is interpolated
+   across the aneurysm region, then everything is smoothed.
+
+**Training-time crops.** The model never sees these whole graphs as they are. Each training
+sample is randomly trimmed off-centre along the graph; 20% of samples keep the whole graph.
+Every crop keeps all points within 6 mm of the ostium (and within 15 mm of the site along the
+graph). Over 600 crops:
+- the vessel kept has a median of 52 mm of centerline (5th–95th percentile: 26–130 mm);
+- the nearest cut end sits a median of 13.5 mm from the site (5th percentile: 7 mm).
+
+Crops then get a random rotation, a random tangent sign and a 0.3 mm site jitter. Whether the
+rotation is kept is being tested now (§5.4).
 
 ## 4. Inference options
 
@@ -126,20 +172,29 @@ matches.
 
 ## 5. Generalisation risks to check
 
-1. **Crop extent.** Training meshes are grown from the sac, so the aneurysm always sits
-   near the middle of the graph. At inference there is no sac; the crop will be different.
-   The ostium model could learn "ostium = middle of the graph". **Fix it on both sides with
-   one shared crop rule**, for example the vessel tree inside the image model's patch (96³
-   core + context) or within R mm of a point. The training graphs will then be regenerated
-   with that rule (§7).
+1. **Crop extent.** The training whole graphs are centred on the sac. The model is therefore
+   trained on random off-centre crops (§3), so it should not rely on "ostium = middle of the
+   graph". At inference, the graph is whatever vessel lies in the image model's patch.
+   - It should stay within the training crop range: at least about 25 mm of centerline, and
+     typically 40–130 mm.
+   - Any place where the generated aneurysm could go should be at least about 7 mm (along the
+     vessel) from the patch boundary, where the vessel is cut.
+   - A cut end at the patch boundary is fine: training crops have cut ends too.
+   - Report the centerline length of each inference graph, so this can be checked.
 2. **Endpoints.** Manual versus automatic. Different endpoints give different branches and a
    different source, so different branch ids. Spurious short leaves must be pruned the same
    way on both sides.
 3. **Mask source.** Training masks are manual labels (Dataset014). Inference uses GT or
    nnU-Net, whose masks differ in thickness and smoothness. Compare radius statistics.
-4. **Frame.** The training meshes and graphs use `origin + ijk * spacing` with **no
-   direction matrix**, not the scanner frame with its direction cosines. Whatever frame
-   inference uses, it must be the same as training, or converted, and recorded in `meta`.
+4. **Frame (now critical).** The training meshes and graphs use `origin + ijk * spacing` with
+   **no direction matrix**, not the scanner frame with its direction cosines. The axis order
+   is i, j, k as in the arrays, as in AneuSeg's marching cubes. Inference must use exactly
+   the same convention, including axis order and sign, and record it in `meta`.
+   - An ablation running now suggests the ostium model learns much better **without random
+     rotation**. In that case it relies on the orientation of the graph, so a swapped or
+     flipped axis at inference would silently break it.
+   - Before relying on this, check one case end to end: the graph you produce from its
+     `label.nrrd` should overlay the training graph in `vessel_graph.npz`, point by point.
 5. **Radius definition and smoothing.** Keep VMTK's inscribed-sphere radius, and the same
    σ (positions 0.5 mm, radius 1 mm).
 6. **The sac in training data.** Training graphs come from vessels that had a sac (removed
@@ -148,8 +203,9 @@ matches.
 
 ## 6. Validation (before anything is used for training)
 
-On the ImperialNHS cases (start with the 9 in `AneuG/runtime_skeleton/`; `label.nrrd` is
-in each `input/`):
+On the ImperialNHS cases (start with about 10 of those in
+`AneuG/runtime_dataset/assembled/ImperialNHS/`; each case's `vessel_graph/meta.json` gives
+its `geometry_dir`, where its `label.nrrd` is):
 1. Run the inference path on the **artery mask with the sac voxels removed**:
    `label == 1` only. Note: marching cubes of label 1 alone closes over the neck where the
    expert drew it, which is a reasonable "healthy" surface for a skeleton.
@@ -159,7 +215,8 @@ in each `input/`):
    - **Radius:** mean absolute difference along matched points, overall and near the
      aneurysm region.
    - **Endpoints:** automatic against manual (count, distance).
-3. Save side-by-side renders per case (graph coloured by radius, as in `graph_1d.png`).
+3. Save side-by-side renders per case (graph coloured by radius, as in each case's
+   `vessel_graph/skeleton_sanity.png`).
    The project lead checks them by eye.
 4. Then try GT versus nnU-Net masks on the same scans, to size the mask-source shift.
 
@@ -179,9 +236,11 @@ closed over the drawn neck, may not be pulled into the sac at all.
 ## 8. Deliverable
 
 A function and CLI, `mask_to_graph(mask, spacing, origin, [crop], [sac_mask]) ->
-point graph`. It should write the same `skeleton_graph_points.npz` format (§2.6), plus:
+point graph`. It should write the point-graph `.npz` with `save_point_graph` (§2.6): at least
+`pos`, `radius` and `edge_index` as in §2.1, plus `meta` recording `origin`, `spacing`, the
+frame convention and the patch box, so the dome can be voxelised back into the patch. Also:
 - a short report of the §6 comparison (numbers and renders);
-- the crop rule chosen, so the AneuG side can regenerate the training graphs with it.
+- the centerline length of each graph and the crop rule used (§5.1).
 
 ## 9. Rules
 
