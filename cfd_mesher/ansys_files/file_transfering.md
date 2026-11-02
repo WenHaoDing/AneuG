@@ -90,6 +90,12 @@ rsync -ahz --partial --info=progress2 \
     'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/HDD Storage/wenhao/AneuG/cfd_mesher/ansys_files/export_n_upload.sh' \
     $HOME/Angioflow/export/
 
+rsync -ahz --partial --info=progress2 \
+/rds/general/user/wd123/ephemeral/Angioflow/angioflow_fix/BcXeCx3voF_aneurysm1 \
+    'yaplab2@bm-yaplab2.dept.ic.ac.uk:/media/yaplab2/wd8tb/wenhao/angioflow/cfd/temp/'
+
+
+
 
 # 1. transfer ImperialNHS_fix_follow data
 

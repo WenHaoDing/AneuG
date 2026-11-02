@@ -78,7 +78,7 @@ $PY scripts/ostium/make_synthetic_masks.py --ckpt ... --patches <one patch folde
 | `--site model` | site drawn from the model's site score over the graph points in the core (default); `--temperature` flattens (> 1) or sharpens (< 1) it |
 | `--site prompt` | site at the graph point nearest `--prompt_vox z,y,x` or `--prompt_mm x,y,z`. With `--prompt_sigma MM` > 0 it is drawn near the prompt (σ along the vessel), weighted by the model's score. One patch per call, and the prompt must be in the core. |
 | `--site random` | uniform along the vessel in the core, away from the vessel ends |
-| `--volume_mm3`, `--aspect_ratio` | requested dome: volume in mm³; aspect ratio = dome height / **mean neck radius** (2× the clinical height / neck diameter). Only for a morphology-conditioned checkpoint; any other checkpoint stops with an error. With a conditioned checkpoint, whichever is not given is drawn from the real aneurysms. |
+| `--volume_mm3`, `--aspect_ratio` | requested dome: volume in mm³; aspect ratio = dome height / **mean neck radius** (2× the clinical height / neck diameter). Only for a morphology-conditioned checkpoint; any other checkpoint stops with an error. With a conditioned checkpoint, whichever is not given is left free if the checkpoint was trained with `--morph_drop`; otherwise it is drawn from the real aneurysms closest in the one given. |
 | `--seed` | random seed (sites, crops); part of the file names |
 | `--preview` | also a PNG per mask: voxels and surface around the aneurysm; real sac orange for aneurysm patches |
 | `--device` | `cpu` (default; the GPUs are busy with training). For a GPU: `CUDA_VISIBLE_DEVICES=<0, 1 or 3>` and `--device cuda`. **Never GPU 2: it crashes the workstation.** |

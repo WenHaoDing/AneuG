@@ -260,7 +260,8 @@ class MorphOstiumModel(OstiumModel):
     (models/dome_markers.py; labels from scripts/ostium/morph_reference.py). The standardised m is
     embedded and added to the ostium condition (so the neck can follow the requested size) and to
     the complex condition (so the type and the dome follow it). m defaults to the batch's own
-    (b.morph, the case's real markers); pass morph= for a requested one (raw units)."""
+    (b.morph, the case's real markers); pass morph= for a requested one (raw units). A NaN entry
+    means that condition is not given: its standardised input is 0 (trained with --morph_drop)."""
 
     def __init__(self, morph_mean=(0.0, 0.0), morph_std=(1.0, 1.0), **kw):
         super().__init__(**kw)
@@ -273,7 +274,7 @@ class MorphOstiumModel(OstiumModel):
 
     def morph_std_(self, b, morph):
         m = b.morph if morph is None else morph
-        return (m - self.morph_mean) / self.morph_std
+        return torch.nan_to_num((m - self.morph_mean) / self.morph_std, nan=0.0)
 
     def ostium_condition(self, enc, b, site_idx, tangent=None, scale=None, morph=None):
         return super().ostium_condition(enc, b, site_idx, tangent, scale) + self.morph_ost(self.morph_std_(b, morph))

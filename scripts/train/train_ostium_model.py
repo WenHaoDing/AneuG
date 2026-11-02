@@ -17,6 +17,11 @@ scripts/ostium/morph_reference.py). The real m conditions the true-site terms, a
 compares it with the markers of the predicted complex there; the self-supervised terms (self rim,
 cap_s, tube_s) generate at random targets drawn from the training cases' m (plus jitter), and
 morph_s compares the generated dome's markers with the target. Validation uses each case's real m.
+With --morph_drop p, each condition of every training sample (true-site and random targets) is left
+out with probability p: its standardised input is 0 and the morph loss ignores it, so the model can
+generate with only one condition given (or none). With --morph_one_sided 1 (default) the morph loss
+only scores a dome whose volume (or aspect ratio) falls short of the requested one: a larger dome
+costs nothing, which leaves the model room to fit the rim.
 Every --morph_sanity_every epochs, morph_sanity generates the held-out and sanity cases for a fixed
 grid of targets and checks the generated domes' markers against them (sanity_morph/, msan_ curves).
 
@@ -60,14 +65,14 @@ def get_args():
     p.add_argument("--w_ring", type=float, default=0.1,
                    help="ostium ring point loss (true vs predicted ring, point to point, units of s); "
                         "on the one-step estimate weighted by t in flow mode, on the prediction in mlp mode")
-    p.add_argument("--w_selfrim", type=float, default=0.0,
+    p.add_argument("--w_selfrim", type=float, default=0.2,
                    help="self-consistency at sampled sites: sites drawn from the site head, the generated "
                         "dome's sensor rim against the generated ring (ring detached); in flow mode on the "
                         "one-step estimate from a random point of the model's own sampling path, weighted by t")
-    p.add_argument("--w_cap", type=float, default=0.0,
+    p.add_argument("--w_cap", type=float, default=0.2,
                    help="cap-centre loss: each cap centre of the complex (the sensor's loc_probs weighting the "
                         "placed vertices) to its nearest 1D-graph point, squared, units of s. Order-free")
-    p.add_argument("--w_tube", type=float, default=0.0,
+    p.add_argument("--w_tube", type=float, default=0.6,
                    help="vessel-surface loss: parent-vessel vertices of the complex (sensor: not dome, not cap) "
                         "to the graph's tube wall, min_i(|v - c_i| - r_i), squared, units of s")
     p.add_argument("--morph_cond", type=int, default=0,
@@ -77,6 +82,12 @@ def get_args():
                         "true site (morph, real m) and at the self-supervised sites (morph_s, random target m)")
     p.add_argument("--morph_jitter", type=float, default=0.25,
                    help="random target m: a training case's m plus Gaussian noise of this many condition stds")
+    p.add_argument("--morph_drop", type=float, default=0.0,
+                   help="training only: leave out each condition (log volume, aspect ratio) independently with this "
+                        "probability (standardised input 0, not scored by the morph loss), so a user can give one or none")
+    p.add_argument("--morph_one_sided", type=int, default=1,
+                   help="1: the morph loss scores a condition only where the generated dome is below the requested "
+                        "value (smaller volume, lower aspect ratio); 0: both sides")
     p.add_argument("--site_sampling", default="model", choices=["model", "uniform", "mix"],
                    help="where the self-supervised terms (self rim, cap_s, tube_s) generate: model = sites drawn "
                         "from the site head (the earlier runs); uniform = any graph point at least "
@@ -143,7 +154,7 @@ def get_args():
 # settings added after some checkpoints were made: their value in those checkpoints
 DEFAULTS = dict(flow_h=256, flow_blocks=4, sched="onecycle", warmup_frac=0.03, hold_frac=0.4, final_lr_frac=0.01,
                 w_cap=0.0, w_tube=0.0, site_sampling="model", uniform_frac=0.5, site_end_margin_mm=5.0,
-                morph_cond=0, w_morph=0.1, morph_jitter=0.25)
+                morph_cond=0, w_morph=0.1, morph_jitter=0.25, morph_drop=0.0, morph_one_sided=0)
 
 
 class Stats:
@@ -368,7 +379,7 @@ def aux_losses(b, x_hat, t_w, dec, a, extra=None, model=None):
             p_h, X, we, _, loc = sensor_rim(dec, phi_h, V_h, b.atype[m], caps=True)
             if want_morph:
                 mh, ok = morph_markers(dec, V_h, p_h, t, b.scale[m])
-                extra["morph"] = extra["morph"] + (morph_loss(model, mh, ok, b.morph[m]) * w).sum() / len(b.atype)
+                extra["morph"] = extra["morph"] + (morph_loss(model, mh, ok, b.morph[m], a) * w).sum() / len(b.atype)
             if want_graph:
                 ids = torch.nonzero(m).squeeze(1)
                 cl, tl, _, _ = graph_terms(b, ids, V_h, p_h, loc, b.C[m], b.frame[m], b.scale[m])
@@ -417,11 +428,26 @@ def morph_markers(dec, V_loc, p, t, s):
     return torch.stack([torch.log(vol.clamp(min=0.1)), o["aspect_ratio"].clamp(0, 20)], 1), ok
 
 
-def morph_loss(model, m_hat, ok, target):
-    """Per sample: Huber on the standardised [log volume, aspect ratio] error, 0 where no dome."""
+def morph_loss(model, m_hat, ok, target, a=None):
+    """Per sample: Huber on the standardised [log volume, aspect ratio] error, 0 where no dome;
+    a condition left out (NaN target, --morph_drop) is not scored, and with --morph_one_sided 1
+    neither is one the dome exceeds."""
     import torch
-    e = torch.nn.functional.smooth_l1_loss(m_hat / model.morph_std, target / model.morph_std, reduction="none").sum(1)
+    given = torch.isfinite(target)
+    target = torch.where(given, target, m_hat.detach())
+    if getattr(a, "morph_one_sided", 0):
+        m_hat = torch.minimum(m_hat, target)
+    e = (torch.nn.functional.smooth_l1_loss(m_hat / model.morph_std, target / model.morph_std, reduction="none") * given).sum(1)
     return torch.where(ok, e, torch.zeros_like(e))
+
+
+def drop_morph(m, a):
+    """--morph_drop: each condition of each sample set to NaN (left out) with probability a.morph_drop."""
+    import torch
+    p = getattr(a, "morph_drop", 0.0) if a is not None else 0.0
+    if p <= 0:
+        return m
+    return torch.where(torch.rand_like(m) < p, torch.full_like(m, float("nan")), m)
 
 
 def morph_errors(m_hat, m):
@@ -477,7 +503,7 @@ def self_rim_loss(model, enc, b, ys, xs, dec, a=None, extra=None):
     from models.ostium_model import frame_from_code, ring_from_code
     from torch_geometric.utils import softmax
     idx = self_sites(model, enc, b, a)
-    tgt = random_morph(b.num_graphs, a, model, idx.device) if is_morph(model) else None
+    tgt = drop_morph(random_morph(b.num_graphs, a, model, idx.device), a) if is_morph(model) else None
     y, t, x, w = generate_at_sites(model, enc, b, ys, xs, idx, b.tangent_pts[idx], b.scale_pts[idx], morph=tgt)
     if tgt is not None and extra is not None:
         extra["morph_s"] = x.new_zeros(())
@@ -499,7 +525,7 @@ def self_rim_loss(model, enc, b, ys, xs, dec, a=None, extra=None):
         loss = loss + (rim_chamfer(X, we, ring[m]) * w[m]).sum() / len(t)
         if tgt is not None and extra is not None:
             mh, ok = morph_markers(dec, V_h, p_h, tt, b.scale_pts[idx][m])
-            extra["morph_s"] = extra["morph_s"] + (morph_loss(model, mh, ok, tgt[m]) * w[m]).sum() / len(t)
+            extra["morph_s"] = extra["morph_s"] + (morph_loss(model, mh, ok, tgt[m], a) * w[m]).sum() / len(t)
         if want_graph:
             ids = torch.nonzero(m).squeeze(1)
             cl, tl, _, _ = graph_terms(b, ids, V_h, p_h, loc, C_all[m], Rf_all[m], sc[m])
@@ -572,6 +598,8 @@ def train_losses(model, b, ys, xs, dec, a, cx, step):
     """One training step's losses on a batch (already on the device): (weighted total, dict of terms)."""
     import torch
     enc = model.enc(b)
+    if is_morph(model):
+        b.morph = drop_morph(b.morph, a)        # this step's batch only; the true-site terms read b.morph
     L = {}
     L["site"], _ = site_loss(model, enc, b)
     c1 = model.ostium_condition(enc, b, b.site)
@@ -817,7 +845,8 @@ def main():
                                                                 "rotate", "crop", "augment", "w_ring", "val_cases", "rot_max_deg", "w_selfrim",
                                                                 "flow_h", "flow_blocks", "sched", "warmup_frac", "hold_frac", "final_lr_frac",
                                                                 "w_cap", "w_tube", "site_sampling", "uniform_frac",
-                                                                "site_end_margin_mm", "morph_cond", "w_morph", "morph_jitter")
+                                                                "site_end_margin_mm", "morph_cond", "w_morph", "morph_jitter", "morph_drop",
+                                                                "morph_one_sided")
                 if ck["args"].get(k, DEFAULTS.get(k, getattr(a, k))) != getattr(a, k)}
         if diff:
             sys.exit(f"--resume: settings differ from the checkpoint's (checkpoint, now): {diff}")
@@ -1027,7 +1056,7 @@ def morph_sanity(model, loader, ys, xs, dec, a, dev, folder, n_render=3):
     rows, keep = [], {}
     was_training = model.training
     model.eval()
-    with torch.no_grad(), torch.random.fork_rng(devices=[dev]):
+    with torch.no_grad(), torch.random.fork_rng(devices=[dev] if dev.type == "cuda" else []):
         torch.manual_seed(0)
         for ci in range(len(loader.dataset)):
             d0 = loader.dataset[ci]
@@ -1080,7 +1109,8 @@ def morph_sanity(model, loader, ys, xs, dec, a, dev, folder, n_render=3):
             out[f"{k}_r2"] = float(np.corrcoef(t_, g_)[0, 1] ** 2)
         out.update(vol_err_med=float(np.median(ve)), vol_err_p90=float(np.percentile(ve, 90)),
                    vol_within_25pct=float((ve <= 25).mean()), ar_err_med=float(np.median(ae)),
-                   ar_err_p90=float(np.percentile(ae, 90)), ar_within_0p3=float((ae <= 0.3).mean()))
+                   ar_err_p90=float(np.percentile(ae, 90)), ar_within_0p3=float((ae <= 0.3).mean()),
+                   vol_short_25pct=float((gv < tv + np.log(0.75)).mean()), ar_short_0p3=float((ga < ta - 0.3).mean()))
         return out
     summ = {s: summary([r for r in rows if r["site"] == s]) for s in ("true", "uniform")}
     (folder / "metrics.json").write_text(json.dumps(dict(
@@ -1127,7 +1157,8 @@ def morph_sanity(model, loader, ys, xs, dec, a, dev, folder, n_render=3):
         a2.set_yscale("symlog", linthresh=10)
         a2.set_xlabel("target volume (mm3)"), a2.set_ylabel("|volume error| (%)")
         a2.set_title(f"{s} site: median {S.get('vol_err_med', np.nan):.0f}%, p90 {S.get('vol_err_p90', np.nan):.0f}%, "
-                     f"<=25% {S.get('vol_within_25pct', np.nan):.0%}; |AR err| median {S.get('ar_err_med', np.nan):.2f}; "
+                     f"<=25% {S.get('vol_within_25pct', np.nan):.0%}, >25% short {S.get('vol_short_25pct', np.nan):.0%}; "
+                     f"|AR err| median {S.get('ar_err_med', np.nan):.2f}, >0.3 short {S.get('ar_short_0p3', np.nan):.0%}; "
                      f"dome {S['dome_found']:.0%}", fontsize=8)
         for a_ in ax[r_]:
             a_.grid(alpha=0.3)
@@ -1193,7 +1224,8 @@ def plot_curves(out):
                          "chain_tube_mm", "gt_cap_graph_mm", "gt_tube_mm", "uni_selfrim_mm", "uni_cap_graph_mm",
                          "uni_tube_mm", "morph_vol_err_pct", "morph_ar_err", "uni_morph_vol_err_pct", "uni_morph_ar_err",
                          "msan_vol_err_med", "msan_vol_within_25pct", "msan_logv_slope", "msan_ar_err_med",
-                         "msan_ar_within_0p3", "msan_ar_slope", "msan_dome_found")
+                         "msan_ar_within_0p3", "msan_ar_slope", "msan_dome_found", "msan_vol_short_25pct",
+                         "msan_ar_short_0p3")
              if any(f"val_{m}" in r or f"trn_{m}" in r for r in rows)]
     n = len(keys) + len(mkeys)
     ncol = 4

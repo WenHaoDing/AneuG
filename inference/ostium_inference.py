@@ -343,11 +343,23 @@ def morph_reference(path=MORPH_REFERENCE):
     return json.loads(Path(path).read_text())
 
 
-def sample_morph(rng, ref=None):
-    """A requested (volume mm3, aspect ratio) drawn from the real aneurysms (one case's markers)."""
+def sample_morph(rng, ref=None, volume_mm3=None, aspect_ratio=None, k=25):
+    """A requested (volume mm3, aspect ratio) drawn from the real aneurysms (one case's markers).
+    With one of them given, the other is drawn from the k real cases nearest in the given one
+    (log volume or aspect ratio), so the pair stays realistic (the two correlate, r = 0.43)."""
     ref = morph_reference() if ref is None else ref
-    r = ref["cases"][int(rng.integers(len(ref["cases"])))]
-    return float(r["volume_mm3"]), float(r["aspect_ratio"])
+    cases = ref["cases"]
+    if (volume_mm3 is None) == (aspect_ratio is None):
+        r = cases[int(rng.integers(len(cases)))]
+        v, a = float(r["volume_mm3"]), float(r["aspect_ratio"])
+        return (v if volume_mm3 is None else volume_mm3), (a if aspect_ratio is None else aspect_ratio)
+    if volume_mm3 is not None:
+        d = np.abs(np.log([c["volume_mm3"] for c in cases]) - np.log(volume_mm3))
+    else:
+        d = np.abs(np.array([c["aspect_ratio"] for c in cases]) - aspect_ratio)
+    r = cases[int(rng.choice(np.argsort(d)[:k]))]
+    return (float(r["volume_mm3"]) if volume_mm3 is None else volume_mm3,
+            float(r["aspect_ratio"]) if aspect_ratio is None else aspect_ratio)
 
 
 def dome_morph(out):
@@ -366,7 +378,8 @@ def generate_at(M, g, site, rng, ref, sample_type=True, morph=None):
     """One aneurysm at graph point `site`: a training-like crop around it, then ostium -> type ->
     complex -> frozen decoder -> placed mesh -> sensor dome. Everything returned in the graph's
     mm frame. morph = (volume mm3, aspect ratio): the requested dome, required by a
-    morphology-conditioned model (ignored otherwise); the output then carries morph_target."""
+    morphology-conditioned model (ignored otherwise); the output then carries morph_target.
+    None for one of them leaves it out (for a model trained with --morph_drop)."""
     from dataset.ostium_dataset import adjacency
     A = adjacency(g["pos"], g["edge_index"])
     sel = training_like_crop(g, A, site, rng, ref)
@@ -380,7 +393,8 @@ def generate_at(M, g, site, rng, ref, sample_type=True, morph=None):
     mk = {}
     if is_morph(M):
         assert morph is not None, "this model is conditioned on the dome morphology: pass morph=(volume_mm3, aspect_ratio)"
-        mk = dict(morph=torch.tensor([[np.log(morph[0]), morph[1]]], dtype=torch.float32, device=M.dev))
+        m_raw = [np.nan if morph[0] is None else np.log(morph[0]), np.nan if morph[1] is None else morph[1]]
+        mk = dict(morph=torch.tensor([m_raw], dtype=torch.float32, device=M.dev))
     y = ys.inv(m.ost.sample(m.ostium_condition(enc, b, idx, **mk)))
     c2 = m.complex_condition(enc, b, ys.fwd(y), y, idx, **mk)
     p_type = torch.softmax(m.type_head(c2), 1)
@@ -389,7 +403,7 @@ def generate_at(M, g, site, rng, ref, sample_type=True, morph=None):
     out = decode(M, b, centre, y, x, t)
     out.update(site=int(site), sigma=sigma, crop_points=sel, p_type=p_type[0].cpu().numpy())
     if mk:
-        out["morph_target"] = np.array(morph, float)
+        out["morph_target"] = np.array([np.nan if v is None else v for v in morph], float)
     return out
 
 

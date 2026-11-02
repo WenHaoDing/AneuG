@@ -25,8 +25,9 @@ Sites (site=):
   "random"  a uniformly random graph point in the core, away from the vessel ends
 
 Morphology: a checkpoint trained with --morph_cond 1 is conditioned on the requested dome volume
-(mm3) and aspect ratio (dome height / mean neck radius); whichever is not given is drawn from the
-real aneurysms. Other checkpoints refuse them.
+(mm3) and aspect ratio (dome height / mean neck radius). Whichever is not given is left out if the
+checkpoint was trained with --morph_drop > 0; otherwise it is drawn from the real aneurysms (with
+one given, from the real cases nearest in it). Other checkpoints refuse them.
 """
 import json
 from pathlib import Path
@@ -55,6 +56,7 @@ class AneurysmMaskGenerator:
         self.M = I.load_model(str(ckpt), device)
         self.ref = I.training_reference()
         self.morph_ref = I.morph_reference() if I.is_morph(self.M) else None
+        self.morph_drop = self.M.args.get("morph_drop", 0.0) > 0      # trained to accept a condition left out
         self.n_crops, self.temperature = n_crops, temperature
         self.ckpt, self.epoch = str(ckpt), self.M.epoch
         self.attempts = []                      # merge report of every attempt of the last generate()
@@ -122,8 +124,10 @@ class AneurysmMaskGenerator:
                 s = int(q)
             morph = None
             if self.morph_conditioned:
-                rv, ra = I.sample_morph(rng, self.morph_ref)
-                morph = (volume_mm3 if volume_mm3 is not None else rv, aspect_ratio if aspect_ratio is not None else ra)
+                if self.morph_drop:
+                    morph = (volume_mm3, aspect_ratio)          # a condition not given stays out
+                else:
+                    morph = I.sample_morph(rng, self.morph_ref, volume_mm3, aspect_ratio)
             o = I.generate_at(self.M, g, s, rng, self.ref, morph=morph)
             new, rep = Mg.merge_sample(seg, origin, spacing, o, g, core=box)
             ok = new is not None and not rep.get("rejected")
@@ -135,7 +139,8 @@ class AneurysmMaskGenerator:
                      sac_voxels=int(sac.sum()), sac_volume_mm3=float(sac.sum() * np.prod(spacing)), report=rep)
             if morph is not None:
                 dm = I.dome_morph(o)
-                m.update(morph_target=dict(volume_mm3=float(morph[0]), aspect_ratio=float(morph[1])),
+                m.update(morph_target=dict(volume_mm3=None if morph[0] is None else float(morph[0]),
+                                           aspect_ratio=None if morph[1] is None else float(morph[1])),
                          dome_morph=dict(volume_mm3=float(dm["volume_mm3"]), aspect_ratio=float(dm["aspect_ratio"])))
             out.append(m)
         return out
